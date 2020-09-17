@@ -1,0 +1,48 @@
+#!/bin/sh
+# Time-stamp: <2020/09/15 12:23:25 fuyuki hooks-all>
+# Copyright: 2011--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+src=`dirname $0`/hooks
+
+while test $# -ge 1
+do
+  case $1 in
+  -f) force=yes;;
+  -*) ;;
+  *)  break
+  esac
+  shift
+done
+
+test x$GIT = x && GIT=git
+if test $GIT = :; then
+  echo "disabled.  set GIT." >&2
+  exit 1
+elif $GIT --version > /dev/null 2>&1; then
+  :
+else
+  echo "cannot execute $GIT. set GIT properly." >&2
+  exit 2
+fi
+
+dist=`$GIT rev-parse --git-dir`/hooks
+
+for f in `find $src -perm /u+x -type f`
+do
+  b=`basename $f`
+  d=$dist/$b
+  if test -e $d; then
+    if test x$force = x;then
+      echo "skip $b" >&2
+      diff $f $d >&2
+    else
+      echo "overwrite $b" >&2
+      cp $f $d
+    fi
+  else
+    echo "install $b" >&2
+    cp $f $d
+  fi
+done

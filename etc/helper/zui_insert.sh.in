@@ -1,0 +1,758 @@
+#!@ZSH@ -f
+# Maintainer:  SAITO Fuyuki <saitofuyuki@jamstec.go.jp>
+# Time-stamp: <2020/09/15 16:16:03 fuyuki zui_insert.sh.in>
+# Copyright: 2016--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_.[zui]
+###_ , properties
+
+###_ , run-time configuration
+xbin=$0
+xbase=$0:r:t
+xdir=$0:h
+
+top_srcdir=@abs_top_srcdir@
+
+###_ , functions
+###_  . zui_mpi_check
+zui_mpi_check ()
+{
+  : ${MPIEXEC:=@MPIEXEC@}
+  if [[ -z $MPIEXEC ]]; then
+    print -u2 "MPIEXEC not set"
+    return 1
+  elif whence $MPIEXEC >& /dev/null;then
+    return 0
+  else
+    print -u2 "Invalid MPIEXEC ($MPIEXEC)"
+    return 1
+  fi
+}
+
+###_  . zui_mpi_exec
+##      zui_mpi_exec [ENV..] -- CMD [ARGS...]
+zui_mpi_exec ()
+{
+  local -a E
+  local stdin=/dev/null
+  while true
+  do
+    case $1 in
+    (--)       shift; break;;
+    (--stdin)  stdin=$2; shift;;
+    (*)  E=($E $1);;
+    esac
+    shift || break
+  done
+  env "${(@)E}" $MPIEXEC "$@" < $stdin
+  return $?
+}
+###_  . zui_wrap
+###_    zui_wrap CMD [ARGS...]
+##      wrapper to execute CMD with ARGS.
+##      Some commands are taken care specially
+zui_wrap ()
+{
+  if [[ $1 == GMT ]];then
+    shift
+    zui_wrap_gmt "$@"
+  elif [[ $1 == dc ]];then
+    local x=$1; shift
+    zui_wrap_general DC $x "@DC@" "$@"
+  else
+    zui_wrap_unknown "$@"
+  fi
+  return $?
+}
+
+###_  . zui_wrap_gmt
+##      zui_wrap_gmt GMT-CMDS ARGS...
+zui_wrap_gmt ()
+{
+  local gmt=@GMT@
+  local gmtmath=@GMTMATH@
+  if [[ -z $gmt || $gmt == : ]];then
+    if [[ -z $gmtmath || $gmtmath == : ]];then
+      print -u2 "Need set GMT or GMTMATH at configure"
+      return 1
+    else
+      local c=$1; shift
+      c=${gmtmath:h}/$c
+      $c "$@"
+    fi
+  else
+    @GMT@ "$@"
+  fi
+  return $?
+}
+
+###_  . zui_wrap_general
+##      zui_wrap_general VAR CMD PATH ARGS...
+zui_wrap_general ()
+{
+  local v=$1 x=$2; shift 2 || return 1
+  if [[ -z $1 || $1 == : ]];then
+    print -u2 "Need set $v (path to $x) at configure"
+    return 1
+  else
+    "$@"
+    return $?
+  fi
+}
+
+###_  . zui_wrap_unknown
+zui_wrap_unknown ()
+{
+  print -u2 "Wrap $*"
+  "$@"
+}
+###_  . zui_finder
+##      zui_finder [-n] VAR EXE [DIRECTORY..]
+##        search EXE in DIRECTORY and set result to VAR.
+##        exit when not found unless -n is set.
+zui_finder ()
+{
+  ## default search directory
+  local x_search; x_search=($xdir $bindir .)
+
+  local nox
+  [[ $1 == -n ]] && nox=T && shift
+  local __r=$1; shift
+  local __x=$1; shift
+  local __d= __f=
+  for __d in $@ $x_search
+  do
+    __f=$__d/$__x
+    [[ -e $__f ]] && break
+  done
+  if [[ -z $__f ]];then
+    print -u2 "No $__x in ($@)"
+    [[ -z $nox ]] && exit 1
+    : ${(P)__r::=}
+    return 1
+  fi
+  : ${(P)__r::=$__f}
+  return 0
+}
+###_  . help manager
+###_   , help configuration
+###_   , zui_help
+##       zui_help CMD [TAG FUNCTIONS]
+##
+##         zui_help view     # execute all help_functions
+##         zui_help add T H0 # add H0 to help_functions array
+##
+zui_help ()
+{
+  local cmd=$1; shift || return $?
+  if   [[ $cmd == add ]];then
+    ZUI_HELP_TAGS=($1 $ZUI_HELP_TAGS)
+    ZUI_HELP_FUNCS[$1]=$2
+  elif [[ $cmd == append ]];then
+    ZUI_HELP_TAGS+=($1)
+    ZUI_HELP_FUNCS[$1]=$2
+  elif [[ $cmd == view ]];then
+    print - "$xbin"
+    print -
+    zui_help_common $xbin
+    print -
+    local t h
+    for t in $ZUI_HELP_TAGS
+    do
+      print - "* mode <+$t>"
+      h=$ZUI_HELP_FUNCS[$t]
+      $h || exit $?
+      print -
+    done
+  fi
+}
+###_   , zui_help_common
+zui_help_common ()
+{
+  local bin=$1
+  print - "usage: $bin COMMAND [ARGUMENTS...]"
+  print - "  Arguments/options parser can be switched using +MODE arguments."
+  print - "  e.g., $bin COMMANS +Z ... +D ... +AA ..."
+  print - "  Available modes are {$ZUI_HELP_TAGS}."
+  return 0
+}
+
+###_  . argument/option parser
+###_   , parser configuration
+###_   , _zui_parse_do  # zui_parse_do core
+_zui_parse_do ()
+{
+  local -a PS; PS=("${(@)ZUI_PARSE_SWITCH}")
+  local sw= md= omd= ps= pf=
+  local name= found= k=
+  local -A OSTR
+  for sw in "${(@)ZUI_PARSE_SWITCH}"
+  do
+    pf=$ZUI_PARSE_FUNCS[$sw]
+    if $pf -s ps;then
+      OSTR[$sw]=$ps
+    else
+      print -u2 "$0: Panic in optstring collection"
+      exit 1
+    fi
+  done
+
+  while [[ $# -gt 0 ]]
+  do
+    ## parse switch
+    sw=
+    if [[ $1 == +* ]];then
+      ## print -u2 SWITCH $1
+      if [[ $1 == ++ ]];then
+        PS=("${(@)ZUI_PARSE_SWITCH}") sw=T
+      else
+        if [[ $1 == + ]];then
+          k=$omd
+        else
+          k=$1; k=$k[2,-1]
+          omd=$k
+        fi
+        PS=()
+        for md in ${ZUI_PARSE_SWITCH}
+        do
+          [[ $md == $k* ]] && PS+=($md)
+        done
+        if [[ -n $PS ]];then
+          sw=T
+        else
+          PS=("${(@)ZUI_PARSE_SWITCH}") sw=
+        fi
+      fi
+    fi
+    ## parse non-switch
+    if [[ -z $sw ]];then
+      found=
+      for sw in $PS
+      do
+        pf=$ZUI_PARSE_FUNCS[$sw]
+        ps=$OSTR[$sw]
+        [[ -z $ps ]] && continue ## skip if no optstring
+        name= OPTIND= ## must set before getopts
+        getopts :"$ps" name $@
+        if [[ $name == '?' ]];then
+          [[ $VERBOSE -gt 1 ]] && print -u2 "($sw) unknown [$1]. try next parser."
+        elif [[ $name == ':' ]];then
+          print -u2 "($sw) no arguments [$1]"
+          exit 1
+        elif [[ -z $name ]];then
+          found=E
+          break
+        else
+          $pf $name $OPTARG
+          found=T
+          break
+        fi
+      done
+      ## if failed
+      if [[ -z $found ]];then
+        print -u2 "Parser[${(j/:/)PS}] failed [$@]"
+        exit 1
+      elif [[ $found == E ]];then
+        break
+      else
+        ## CAUTION
+        ## OPTIND is either 1 (no arg) or 3 (with arg)
+        shift
+        [[ $OPTIND -eq 3 ]] && shift
+      fi
+    else
+      shift
+    fi
+  done
+  __opts=($@)
+  return 0
+}
+###_   , zui_parse_do
+##       zui_parse_do VAR [ARGUMENTS..]
+##
+##       return VAR=(ARGUMENTS) as remaining arguments
+zui_parse_do ()
+{
+  local __varg=$1; shift
+  if [[ $__varg == __opts ]];then
+    _$0 $@
+  else
+    local __opts
+    _$0 $@
+    : ${(AP)__varg:=$__opts}
+  fi
+}
+###_   , zui_parse
+##       zui_parse CMD [OPTIONS]
+##
+##         zui_parse add     TAG FUNCTION      # insert at head
+##         zui_parse append  TAG FUNCTION      # append at last
+##         zui_parse insert  TAG FUNCTION [[+-]TAGS..]
+##                                             # insert before - and +
+##         zui_parse do VAR  [ARGUMENTS..]     # parse arguments, return VAR
+##         zui_parse show    [PRINT-ARGS...]   # parse arguments, return VAR
+##
+##     parser functions
+##         -i  to initialization
+##         -s  to return optstring
+##         -p  to post processing
+##         NAME ARG to parse option
+zui_parse ()
+{
+  local cmd=$1; shift
+  local h
+  if [[ $cmd == add ]];then
+    [[ $# -ne 2 ]] && print -u2 "$0: more/less arguments $@" && return 1
+    ZUI_PARSE_SWITCH=("$1" "${(@)ZUI_PARSE_SWITCH}")
+    ZUI_PARSE_FUNCS[$1]="$2"
+    shift 2
+  elif [[ $cmd == append ]];then
+    [[ $# -ne 2 ]] && print -u2 "$0: not enough arguments $@" && return 1
+    ZUI_PARSE_SWITCH=("${(@)ZUI_PARSE_SWITCH}" "$1")
+    ZUI_PARSE_FUNCS[$1]="$2"
+    shift 2
+  elif [[ $cmd == insert ]];then
+    [[ $# -lt 2 ]] && print -u2 "$0: more/less arguments $@" && return 1
+    local sw=$1 pf=$2; shift 2
+    local -a btags atags
+    local t
+    while [[ $# -gt 0 ]]
+    do
+      t=$1
+      if   [[ $t == +* ]];then
+        atags+=$t[2,-1]
+      elif [[ $t == -* ]];then
+        btags+=$t[2,-1]
+      else
+        btags+=$t
+      fi
+      shift
+    done
+    ## print -u2 "$0: insert [$atags] $sw [$btags]"
+    local ps ai bi
+    local PS; PS=()
+    ai=$#ZUI_PARSE_SWITCH bi=0
+    for ps in ${(@Oa)ZUI_PARSE_SWITCH}
+    do
+      ## print -u2 a $ps $ai
+      [[ -n ${(M)atags:#$ps} ]] && break
+      let ai--
+    done
+    for ps in ${(@)ZUI_PARSE_SWITCH}
+    do
+      ## print -u2 b $ps $bi
+      [[ -n ${(M)btags:#$ps} ]] && break
+      let bi++
+    done
+    ## print -u2 $ai $bi ${ZUI_PARSE_SWITCH}
+    if [[ $ai -gt $bi ]];then
+      print -u2 "$0: cannot insert between [$btags] and [$atags] {${(@)ZUI_PARSE_SWITCH}}."
+    else
+      bi=$((ai+1))
+      ZUI_PARSE_SWITCH=($ZUI_PARSE_SWITCH[1,$ai] $sw $ZUI_PARSE_SWITCH[$bi,-1])
+    fi
+    ZUI_PARSE_FUNCS[$sw]="$pf"
+    ## print -u2 result ${ZUI_PARSE_SWITCH}
+ elif [[ $cmd == show ]];then
+    local sw ps pf
+    for sw in $ZUI_PARSE_SWITCH
+    do
+      pf=$ZUI_PARSE_FUNCS[$sw]
+      $pf -s ps
+      print $@ "zui parsers [$sw] $ZUI_PARSE_FUNCS[$sw] $ps"
+    done
+  elif [[ $cmd == init ]];then
+    local sw pf
+    for sw in $ZUI_PARSE_SWITCH
+    do
+      pf=$ZUI_PARSE_FUNCS[$sw]
+      $pf -i || return $?
+    done
+  elif [[ $cmd == post ]];then
+    local sw pf
+    for sw in $ZUI_PARSE_SWITCH
+    do
+      pf=$ZUI_PARSE_FUNCS[$sw]
+      $pf -p || return $?
+    done
+  elif [[ $cmd == do_all ]];then
+    $0 init    || return $?
+    $0 do "$@" || return $?
+    $0 post    || return $?
+  elif [[ $cmd == do ]];then
+    zui_parse_do "$@"
+    [[ -n $HELP ]] && zui_help view && exit 0
+    :
+  fi
+  return $?
+}
+###_   , zui_standard_work_dir (discarded)
+zui_standard_work_dir ()
+{
+  return 0
+  local w=$1 b=$2 d=
+  if [[ $w == 0 ]];then
+    local i=O/$b u=O/$b/u p=
+    ZUI_DIR[w]=.
+    for p in p r i g
+    do
+      ZUI_DIR[$p]=$u/$p
+    done
+    for p in O L V
+    do
+      ZUI_DIR[$p]=$i/$p
+    done
+  fi
+  for p in ${(k)ZUI_DIR}
+  do
+    d=$ZUI_DIR[$p]
+    [[ $p == w ]] || d=${ZUI_DIR[w]:-.}/$d
+    [[ $VERBOSE -gt 1 ]] && print -u2 "($0) directory[$p]: $d"
+    [[ -n $d ]] && @MKDIR_P@ $d
+  done
+  return $?
+}
+###_   , zui_standard_endian
+zui_standard_endian ()
+{
+  local e=$1 endi=
+
+  if [[ -n $e ]];then
+    case $e in
+    n) endi=native;;
+    s) endi=swap;;
+    l) endi=little_endian;;
+    b) endi=big_endian;;
+    esac
+    ZUI_XENV+=(GFORTRAN_CONVERT_UNIT=$endi)
+  fi
+
+  return 0
+}
+###_   , zui_standard_help
+zui_standard_help ()
+{
+  print - "IcIES/zshell utilitiy"
+  print - "  -v              verbose"
+  print - "  +v              more verbose"
+  print - "  -q              silent"
+  print - "  +q              more silent"
+  print - "  -n              dry run"
+  print - "  -h              show help"
+  print - "  -f              force overwrite (not fully implemented)"
+  # print - "  -w TYPE         work-dir type"
+  print - "  -e ENDIANNESS   endianness environment"
+  print - "  -t top_srcdir   to override abs_top_srcdir [@abs_top_srcdir@]"
+}
+###_   , zui_standard_parser
+zui_standard_parser ()
+{
+  if    [[ $1 == -i ]];then
+    :
+  elif  [[ $1 == -s ]];then
+    : ${(P)2::='vqfhe:t:n:'}
+  elif  [[ $1 == -p ]];then
+    ## zui_standard_work_dir $WORK $pbase || return $?
+    zui_standard_endian $ENDI || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    case $name in
+    v)  let VERBOSE++;;
+    +v) VERBOSE=999;;
+    q)  let VERBOSE--;;
+    +q) VERBOSE=-999;;
+    n)  DRYRUN=-n;;
+    t)  top_srcdir=$arg;;
+    f)  FORCE=-f;;
+    w)  WORK=$arg;;
+    e)  ENDI=$arg;;
+    h)  HELP=y;;
+    esac
+  fi
+  return 0
+}
+###_   , zui_sequence_exe
+###_     zui_sequence_exe ATTR-VAR DEF-TAG CONFIG... -- SEQUENCE
+
+## commands in sequence should have at least four arguments
+##   COMMAND EXE ARG INPUT OUTPUT [OPTIONS...]
+##       EXE: target binary
+##       ARG: arbitrary argument to set variation
+##       INPUT:  input file
+##       OUTPUT: output file
+
+zui_sequence_exe ()
+{
+  local seq=
+  local __attr=$1; shift
+  [[ $__attr != ATTR ]] && local -A ATTR && set -A ATTR "${(@Pkv)__attr}"
+  local deftag=$1; shift
+  zui_sequence_parser seq $deftag "$@"
+  local d= d0= di= dold=
+  local c= cargs= ropts=
+  local ifile= ofile= args=
+  local f=
+  local allcmd=
+  for d in show $@
+  do
+    [[ $d == -- ]] && break
+    allcmd=($allcmd $d)
+  done
+
+  for d in $allcmd
+  do
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "$0 [seq] $d {$@} {$seq}"
+    d0=${d%%:*}
+    di=${d#*:}
+    [[ $di == $d0 ]] && di=$dold
+    di=${di%%:*}
+    dold=${d0}
+    # for c in $seq[(r)$d0*]
+    for c in ${(M)seq##$d0*}
+    do
+      # print -u2 "sequence $c {orig $d}"
+      cargs=("${(@s@:@)c}")
+      ropts=("${(@s@.@)cargs[1]}")
+      c=$ropts[1]
+      shift cargs; shift ropts
+      ## at least two elements in cargs
+      [[ -z $cargs[1] ]] && cargs[1]=''
+      [[ -z $cargs[2] ]] && cargs[2]=''
+
+      ifile=$ATTR[u/$di]
+      [[ -z $ifile ]] && ifile=$cargs[2]
+      [[ -z $ifile ]] && ifile=$ATTR[d/$di]
+      [[ -z $ifile ]] && ifile=-
+      ofile=
+      [[ -z $ofile ]] && ofile=$cargs[1]
+      [[ -z $ofile ]] && ofile=$ATTR[d/$c]
+      ## print -u2 "<<$c>> {$ropts} {$cargs} $ifile $ofile"
+      f=$ATTR[f/$c]
+      [[ -z $f ]] && f=$ATTR[f/$ATTR[f]]
+      if [[ -z $f ]];then
+        if [[ $c == show ]];then
+          print -u2 - $allcmd
+        else
+          print -u2 "Unknown command $f"; return 1
+        fi
+      else
+        shift 2 cargs
+        args=("$pbin" "$ifile" "$ofile" "${(@)cargs}" -- "${(@)ropts}")
+        if [[ -n $DRYRUN ]];then
+          print - "$f ${(@qq)args}"
+        elif [[ $VERBOSE -gt 1 ]];then
+          print -u2 - "$0:invoke $f ${(@qq)args}"
+        fi
+        # print -u2 - "$0:invoke $f $pbin $ifile $ofile ${(@qq)cargs} -- $ropts"
+        # args=("$pbin" "$ifile" "$ofile" $cargs $ropts)
+        if [[ -z $DRYRUN ]];then
+          $f "${(@)args}" || return $?
+        fi
+        ATTR[u/$c]=$ofile
+      fi
+    done
+  done
+
+  return 0
+}
+
+###_   , zui_sequence_parser
+##       zui_sequence_parser VAR DEF CONFIG.. -- SEQUENCE
+##  config item
+##     tag[:parent[:options..]]
+##  sequence item
+##     [:]tag[.subtag][:options:...]
+##
+##     [:]TAG[.subtag][:OUTPUT[:INPUT[:OPTIONS...]]]
+##
+zui_sequence_parser ()
+{
+  local __name=$1; shift || return $?
+  [[ $__name == seq ]] || local seq
+  seq=()
+
+  local def=$1; shift || return $?
+
+  local md=C
+  local -A DEP
+  local -a depk
+  local __SEQ
+  local c= cc= co= cr= pp= ct=
+
+  for c in $@
+  do
+    [[ x$c == x-- ]] && md=S && continue
+    ## config parse mode
+    if [[ $md == C ]];then
+      pp=${c#*:}; [[ $pp == $c ]] && pp=
+      cc=${c%%:*}
+      if [[ -z $pp ]];then
+        DEP[$cc]=$co
+      else
+        DEP[$cc]=$pp
+      fi
+      depk=($depk $cc)
+      co=$c
+      __SEQ=($__SEQ $cc)
+    ## seq parse mode
+    else
+      if [[ $c == all ]];then
+        seq=($seq $__SEQ)
+      elif [[ $c == :* ]];then
+        c=${c#:}
+        ## if not found in DEP then insert default tag
+        # [[ -z $DEP[(k)${${c%%:*}%%.*}] ]] && c=$def.$c
+        [[ -z $depk[(r)${${c%%:*}%%.*}] ]] && c=$def.$c
+        ## print -u2 "$c /$DEP[(k)${c%%.*}]/"
+        cr=($c)
+        while true
+        do
+          cc=${c%%:*}
+          ct=${cc%%.*}
+          # print -u2 - "($cc)($ct)"
+          # print -u2 - "<$cr> $c/$cc/$DEP[$cc]"
+          [[ -z $DEP[$cc]$DEP[$ct] ]] && break
+          cr=(${DEP[$ct]}:: $cr)
+          c=$DEP[$ct]
+        done
+        seq=($seq ${cr})
+      else
+        [[ -z $depk[(r)${${c%%:*}%%.*}] ]] && c=$def.$c
+        # [[ -z $DEP[(k)${${c%%:*}%%.*}] ]] && c=$def.$c
+        seq=($seq $c)
+      fi
+    fi
+  done
+  [[ $__name == seq ]] || set -A $__name "${(@)seq}"
+  [[ $VERBOSE -gt 1 ]] && print -u2 "$0: sequence {$seq}"
+  return 0
+}
+
+###_  . utilities
+###_   , zui_split
+##       zui_split [-a ASSOC] [-b] SEP STRING [VAR...]
+##
+##         repeat last item if VAR is more
+##         set array at last if VAR is less
+##
+##     zui_split , A,B,C  x1 x2        :: x1=A x2=(B C)
+##     zui_split , A,B,C  x1 x2 x3 x4  :: x1=A x2=B x3=C x4=C
+zui_split ()
+{
+  local __a=
+  local lcol=1
+  while [[ $1 == -* ]]
+  do
+    if [[ $1 == -a ]];then
+      __a=$2
+      shift || exit $?
+    elif [[ $1 == -b ]];then
+      lcol=0
+    else
+      print -u2 "$0 invalid argument $@"; exit 1
+    fi
+    shift
+  done
+  [[ $# -lt 2 ]] && return 1
+
+  local __v
+  local oldIFS=$IFS; IFS=$1; __v=($=2); IFS=$oldIFS
+  shift 2
+
+  if [[ -n $__a ]];then
+    while [[ $# -gt 1 ]]
+    do
+      set -A $__a "${(@Pkv)__a}" "$1" "$__v[1]"
+      [[ $#__v -gt $lcol ]] && shift __v
+      shift
+    done
+    ### print -u2 set -A /$__a/"${(@Pkv)__a}"/"$1"/"$__v"
+    set -A $__a "${(@Pkv)__a}" "$1" "$__v"
+  else
+    while [[ $# -gt 1 ]]
+    do
+      : ${(P)1::=$__v[1]}
+      [[ $#__v -gt $lcol ]] && shift __v
+      shift
+    done
+    if [[ $#__v -gt $lcol ]];then
+      set -A $1 $__v
+    else
+      : ${(P)1::=$__v[1]}
+    fi
+  fi
+  return
+}
+
+###_   , zui_group_arguments
+##       zui_group_arguments [-s sep] NAME-SET NAME-REMAIN [ARGS...]
+##   return ARGS until --
+zui_group_arguments ()
+{
+  local sep=--
+  [[ x$1 == x-s ]] && sep=$2 && { shift 2 || return $? }
+  local _name=$1 _remain=$2; shift 2 || return $?
+  [[ $_name == zui_v ]] || local -a zui_v
+  zui_v=()
+  while [[ $# -gt 0 ]]
+  do
+    [[ x$1 == x$sep ]] && shift && break
+    zui_v+=("$1")
+    shift
+  done
+  [[ $_name == zui_v ]] || set -A $_name "${(@)zui_v}"
+  set -A $_remain "$@"
+  return 0
+}
+###_   , zui_debug_aa
+##       zui_debug_aa VAR [PRINT-ARGUMENTS]
+zui_debug_aa ()
+{
+  local __name=$1; shift
+  local -A __var; set -A __var "${(@Pkv)__name}"
+  local __k __v
+  for __k __v in "${(@kv)__var}"
+  do
+    print $@ - "${__name}[$__k] $__v"
+  done
+  return 0
+}
+
+###_  . init
+zui_init ()
+{
+  if [[ -z $ZUI_INIT ]];then
+    typeset -g ZUI_INIT=T
+
+    typeset -g abs_top_builddir=@abs_top_builddir@
+    typeset -g abs_builddir_src=$abs_top_builddir/src
+
+    typeset -g prefix=@prefix@
+    typeset -g exec_prefix=@exec_prefix@
+    typeset -g bindir=@bindir@
+
+    typeset -g WORK=0
+    typeset -g ENDI=
+    typeset -g VERBOSE=0
+    typeset -g HELP=
+    typeset -g FORCE=
+    typeset -g DRYRUN=
+
+    typeset -ga ZUI_XENV
+
+    typeset -ga ZUI_HELP_TAGS
+    typeset -gA ZUI_HELP_FUNCS
+
+    typeset -ga ZUI_PARSE_SWITCH
+    typeset -gA ZUI_PARSE_FUNCS
+
+    ## typeset -gA ZUI_DIR
+
+    zui_parse add Z zui_standard_parser
+    zui_help  add Z zui_standard_help
+  fi
+  return 0
+}

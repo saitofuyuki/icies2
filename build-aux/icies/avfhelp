@@ -1,0 +1,15 @@
+#!/usr/bin/zsh -f
+# Maintainer:  SAITO Fuyuki
+# Time-stamp: <2020/09/15 12:22:33 fuyuki avfhelp>
+# Copyright: 2018--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+: ${AUTOM4TE:=autom4te}
+
+bindir=$0:h
+m4hdir=$bindir/m4
+
+m4inc=$m4hdir/$0:t:r.m4
+
+$AUTOM4TE -l m4sugar $m4inc $@

@@ -1,0 +1,1149 @@
+#!/usr/bin/env python
+# build-aux/icies/mkmkam --- IcIES/build-aux/Makefile.am generator
+# Maintainer: SAITO Fuyuki
+# Created: Aug 7 2013 (again from scratch)
+# Time-stamp: <2020/09/14 08:25:53 fuyuki mkmkam>
+# Package: IcIES-2
+# Copyright: 2013--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_ Documents
+
+"""mkmkam generates Makefile.am from Makefile.tmpl
+
+Template typical entries
+------------------------
+
+::
+
+  bin_PROGRAMS_ORIGINS      = prog_pp.F prog_qq.F
+  noinst_LTLIBRARIES        = libicies_local.la
+  libicies_local_la_ORIGINS = src_aa.F src_bb.F src_cc.F
+  LIB_DEPEND_DIRS           = dir_xx dir_yy
+
+xxx_ORIGINS is minimum requirement to invoke template/am conversion.
+Per-directory library, single integrated library, and test programs
+are built using $(xxx_ORIGINS).
+
+EXTRA_ORIGINS is a special form of xxx_ORIGINS, which follows
+all the xxx_ORIGINS procedures except for the library.
+
+If test programs (NOT library) depend on the files in other directories,
+LIB_DEPEND_DIRS must be defined, which are relative to top/src directory.
+
+For each files in $(xxx_ORIGINS), insert following:
+
+- two-step procedure of compilation (src_aa.F to src_aa.o via src_aa.f)
+- copy-src_aa.F target,  to copy source file to build directory
+- check-src_aa target,   to build all test programs defined in src_aa.F
+
+  - if src_aa.F includes more than one test entries, then src_aa1, src_aa2, ... targets are generated
+  - otherwise src_aa target is generated
+
+- for each test programs (defined above)
+
+  - target srcchk-src_aa1, ...  to invoke static grammar check program (need ftnchek)
+  - target sublist-src_aa1, ...  to generate subroutine list (need ftnchek)
+  - preprocessor targets        needed to build the test programs
+
+    - following automake convention,
+      targets src_aa1-src_aa.f, src_aa1-src_bb.f, ... are generated
+
+- inclusion of automatically generated dependency files
+
+Using $(xxx_ORIGINS) definition, insert following in addition:
+
+- declaration of xxx (e.g., libicies_local_la) generation
+
+  - sources of the library, as preprocessed files of $(xxx_ORIGINS)
+
+- EXTRA_DIST
+- CLC_SRCS   (used when clocking feature enabled)
+- catall target to generate gather_yyy.f
+  which is concatenated preprocessed sources
+  (mainly used for static grammer check in other directories)
+  yyy is canonical form of xxx
+
+Moreover, following targets and definitions are added:
+
+- Staves related to preprocessing
+- Staves related to common header (included)files (OSTINATO)
+- Staves related to Makefile.am regenerations
+- Staves related to libraries in other directories (libdepall)
+
+Definitions confliction
+-----------------------
+
+You can write any variable definition and/or make targets
+in the template, as normal Makefile.am.
+If a variable definition is also automatically created one
+(A = I in the example below),  you have to specify a flag
+for conflict resolution as follows:
+
+   +--------------+---------+---------------------------------------+
+   | syntax       | result  | comment                               |
+   +--------------+---------+---------------------------------------+
+   | A = T ##%% n |         | delete                                |
+   +--------------+---------+---------------------------------------+
+   | A = T ##%% t | A = T   | use template                          |
+   +--------------+---------+---------------------------------------+
+   | A = T ##%% d | A = I   | use internal                          |
+   +--------------+---------+---------------------------------------+
+   | A = T ##%% a | A = T I | append internal                       |
+   +--------------+---------+---------------------------------------+
+   | A = T ##%% i | A = I T | insert internal (not implemented yet) |
+   +--------------+---------+---------------------------------------+
+
+If conflicition occurs without those flags, template/am conversion
+exit with error, reporting the confliction.
+
+Special (input) variables in Makefile.tmpl
+------------------------------------------
+
+     \*lib\*_la_ORIGINS      original fortran source files to be included in the specified library
+     bin_PROGRAMS_ORIGINS  original fortran source files to build bin_PROGRAMS
+     EXTRA_ORIGINS         original fortran source files NOT to be included in libraries
+
+     LIB_DEPEND_BASE    parent direcotry (relative to top) of LIB_DEPEND_DIRS.  Default is ``src``.
+     LIB_DEPEND_DIRS    directories necessary to build check programs
+     SRC_DEPEND_DIRS    directories necessary to build concatenated single source file
+
+     DIST
+     EXTRA_DIST
+
+Special variables to be inserted/modified in the Makefile.am
+------------------------------------------------------------
+
+     SUBDIRS
+     EXTRA_DIST
+
+     F77PREPROCESS
+     STANDARD_CPPFLAGS
+     AM_CPPFLAGS
+
+     noinst_LTLIBRARIES
+     nodist_lib*_SOURCES
+     nodist_*_SOURCES
+
+     OSTINATO
+     OSTINATO_src
+     OSTINATO_build
+
+     FORTRAN_CHECK_ADD
+
+     MKMKAM
+     MKCLOCKCOND
+     CLC_SRCS
+     LCLCNDH
+"""
+
+###_ Code
+###_. import
+import os, getopt, sys, logging, re, operator, string
+
+###_. classes
+###_ , MakeTmpl
+class MakeTmpl:
+    """Makefile.am template class."""
+    def __init__ (self):
+        self.reset ()
+        pass
+
+    def reset (self):
+        """Reset Tmpl attributes."""
+        self.L = EntryList () ## lines
+        self.U = {} ## user (template) defined marcos
+        self.S = {} ## system defined marcos
+        self.F = {} ## flag for user (template) defined marcos
+        self.tmpl = None
+        pass
+
+    def read_parse (self, tmpl):
+        """Read template file TMPL and parse."""
+        self.tmpl = tmpl
+        if self.tmpl is None:
+            fin = sys.stdin
+        else:
+            fin = open (self.tmpl, r'r')
+        self.parse (fin)
+        pass
+
+    def sync_system (self, E):
+        """Synchronize definition entries in E with system definition"""
+        if isinstance (E, EntryList):
+            for e in E.seq:
+                self.sync_system (e)
+        elif isinstance (E, EntryDef):
+            if not E.sync:
+                E.sync = True
+                if E.k in self.S:
+                    self.S[E.k].append (E.v)
+                else:
+                    self.S[E.k] = [E.v]
+        pass
+
+    def parse (self, lines):
+        """Parse template from LINES.
+        Template is stored in self.L as sequence of normal entries.
+        At the same time template (user) variable attributes are generated.
+        """
+        ll = ''
+        rp = re.compile (r'\s*(\w+)\s*(\+)?=\s*([^\\#]*)\s*(?:##%%\s*(\w)\w*)?$')
+        for l in lines:
+            l = l[:-1]
+            self.L.insert (EntryNormal (l))
+            if len (l) > 0 and l[-1] == '\\':
+                ll += l[:-1]
+            else:
+                ll += l
+                x = rp.match (ll)
+                if x:
+                    k, v = x.group (1,3)
+                    if x.group (2):
+                        if not k in self.U:
+                            sys.stderr.write ('Warning: no previous definition (%s)\n' % k)
+                        self.U.setdefault (k, []).append (v)
+                        # extend_or_null (self.U, k, [v])
+                    else:
+                        if k in self.U:
+                            sys.stderr.write ('Warning: previous definition cleared (%s)\n' % k)
+                        self.U[k] = [v]
+                    if not k in self.F:
+                        self.F[k] = x.group (4) or 'e'
+                ll = ''
+        # self.L.insert (EntryComment ('Begining of template'), 'HEAD', after = True)
+        self.L.insert (EntryComment ('End of template'))
+        # self.L.insert (EntryComment ('End of file'), 'TAIL', after = True)
+        pass
+
+    def diag (self):
+        """Diagnosis."""
+        print repr (self.L)
+        # print str  (self.L)
+        # debug_check (self.U, 'U')
+        # debug_check (self.S, 'S')
+        # debug_check (self.F, 'S')
+        pass
+
+    def finalize (self, am = None):
+        if am:
+            fo = open (am, r"w")
+        else:
+            fo = sys.stdout
+        fo.write (self.L.finalize (self.F) + '\n')
+        pass
+
+    pass
+
+###_ , Various entries
+###_  . Base
+class Entry:
+    """Basic class for various entires"""
+    def finalize (self, F = None):
+        return (self.__str__ ())
+    pass
+###_  . Anchor
+class EntryAnchor (Entry):
+    """Anchor point in EntryList with name"""
+    def __init__ (self, name = None):
+        self.name = name
+        pass
+    def __repr__ (self):
+        return (r'A: %s' % (self.name))
+    def __str__ (self):
+        return ('')
+    def finalize (self, F = None):
+        return None
+    pass
+###_  . Normal
+class EntryNormal (Entry):
+    """Normal entry class"""
+    def __init__ (self, *l):
+        if len (l) == 1:
+            self.l = l[0]
+        else:
+            self.l = list (l)
+    def __repr__ (self):
+        return (r'N: %s' % repr (self.l))
+    def __str__ (self):
+        return flatten_join (self.l, '\n')
+    pass
+###_  . Comment
+class EntryComment (Entry):
+    """Comment entry class"""
+    def __init__ (self, l, kind = None):
+        self.l = l
+        self.k = kind
+    def __repr__ (self):
+        return (r'#%s: %s' % (self.k or '', self.l))
+        pass
+    def __str__ (self):
+        if self.k is None:
+            return (r'#### %s' % self.l)
+        else:
+            return (r'#### %s: %s' % (self.k, self.l))
+        pass
+    pass
+###_  . Variable definition
+class EntryDef (Entry):
+    """Variable definition entry class"""
+    def __init__ (self, k, v):
+        self.sync = False
+        self.k = k
+        self.v = v
+    def __repr__ (self):
+        return ('D: %s %s' % (self.k, self.v))
+    def __str__ (self):
+        return ('%s = %s' % (self.k, self.fmt ()))
+    def finalize (self, F = None):
+        """Output variable definition line with flag F update."""
+        F = F or {}
+        f = F.get (self.k, None)
+        r = ''
+        if f == 'a':
+            r = '%s += %s' % (self.k, self.fmt ())
+        elif f == 'n':
+            sys.stderr.write ('Warning: internal definition removed (%s)\n' % self.k)
+        elif f == 'd':
+            sys.stderr.write ('Warning: template (user) definition removed (%s)\n' % self.k)
+            r = self.__str__ ()
+            F[self.k] = 'a'
+        elif f == 't':
+            sys.stderr.write ('Warning: template (user) definition chosen (%s)\n' % self.k)
+            self.k = 'auto_%s_auto' % self.k
+            r = self.__str__ ()
+            F[self.k] = 'a'
+        elif f is None:
+            r = self.__str__ ()
+            F[self.k] = 'a'
+        elif f == 'e':
+            sys.stderr.write ('Error: no flag for %s.\n' % self.k)
+            sys.exit (1)
+        else:
+            sys.stderr.write ('Error: unknown flag %s for %s.\n' % (f, self.k))
+            sys.exit (1)
+        return r
+    def fmt (self):
+        """Format value of variable"""
+        return flatten_join (self.v, ' ')
+        pass
+    pass
+###_  . Rule for building
+class EntryBuild (Entry):
+    """Building entry class"""
+    def __init__ (self, target, prereqs = None, cmds = None):
+        self.t = target
+        self.p = prereqs
+        self.c = cmds
+        pass
+
+    __buildinit__ = __init__
+
+    def __repr__ (self):
+        return ('B: %s %s %s' % (self.t, self.p, self.c))
+        pass
+
+    def __str__ (self):
+        r = '%s:' % self.t
+        rs = self.fmt_prereqs ()
+        if rs:
+            r += (' %s' % rs)
+        if self.c:
+            r += self.fmt_cmds ()
+        return r
+        pass
+
+    def fmt_prereqs (self):
+        """Format prerequisites"""
+        if self.p:
+            return flatten_join (self.p, ' ')
+        else:
+            return None
+        pass
+
+    def fmt_cmds (self):
+        """Format commands"""
+        def generate_cmdseq (L, pfx, sep):
+            """Internal function for generate command sequence with PFX, SEP as prefix and separator"""
+            r = []
+            for l in L:
+                if isinstance (l, tuple):
+                    pfx = l[0]
+                    sep = l[1]
+                elif isinstance (l, list):
+                    r.append (generate_cmdseq (l, pfx, sep))
+                else:
+                    r.append ('%s%s' % (pfx, l))
+                pass
+            x = sep + '\n'
+            return x.join (r)
+        ##
+        if isinstance (self.c, list):
+            r = "\n%s" % generate_cmdseq (self.c, '\t', '')
+            pass
+        else:
+            r = "\n\t%s" % self.c
+        return (r)
+    pass
+###_  . Special rule for recursive targets
+class EntryBuildRecursive (EntryBuild):
+    """Recursive building entry class"""
+    def __init__ (self, target, src = None, cmds = None):
+        if not cmds:
+            cmds = []
+        rt = '%s-recursive' % target
+        cmds.append ('$(MAKE) $(AM_MAKEFLAGS) RECURSIVE_TARGETS=%s %s' % (rt, rt))
+        self.__buildinit__ (target, src, cmds)
+    pass
+###_  . List entry to include sequence of sub-entries
+class EntryList (Entry):
+    """List entry class
+    Index for insertion can be set.
+    """
+    def __init__ (self, *E):
+        self.lv  = 0
+        self.seq = [EntryAnchor ('HEAD')]
+        if E: self.seq.extend (list (E))
+        self.seq.append (EntryAnchor ())
+        self.seq.append (EntryAnchor ('TAIL'))
+        pass
+    __listinit__ = __init__
+
+    def __repr__ (self):
+        r = ''
+        f = '\n' + (' ' * self.lv) + ' %s'
+        for s in self.seq:
+            r += (f % repr (s))
+        return ('L%d: %s' % (self.lv, r))
+
+    def __str__ (self):
+        def f (x): return not isinstance (x, EntryAnchor)
+        return ('\n'.join (map (str, filter (f, self.seq))))
+
+    def finalize (self, F = None):
+        def f (x): return not isinstance (x, EntryAnchor)
+        # return [e.finalize (F) for e in filter (f, self.seq)]
+        return ('\n'.join
+            ([e.finalize (F) for e in filter (f, self.seq)]))
+
+    def search (self, a):
+        """Get index of anchor entry A"""
+        for i, s in enumerate (self.seq):
+            if isinstance (s, EntryAnchor):
+                if s.name == a:
+                    break
+        else:
+            i = -1
+        return (i)
+
+    def insert (self, e, a = None, after = False):
+        """insert an entry E before (or after) anchor A"""
+        if isinstance (e, EntryList):
+            e.lv = self.lv + 1
+        i = self.search (a)
+        if after:
+            i = i + 1
+        self.seq[i:i] = [e]
+        pass
+    pass
+###_  . Special list entry to make a block
+class EntrySection (EntryList):
+    """Section entry"""
+    def __init__ (self, section):
+        self.__listinit__ (EntryComment ("%s" % section))
+        self.insert       (EntryComment ("END %s" % section), 'TAIL')
+    pass
+
+###_ , MakeTmplIcIES - IcIES template
+class MakeTmplIcIES (MakeTmpl):
+    """IcIES Makefile.tmpl class"""
+    def generate (self, tmpl = None, opts = None):
+        """Convert TMPL to Makefile.am."""
+        self.read_parse (tmpl)
+        self.add_common ()
+        self.add_auto_origins ()
+        self.add_depdirs ()
+        ## print "###XT ", expand_flatten_list (self.U, "XT")
+        pass
+
+    def add_common (self, R = None):
+        """IcIES makefile common block"""
+        self.add_common_macros (R)
+        self.add_common_builds (R)
+        pass
+
+    def add_common_macros (self, R = None):
+        """IcIES makefile common definition"""
+        R = R or self.L
+        E = EntrySection ('COMMON')
+        R.insert (E)
+        E.insert (EntryDef ('F77PREPROCESS',     '$(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS)'))
+        E.insert (EntryDef ('STANDARD_CPPFLAGS', '-I$(OSTINATO_build) -I$(top_srcdir) -I$(OSTINATO_src)'))
+        E.insert (EntryDef ('AM_CPPFLAGS',       '$(STANDARD_CPPFLAGS) $(XPKG_CPPFLAGS)'))
+        E.insert (EntryDef ('AM_LDFLAGS',        '$(STANDARD_LDFLAGS)  $(XPKG_LDFLAGS)'))
+        E.insert (EntryDef ('SUBDIRS',           '.'))
+        E.insert (EntryDef ('OSTINATO',          'src/ostinato'))
+        E.insert (EntryDef ('OSTINATO_src',      '$(top_srcdir)/$(OSTINATO)'))
+        E.insert (EntryDef ('OSTINATO_build',    '$(top_builddir)/$(OSTINATO)'))
+        E.insert (EntryDef ('MKMKAM',            '$(top_srcdir)/build-aux/icies/mkmkam'))
+        E.insert (EntryDef ('MKCLOCKCOND',       '$(top_srcdir)/build-aux/icies/clockcond'))
+        # E.insert (EntryDef ('LCLCNDH',           '$(srcdir)/lclcnd.h'))
+        E.insert (EntryDef ('EXTRA_DIST',        '$(LCLCNDH)'))
+
+        E.insert (EntryNormal (r'if NEVER',
+                               r'EXTRA_PROGRAMS = dummy_never_built',
+                               r'nodist_dummy_never_built_SOURCES = dummy_never_built.c',
+                               r'endif'))
+
+        self.sync_system (E)
+        ## E.insert (EntryDef ('__TEST__',          ['a', 'b', 'c', ['d', 'e', 'f', ['f0', 'f1']], 'g', 'h']))
+        pass
+
+    def add_common_builds (self, R = None):
+        """IcIES makefile common builds"""
+        R = R or self.L
+        E = EntrySection ('COMMON BUILDS')
+        R.insert (E)
+        E.insert (EntryBuild ('.tmpl.am',
+                              None,
+                              r'$(MKMKAM) $<'))
+        E.insert (EntryBuild ('force_config_status',
+                              None,
+                              'cd $(top_builddir) && $(SHELL) ./config.status'))
+        E.insert (EntryBuildRecursive ('clockh'))
+
+        E.insert (EntryBuild ('clockh-am',
+                              None,
+                              [('', ''),
+                               'if MAINTAINER_MODE',
+                                  [('\t', '\\'),
+                                   'if test -z "$(CLC_SRCS)"; then :; else ',
+                                   '$(MKCLOCKCOND) $(MKCLOCKCOND_FLAGS) -s $(subdir) -t $(top_srcdir) -g $(OSTINATO_build) $(CLC_SRCS); ',
+                                   'fi'],
+                               'else',
+                                  [('\t', ''),
+                                   'test -n \'$(LCLCNDH)\' && touch $(LCLCNDH)'],
+                               'endif']))
+        E.insert (EntryBuild ('$(LCLCNDH)', 'clockh-am'))
+        E.insert (EntryBuildRecursive ('tmpl2am'))
+        E.insert (EntryBuild ('tmpl2am-am',
+                              None,
+                              '$(MKMKAM) $(srcdir)/Makefile.tmpl'))
+        E.insert (EntryBuildRecursive ('catall'))
+        E.insert (EntryBuild ('catall-am', '$(CATALL_files)'))
+        E.insert (EntryBuild ('catall-src',
+                              None,
+                              r'@cd ../; $(MAKE) $(AM_MAKEFLAGS) catall'))
+        E.insert (EntryBuild ('libdepall',
+                              None,
+                              [('\t', ' \\'),
+                               "@fail= failcom='exit 1';",
+                               'for f in x $$MAKEFLAGS; do',
+                               'case $$f in',
+                               [('\t\t', ' \\'),
+                                  '*=* | --[!k]*);;',
+                                  "*k*) failcom='fail=yes';;"],
+                               'esac;',
+                               'done;',
+                               'target=all;',
+                               "list='$(LIB_DEPEND_DIRS)'; for subdir in $$list; do",
+                               [('\t\t', ' \\'),
+                                  'subdir=$(top_builddir)/$(LIB_DEPEND_BASE)/$$subdir;',
+                                  'echo "Making library in $$subdir";',
+                                  '($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$target)',
+                                  '|| eval $$failcom;'],
+                               'done;',
+                               'test -z "$$fail"']))
+        E.insert (EntryBuild ('.F.f',
+                              None,
+                              [('',''),
+                               '@am__fastdepCC_TRUE@\t$(F77PREPROCESS)  -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<',
+                               '@am__fastdepCC_TRUE@\tmv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf',
+                               "@AMDEP_TRUE@@am__fastdepCC_FALSE@\tsource='$<' object='$@' libtool=no @AMDEPBACKSLASH@",
+                               '@AMDEP_TRUE@@am__fastdepCC_FALSE@\tDEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@',
+                                "@am__fastdepCC_FALSE@\t$(F77PREPROCESS)  `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@"]))
+
+        tgt = '$(ta__copy_source_targets)'
+        E.insert (EntryBuild ('copy-am', tgt))
+        E.insert (EntryBuild (tgt,
+                              None,
+                              [('\t', '\\'),
+                               '@fail=; ',
+                               'target=`echo $@ | sed s/^.*copy-//`; ',
+                               'if test -f $(builddir)/$$target; then ',
+                               'echo cannot overwrite $(builddir)/$$target; fail=yes; ',
+                               'else ',
+                               '$(CP) $(srcdir)/$$target $(builddir); ',
+                               'fi; test -z "$$fail"']))
+
+        E.insert (EntryBuild ('$(DEPDIR)/dummy_never_built.Po',
+                              None,
+                              [('\t', ' \\'),
+                               '@$(MKDIR_P) $(DEPDIR) && touch $@']))
+
+
+        pass
+
+    def add_auto_origins (self, R = None):
+        """Add automatic macros/targets from *_ORIGINS."""
+        R = R or self.L
+        org = self.parse_origins (R)
+        # debug_check (org, 'ORG')
+        srcs = []
+        depf = []
+        for f in org.keys ():
+            Ef = EntrySection ('BUILD FAMILY %s' % f)
+            R.insert (Ef)
+            for b, s in org[f].iteritems ():
+                Eb = EntrySection ('BUILD %s' % b)
+                Ef.insert (Eb)
+                srcs += self.add_build_environments (f, b, s, depf, Eb)
+            self.sync_system (Ef)
+        # check-targets
+        deps = self.parse_sources_check (srcs)
+        # debug_check (deps, 'DEPS')
+        for rs in sorted (deps.keys ()):
+            ## print rs, deps[rs]
+            self.add_check_environments (rs, deps, depf)
+        # debug_check (depf, 'DEPF')
+        R.insert (EntryDef ('am__depfiles_remade', depf))
+        ## common setting
+        if expand_flatten_list ((self.U, self.S), 'CLC_SRCS'):
+            R.insert (EntryDef ('LCLCNDH', '$(builddir)/lclcnd.h'))
+            R.insert (EntryDef ('MAINTAINERCLEANFILES', '$(LCLDNDH)'))
+        pass
+
+    def parse_origins (self, R = None):
+        """Parse *_ORIGINS macros in template.
+        Return map whose key and value are *ORIGINS and build targets.
+        """
+        R = R or self.L
+        rb = re.compile (r'^\w*(PROGRAMS|LIBRARIES|LTLIBRARIES)$')
+
+        tbl = {}
+        for k in self.U.keys ():
+            x = rb.match (k)
+            if not x: continue
+            tbl[k] = expand_flatten_list (self.U, k)
+
+        ro = re.compile (r'^(\w+?)(?:_(PROGRAMS|LIBRARIES|LTLIBRARIES))?_ORIGINS$')
+        rx = re.compile (r'_([^_]+)$')
+        bo = {}
+        ndef = {}
+        for k in self.U.keys ():
+            x = ro.match (k)
+            if not x: continue
+            if x.group (2):
+                for s in expand_flatten_list (self.U, k):
+                    r, e = os.path.splitext (s)
+                    o = '%s_ORIGINS' % r
+                    # bo[r] = { o : [s] }
+                    bo[r] = [r'$(%s)' % o]
+                    ndef[o] = [s]
+            else:
+                t = rx.sub (r'.\1', x.group (1))
+                bo[t] = [r'$(%s)' % k]
+
+        org = {}
+        for b in bo.keys ():
+            x = None
+            for k in tbl.keys ():
+                if b in tbl[k]:
+                    x = k
+                    break
+            if not x:
+                r, e = os.path.splitext (b)
+                if e == '.la':
+                    x = 'noinst_LTLIBRARIES'
+                elif e == '':
+                    x = 'bin_PROGRAMS'
+                else:
+                    sys.stderr.write ('Unknown extension (%s)\n' % e)
+                    exit (1)
+                ndef.setdefault (x, []).append (b)
+            ## print b, x
+            #org.setdefault (x, []).append ( { b : bo[b] })
+            org.setdefault (x, {})[b] = bo[b]
+        # debug_check (bo,   'BO')
+        # debug_check (ndef, 'ndef')
+        if ndef:
+            E = EntrySection ('ORIGINS/BUILDS')
+            R.insert (E)
+            for k, v in ndef.iteritems ():
+                E.insert (EntryDef (k, v))
+            self.sync_system (E)
+            pass
+        ##
+        return (org)
+
+    def add_build_environments (self, f, b, o, depf, R = None):
+        """Add normal build macros/targets.
+        """
+        R = R or self.L
+        k = re.compile (r'^.*_([^_]+)').match (f).group (1)
+        US = self.U.copy ()
+        US.update (self.S)
+        # print f, b, o, k
+        # print expand_flatten_string (US, o)
+        nsall = []
+        copy_am = []
+        depinc = []
+        srcs = expand_flatten_string (US, o)
+        for s in srcs:
+            # E = EntrySection ('ORIGIN SOURCE %s' % s)
+            # R.insert (E)
+            r, e = os.path.splitext (s)
+            obj   = r + '.$(OBJEXT)'
+            if e == '.F':
+                ne = '.f'
+            else:
+                sys.stderr.write ('Error: cannot handle extension (%s)\n' % e)
+                exit (1)
+            ns = r + ne
+            nsall.append (ns)
+            depinc.append (self.generate_depinc (ns, depf))
+            ##
+            R.insert (EntryBuild (obj, ns))
+            ##
+            tgt = 'copy-%s' % s
+            copy_am.append (tgt)
+            pass
+        R.insert (EntryDef ('ta__copy_source_targets', copy_am))
+        R.insert (EntryNormal (depinc))
+        # sys.stdout.write('depf: %s\n' % depf)
+        R.insert (EntryDef ('EXTRA_DIST', o))
+        R.insert (EntryDef ('CLC_SRCS',   o))
+        tgt  = r'nodist_%s_SOURCES' % var_canonic (b)
+        if k == 'LTLIBRARIES':
+            R.insert (EntryDef (tgt, nsall))
+        else:
+            # nodist_* inserted at check environments
+            pass
+        dtgt = r'$(%s)' % tgt
+        allf = r'gather_%s.f' % var_canonic (b)
+        c = [r'test -z "%s" || cat %s > $@ || rm -f $@' % (dtgt, dtgt)]
+
+        R.insert (EntryDef ('CLEANFILES', [nsall, allf]))
+        R.insert (EntryDef ('CATALL_files', allf))
+        R.insert (EntryBuild (allf, dtgt, c))
+        ###
+        return (srcs)
+        pass
+
+    def add_check_environments (self, rsrc, DEPS, depf, R = None):
+        """Add check macros/targets.
+        """
+        # src, kind = sk
+        R = R or self.L
+        E = EntrySection ('ORIGINS/CHECKS %s' % rsrc)
+        R.insert (E)
+        E.insert (EntryAnchor ('DEP'))
+        ktbl = DEPS[rsrc]
+        cleans = []
+        checks = []
+        srcchk = []
+        sublist = []
+        bundle = []
+        r, e = os.path.splitext (rsrc)
+        for k in sorted (ktbl.keys ()):
+            if k and int (k) <= 0: continue
+            prog = r'%s%s' % (r, k)
+            checks.append (prog)
+            ## print prog, rsrc, k, ktbl[k], ktbl.get ('0', None)
+            ## macro for test program compilation
+            mdefs = ['TEST_%s=%s' % (r.upper (), (k or 1))]
+            cppf  = '%s_CPPFLAGS' % prog
+            srcs  = []
+            for d in ktbl.get ('0', None):
+                mdefs.extend (d[1])
+                srcs.append  (d[0])
+            for d in ktbl[k]:
+                mdefs.extend (d[1])
+                srcs.append  (d[0])
+            if not rsrc in srcs:
+                srcs.insert (0, rsrc)
+            cfall = [('-D%s' % m) for m in mdefs]
+            E.insert (EntryDef (cppf, cfall))
+            ## individual sources
+            ## print srcs
+            depsrcs = []
+            depinc  = []
+            for s in srcs:
+                sr = os.path.splitext (s)[0]
+                dsr = r'%s-%s' % (prog, sr)
+                dsx = r'f'
+                ds  = dsr + '.' + dsx
+                depsrcs.append (ds)
+                depinc.append (self.generate_depinc (ds, depf))
+                c = [('', ''),
+                     "@am__fastdepCC_TRUE@\t$(F77PREPROCESS) $(%s) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<" % cppf,
+                     "@am__fastdepCC_TRUE@\tmv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf",
+                     "@AMDEP_TRUE@@am__fastdepCC_FALSE@\tsource='$<' object='$@' libtool=no @AMDEPBACKSLASH@",
+                     "@AMDEP_TRUE@@am__fastdepCC_FALSE@\tDEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@",
+                     "@am__fastdepCC_FALSE@\t$(F77PREPROCESS) $(%s) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@" % cppf]
+                E.insert (EntryBuild (ds, s, c))
+            E.insert (EntryNormal (depinc), 'DEP')
+            cleans.extend (depsrcs)
+            ## SOURCES
+            vsrc = 'nodist_%s_SOURCES' % var_canonic (prog)
+            dvsrc = '$(%s)' % vsrc
+            E.insert (EntryDef (vsrc, depsrcs))
+            ##
+            tgt = 'srcchk-%s'  % prog
+            c = [r'$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(%s) $(FORTRAN_CHECK_ADD)' % vsrc]
+            E.insert (EntryBuild (tgt, dvsrc, c))
+            srcchk.append (tgt)
+            ##
+            tgt = 'sublist-%s' % prog
+            c = [r'$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(%s) $(FORTRAN_CHECK_ADD)' % vsrc]
+            E.insert (EntryBuild (tgt, dvsrc, c))
+            sublist.append (tgt)
+            ##
+            tgt = 'bundle-%s.f' % var_canonic(prog)
+            c = [r'test -z "$(%s)" || cat $(%s) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@' % (vsrc,vsrc)]
+            E.insert (EntryBuild (tgt, [dvsrc, '$(FORTRAN_CHECK_ADD)'], c))
+            # E.insert (EntryBuild (tgt, '$(FORTRAN_CHECK_ADD)'))
+            bundle.append (tgt)
+            cleans.append (tgt)
+            pass
+        E.insert (EntryDef ('CLEANFILES',     cleans))
+        E.insert (EntryDef ('check_PROGRAMS', checks))
+        E.insert (EntryBuild ('srcchk-all',   srcchk))
+        E.insert (EntryBuild ('sublist-all',  sublist))
+        E.insert (EntryBuild ('bundle-all',  bundle))
+        tgt = 'check-%s' % r
+        E.insert (EntryBuild (tgt, checks))
+        self.sync_system (E)
+        ## print src, kind
+        pass
+
+    def add_depdirs (self, R = None):
+        """Add macros/targets relating to other directories.
+        """
+        R = R or self.L
+        E = EntrySection ('DEP-DIR')
+        R.insert (E)
+        # base directory
+        v = 'LIB_DEPEND_BASE'
+        ldb = expand_flatten_list (self.U, v)
+        if len (ldb) > 1:
+            sys.stderr.write ('Invalid setting: %s = %s\n' % (v, ldb))
+            exit (1)
+        elif len (ldb) == 1:
+            ldb = ldb[0]
+        else:
+            ldb = 'src'
+            E.insert (EntryDef (v, ldb))
+        # base name
+        v = 'LIB_DEPEND_NAME'
+        lnm = self.U.get (v, None)
+        if not lnm:
+            lnm = 'libicies_local.la'
+            E.insert (EntryDef (v, lnm))
+        # depdirs/lib
+        ldirs = expand_flatten_list (self.U, 'LIB_DEPEND_DIRS')
+        ldadd = []
+        for d in ldirs:
+            h, b = os.path.split    (d)
+            r, e = os.path.splitext (b)
+            if e and r != '.':
+                ldadd.append (os.path.join ('$(top_builddir)', ldb, d))
+            else:
+                ldadd.append (os.path.join ('$(top_builddir)', ldb, d, lnm))
+        if ldadd:
+            E.insert (EntryDef ('LDADD', ldadd))
+        # depdirs/src
+        sdirs = expand_flatten_list (self.U, 'SRC_DEPEND_DIRS') or ldirs
+        sadd = []
+        snm = r'gather_%s.f' % var_canonic (lnm)
+        for d in sdirs:
+            h, b = os.path.split    (d)
+            r, e = os.path.splitext (b)
+            if e and r != '.':
+                if r != '.f':
+                    allf = r'gather_%s.f' % var_canonic (r)
+                    sadd.append (os.path.join ('$(top_builddir)', ldb, allf))
+                else:
+                    sadd.append (os.path.join ('$(top_builddir)', ldb, d))
+            else:
+                sadd.append (os.path.join ('$(top_builddir)', ldb, d, snm))
+        if sadd:
+            E.insert (EntryDef ('FORTRAN_CHECK_ADD', sadd))
+        #
+        self.sync_system (E)
+        pass
+
+    def generate_depinc (self, src, depf):
+        """Return a line to include a dependency file"""
+        root, ext = os.path.splitext (src)
+        if ext[0] == '.':
+            ext = ext[1:]
+        df = './$(DEPDIR)/%s.P%s' % (root, ext)
+        l = r'@AMDEP_TRUE@@am__include@ @am__quote@%s@am__quote@ # am--include-marker' % df
+        depf.append(df)
+        return (l)
+
+    def parse_sources_check (self, srcs):
+        """Parse source files to extract test configuration"""
+        ATTR = {}
+        if self.tmpl:
+            d = os.path.dirname (self.tmpl)
+        else:
+            d = '.'
+        re_test_kinds = re.compile (r'^CC::\s*KINDS\s+(.*)$')
+        re_test_deps  = re.compile (r'^CC::\s*SOURCES\s+(.*)$')
+        for s in set (srcs):
+            p = os.path.join (d, s)
+            r, e = os.path.splitext (s)
+            re_test_ifdef = re.compile (r'^#\s*if(def)?\s*TEST_%s' % r.upper ())
+            fp = open (p)
+            kinds = []
+            deps = {}
+            for l in fp:
+                l = l[:-1]
+                x = re_test_ifdef.match (l)
+                if x and kinds is None:
+                    kinds = ['1']
+                x = re_test_kinds.match (l)
+                if x:
+                    kinds = x.group (1).split ()
+                x = re_test_deps.match (l)
+                if x:
+                    dd = x.group (1).split ()
+                    if dd[0].isdigit ():
+                        d0 = dd[0]
+                        deps[d0]  = dd[1:]
+                    else:
+                        deps['0'] = dd
+            if not kinds:
+                kinds = ['']
+            ATTR[s] = (kinds, deps)
+        # debug_check (ATTR, 'ATTR')
+        ###
+        DEPS = {}
+        for s in ATTR.keys ():
+            kinds, deps = ATTR[s]
+            dk = (s, '0')
+            DEPS[dk] = {}
+            ### print kinds, s, deps
+            for k in deps.keys ():
+                dk = (s, k)
+                DEPS[dk] = {}
+                dv = {}
+                for cs in deps.get (k, []):
+                    css = cs.split (':')
+                    cs = css.pop (0)
+                    if len (css) > 0 and css[0].isdigit ():
+                        csk = css.pop (0)
+                    else:
+                        csk = '0'
+                    # print s, dk, (cs, csk, css)
+                    dv[cs, csk] = css
+                DEPS[dk] = dv
+            for k in kinds:
+                dk = (s, k)
+                if not dk in DEPS:
+                    DEPS[dk] = {}
+        ## debug_dict (DEPS)
+        # second pass
+        b = True
+        while b:
+            b = False
+            for dk, dv in DEPS.iteritems ():
+                nv = {}
+                ##print '### start ', dk, dv
+                for ck, cv in dv.iteritems ():
+                    ##print '### item ', ck, cv
+                    nv[ck] = cv
+                    if not DEPS.get (ck): continue
+                    for cd in DEPS[ck]:
+                        ##print '### deps', cd, DEPS[ck]
+                        if not cd in nv:
+                            nv[cd] = DEPS[ck][cd]
+                if not dv == nv: b = True
+                DEPS[dk] = nv
+            pass
+        # final result
+        DD = {}
+        for sk in DEPS.keys ():
+            s, k = sk
+            # print s, k, DEPS[sk]
+            t = DD.setdefault (s, {})
+            v = []
+            for dsk in DEPS[sk]:
+                ## print dsk, DEPS[sk][dsk]
+                v.append ((dsk[0], DEPS[sk][dsk]))
+            t[k] = v
+        # debug_check (DD, 'DD')
+        return DD
+
+    ## end of class
+    pass
+
+###_ , Empty class
+class Empty ():
+    """Empty class."""
+    pass
+
+###_. misc utilities
+###_ , var_canonic - canonicalization
+def var_canonic (s):
+    """String canonicalization"""
+    rp = re.compile (r'\W')
+    r = rp.sub (r'_', s)
+    return (r)
+###_ , flatten_join
+def flatten_join (l, sep = ' '):
+    """return string joined by SEP with flatten list of L"""
+    if isinstance (l, list):
+        r = flatten_list (l)
+        return sep.join (r)
+    else:
+        return (r'%s' % l)
+    pass
+
+###_ , flatten_list
+def flatten_list (l):
+    """return list whose items are fully flatten"""
+    r = []
+    for i in l:
+        if isinstance (i, list):
+            r.extend (flatten_list (i))
+        else:
+            r.append (i)
+    return (r)
+###_ , expand_flatten_list
+def expand_flatten_list (m, k):
+    """return fully flatten list with macro expansion."""
+    return expand_flatten_string (m, r'$(%s)' % k)
+###_ , expand_flatten_string
+def expand_flatten_string (m, v):
+    """Return fully flatten list with macro expansion.
+    If input M is tuple, internaly created dict which concatenates all the elements of M is used.
+    """
+    if isinstance (m, tuple):
+        M = list (m)
+        m = M[0].copy ()
+        for i in M[1:]:
+            m.update (i.copy ())
+        return expand_flatten_string (m, v)
+
+    r = []
+    rp  = re.compile (r'^\$\((\w+)\)$')
+    if isinstance (v, list):
+        v = flatten_list (v)
+    else:
+        v = [v]
+    l = []
+    for i in v:
+        l.extend (i.split ())
+    for i in l:
+        x = rp.match (i)
+        if x:
+            k = x.group (1)
+            if k in m:
+                r.extend (expand_flatten_string (m, m[k]))
+        else:
+            r.append (i)
+    return (r)
+
+###_. debug utilities
+###_ , debug junction
+def debug_check (a, name = None, lev = 0):
+    if   isinstance (a, dict):
+        debug_dict (a, name, lev)
+    elif isinstance (a, list):
+        debug_list (a, name, lev)
+    else:
+        debug_any  (a, name, lev)
+    pass
+###_ , debug_dict
+def debug_dict (a, name, lev = 0):
+    if lev == 0:
+        print ("@@@DICT: %s" % name)
+    for k, v in a.iteritems ():
+        if   isinstance (v, dict):
+            print '%s%s:' % ('  ' * lev, k)
+            debug_dict (v, None, lev + 1)
+        elif isinstance (v, list):
+            print '%s%s:' % ('  ' * lev, k)
+            debug_list (v, None, lev + 1)
+        else:
+            print '%s%s: %s' % ('  ' * lev, k, v)
+    if lev == 0:
+        print ("@@@DICT: %s done" % name)
+    pass
+###_ , debug_list
+def debug_list (a, name, lev = 0):
+    if lev == 0:
+        print ("@@@LIST: %s" % name)
+    if lev == 10:
+        print '  ' * lev, a, '@@@'
+    else:
+        for l in a:
+            if   isinstance (l, dict):
+                print '  ' * lev, '@@:'
+                debug_dict (l, None, lev + 1)
+            elif isinstance (l, list):
+                print '  ' * lev, '@@:'
+                debug_list (l, None, lev + 1)
+            else:
+                print '  ' * lev, l
+    if lev == 0:
+        print ("@@@LIST: %s done" % name)
+    pass
+
+###_. main
+###_ , main
+def main (args):
+    """call conversion batch for each member of ARGS."""
+    try:
+        oo, aa = getopt.getopt (args, "hdnt:")
+    except (getopt.GetoptError, err):
+        logging.error ("invalid option.")
+        sys.exit (1)
+        pass
+    Opts = Empty ()
+    Opts.stdout = False
+    Opts.debug  = False
+    Opts.top_builddir = None
+    for o, v in oo:
+        if o == '-h':
+            pass
+        elif o == '-t':
+            Opts.top_builddir = v
+        elif o == '-d':
+            Opts.debug = True
+        elif o == '-n':
+            Opts.stdout = True
+        else:
+            assert False, "unhandled option"
+
+    for m in aa:
+        t = MakeTmplIcIES ()
+        t.generate (m, Opts)
+        # t.diag ()
+        if Opts.stdout:
+            t.finalize (None)
+        else:
+            am = set_am_name (m)
+            t.finalize (am)
+    pass
+
+###_ , output file binder
+def set_am_name (tmpl):
+    """Return output Makefile.am path according to TMPL.
+
+    Output file name is generated using the input name
+    in the same directory, with replacing its extension to ``.am``.
+    """
+    d, b = os.path.split (tmpl)
+    r, e = os.path.splitext (b)
+    am   = os.path.join (d, ('%s.am' % r))
+    return (am)
+
+###_. driver
+if __name__ == '__main__':
+    main (sys.argv[1:])
+    pass

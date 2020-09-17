@@ -1,0 +1,360 @@
+#!@ZSH@ -f
+# Maintainer: SAITO Fuyuki
+# Created:    Apr 3 2013
+# Time-stamp: <2020/09/15 12:24:21 fuyuki cnx.sh.in>
+# Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+# setopt -x
+
+@ZUI_INSERT@
+@DEV_INSERT@
+
+###_. cnx_help
+cnx_help ()
+{
+  print - "$xbin OPTIONS FILES"
+  print - "OPTIONS (cadenza/cnx):"
+  print - "  -A FROM:TO   pattern for directory correction"
+  print - "  -F FILENAME"
+  print - "  -O DIR:PFX:SFX:EXT"
+  print - "  -G CLUSTER-GROUP"
+  print - "  -V VARIABLE"
+  print - "  -C CKS"
+  print - "  -X EXE"
+  print - "  -S SYSIN"
+  print - "  -T TIME(s)"
+  print - "  -P VARIABLE=VALUE to set namelist parameter"
+  print - "  -t TYPE[:PROPERTY]  {a|b|n}"
+  print - "     a[:format]     for ascii (EXE default cabcnv)"
+  print - "     b[:precision]  for binary (EXE default cabcnv)"
+  print - "     n[:precision]  for netcdf (EXE default cnxseq)"
+  print - "  -o OPERATION[:FLAGS...]"
+  print - "     c:Xa:Xb:Ya:Yb  set coordinate name"
+  print - "     d:Xa:Xb:Ya:Yb  set dimension"
+  print - "     s:type         coordinate canonicalize"
+  print - "FILES: e.g., O/*/L/vrep*"
+}
+
+###_. cnx_parse
+cnx_parse ()
+{
+  if    [[ $1 == -i ]];then
+    :
+  elif  [[ $1 == -s ]];then
+    : ${(P)2::="V:F:O:G:C:S:X:t:T:P:o:A:"}
+  elif  [[ $1 == -p ]];then
+    :
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    if [[ $name == P ]];then
+      local val var
+      var=(${(s@=@)arg})
+      val=$var[1]; shift var
+      CNX[P/$val]="$var"
+    elif [[ $name == o ]];then
+      local val var
+      var=(${(s@:@)arg})
+      val=$var[1]; shift var
+      CNX[o/$val]="$var"
+    else
+      CNX[$name]=$arg
+    fi
+  fi
+}
+
+###_. cnx_init
+cnx_init ()
+{
+  if [[ -z ${(t)CNX} ]];then
+    typeset -gA CNX
+
+    zui_init || exit $?
+
+    zui_help  add CNX cnx_help  || exit $?
+    zui_parse add CNX cnx_parse || exit $?
+  fi
+  return 0
+}
+
+
+###_. cnx_sysin_NICNXS
+cnx_sysin_NICNXS ()
+{
+  print ' &NICNXS'
+
+  print "  VGRP  = '$grp',"
+  print "  CSFX  = '$sfx',"
+  [[ -n $var ]] && print "  VITEM = '$var',"
+  [[ -n $sub ]] && print "  VSUB  = '$sub',"
+
+  local var
+  for var in TMPF VTKIND
+  do
+    if [[ -n $CNX[P/$var] ]];then
+      print "  $var = '$CNX[P/$var]', "
+    fi
+  done
+
+  print "  FNM   = '$fnm',"
+  # print "  CKIND = '$kind',"
+  print " &END"
+}
+
+cnx_sysin_NICABX ()
+{
+  print ' &NICABX'
+
+  print "  VGRP  = '$grp',"
+  print "  CSFX  = '$sfx',"
+  [[ -n $var ]] && print "  VITEM = '$var',"
+  [[ -n $sub ]] && print "  VSUB  = '$sub',"
+  [[ -n $CNX[T] ]] && print "  CTIME = '$CNX[T]', "
+  [[ -n $fmt ]] && print " FMT = '$fmt',"
+  print "  FNM   = '$fnm',"
+  print " &END"
+}
+
+cnx_sysin ()
+{
+  local x=$1 sf=$2
+  local fsfx=
+  x=$x:t
+  ## print -u2 "$0 $x $@"
+  case $x in
+  cnxseq) fsfx=NICNXS;;
+  cabcnv) fsfx=NICABX;;
+  esac
+  [[ -z $fsfx ]] && return 1
+  cnx_sysin_$fsfx > $sf
+}
+
+###_. cnx_post_nc
+cnx_post_nc ()
+{
+  ## $fnm $CNX[o/s] "${CNX[o/c]}"
+  local nc=$1 ctype=$2; shift 2 || return 1
+  local ndim=$1 cname=$2
+  if [[ -n $ndim ]];then
+    ndim=(${=ndim})
+    [[ $ndim[2] == - ]] && ndim[2]=$((ndim[1]-1))
+    [[ $ndim[4] == - ]] && ndim[4]=$((ndim[3]-1))
+  else
+    print -u2 "Must specify dimensions"
+    exit 1
+  fi
+  if [[ -n $cname ]];then
+    cname=(${=cname})
+  else
+    cname=(Xa Xb Ya Yb)
+  fi
+  local ci= x= cn=
+  # region canonicalization
+  local args= xco=
+  for ci in {1..4}
+  do
+    cn=$cname[$ci]
+    if ncks -m -v $cn $nc > /dev/null 2>&1; then
+      xco=($xco $cn)
+      args=($args -d $cn,0,$((ndim[$ci]-1)))
+    fi
+  done
+  ncks -O $args $nc $nc
+  # coordinate canonicalization
+  local cx= CX=
+  local xrange= yrange=
+  xrange=($(ncks -H -s'%e ' -v $cname[1] -d $cname[1],0 -d $cname[1],-1 $nc))
+  yrange=($(ncks -H -s'%e ' -v $cname[3] -d $cname[3],0 -d $cname[3],-1 $nc))
+  ## print -u2 - $xrange $yrange
+  local gid=
+  case $ctype in
+  (r1) gid='+x+y';;
+  (r2) gid='+y-x' CX=(t     yn);;
+  (r3) gid='-x-y' CX=(   xn yn);;
+  (r4) gid='-y+x' CX=(t  xn   );;
+  (f1) gid='+y+x' CX=(t       );;
+  (f2) gid='-x+y' CX=(   xn   );;
+  (f3) gid='-y-x' CX=(t  xn yn);;
+  (f4) gid='+x-y' CX=(      yn);;
+  (*)  print -u2 "Unknown coordinate type $ctype"; exit 1
+  esac
+
+  local attr=orientation_id,global
+  local xop= yop=
+  for ci in 1 2
+  do
+    ci=$cname[$ci]
+    [[ -n ${(M)xco:#$ci} ]] && xop=($xop -s "$ci=$xrange[2]-$ci+$xrange[1];")
+  done
+  for ci in 3 4
+  do
+    ci=$cname[$ci]
+    [[ -n ${(M)xco:#$ci} ]] && yop=($yop -s "$ci=$yrange[2]-$ci+$yrange[1];")
+  done
+
+  for cx in $CX
+  do
+    case $cx in
+    (t)
+         ncpdq --rdr=${(j:,:)xco} -O $nc $nc
+         ;;
+    (xn)
+         ncap2 $xop -O $nc $nc
+         ncpdq --rdr=-$cname[1],-$cname[2] -O $nc $nc
+         ;;
+    (yn)
+         ncap2 $yop -O $nc $nc
+         ncpdq --rdr=-$cname[3],-$cname[4] -O $nc $nc
+         ;;
+    esac
+  done
+  ncatted -a $attr,a,c," $gid" -a $attr,c,c,"$gid" $nc
+  return 0
+}
+
+
+###_. cnx_run
+cnx_run ()
+{
+  if [[ $# -eq 0 ]];then
+    zui_help view || exit $?
+    exit 0
+  fi
+
+  zui_init || return $?
+  cnx_init || return $?
+
+  zui_parse do_all ARGS $@
+  [[ $VERBOSE -gt 1 ]] && zui_parse show -u2
+  [[ $VERBOSE -gt 1 ]] && print -u2 XENV: $ZUI_XENV
+
+  cnx_run_standard $pbin $pbase $ARGS
+  # mxi_sysin_all >&2
+}
+###_. cnx_run_standard
+cnx_run_standard ()
+{
+  local GRP=$CNX[G]
+  local cks=$CNX[C]
+  local exe=$CNX[X]
+  local var=$CNX[V]
+  local dpsx=$CNX[O]
+  local ofile=$CNX[F]
+  local sysin=$CNX[S]
+  local otype=$CNX[t]
+
+  [[ -z $GRP ]] && print -u2 "No group" && exit 0
+  [[ -z $cks ]] && cks=Ha
+
+  if    [[ $otype == [ba]* && -z $exe ]];then
+    exe=cabcnv
+  elif  [[ $otype == n* && -z $exe ]];then
+    exe=cnxseq
+  fi
+
+  if [[ -n $exe ]];then
+    zui_finder x $exe $x_search
+  else
+    for exe in cnxseq cnxsim
+    do
+      zui_finder -n x $exe $x_search
+      [[ -n $x ]] && break
+    done
+    [[ -z $x ]] && exit 1
+  fi
+  exe=$x
+  [[ $VERBOSE -gt 0 ]] && print -u2 "$0: exe $exe"
+
+  local kind sfx sub
+  kind=$cks[1] sfx=$cks[2]
+  var=("${(s@:@)var}")
+  var="$var[1]" sub="$var[2]"
+
+  dpsx=("${(s@:@)dpsx}")
+  local odir="$dpsx[1]" opfx="$dpsx[2]" osfx="$dpsx[3]" oext="$dpsx[4]"
+  [[ -n $odir ]] && odir="$odir/"
+  if [[ -z $oext ]];then
+    case $otype[1] in
+    (a) oext=".asc";;
+    (b) oext=".dat";;
+    (n) oext=".nc";;
+    (*) oext='';;
+    esac
+  fi
+  local fmt=
+  otype=(${(s@:@)otype})
+  if [[ $otype[1] == a ]];then
+    fmt="$otype[2]"
+    [[ -z $fmt ]] && fmt="*"
+  fi
+
+  local grp fnm
+  for grp in $GRP
+  do
+    if [[ -z $ofile ]];then
+      fnm=$odir$opfx$grp$var$sub$osfx$oext
+    else
+      fnm=$ofile
+    fi
+    if [[ -e $fnm ]];then
+      if [[ -z $FORCE ]];then
+        print -u2 "$0: $fnm exists" && exit 1
+      else
+        print -u2 "$0: $fnm clobber"
+        rm -f $fnm
+      fi
+    fi
+    mkdir -p $fnm:h
+
+    if [[ -n $sysin ]];then
+      sf=$sysin
+      [[ -e $sf ]] && print -u2 "$sf exists" && exit 1
+    else
+      sf=$(mktemp)
+    fi
+
+    cnx_sysin $exe $sf
+
+    if [[ -n $ARGS ]];then
+      if [[ -z $CNX[A] ]];then
+        cat $ARGS >> $sf
+      elif [[ $CNX[A] == : ]]; then
+        print -u2 "Not implemented yet."
+        exit 1
+      else
+        local pat; pat=(${(s@:@)CNX[A]})
+        sed -e "/FNM *=/s@$pat[1]@$pat[2]@" $ARGS >> $sf
+      fi
+    fi
+
+    if [[ -n $EXESFX ]];then
+      exe=$exe$EXESFX
+      if [[ ! -e $exe ]];then
+        print -u2 "$0: invalid EXESFX ($EXESFX)" && exit 1
+      fi
+    fi
+
+    if [[ $VERBOSE -lt -99 ]];then
+      env $ZUI_XENV $exe < $sf 2>&1 >&-
+    else
+      env $ZUI_XENV $exe < $sf
+    fi
+
+    if [[ -z $otype[1] || $otype[1] == n ]]; then
+      if [[ -n $CNX[o/s] ]];then
+        cnx_post_nc $fnm $CNX[o/s] "$CNX[o/d]" "${CNX[o/c]}"
+      fi
+    fi
+
+    [[ -z $sysin ]] && rm -f $sf
+  done
+
+  return 0
+}
+
+###_. driver
+cnx_run $@
+
+exit 0

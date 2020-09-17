@@ -1,0 +1,84 @@
+#!/usr/bin/zsh -f
+# Time-stamp: <2020/09/15 12:23:10 fuyuki dist-ignored>
+# Copyright: 2017--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+local bindir=$0:h
+local bin=$0:t
+# local srcdir=$bindir:h:h
+
+usage ()
+{
+  local opts; opts=($@)
+  print $opts - "$bin - list/archive git-ignored files but to distribute."
+  print $opts - "Usage"
+  print $opts - "$bindir/$bin [BUILD-DIR]"
+  return 0
+}
+
+# get_tarf
+# return (DIRECOTRY ARCHIVE_ROOT ARCHIVE_EXT)
+get_tarf ()
+{
+  local __v=$1; shift || return $?
+  local builddir=$1; shift || return $?
+  [[ -z $builddir || ! -e $builddir ]] && print -u2 - "Abort.  builddir? [$builddir]" && return 1
+  pushd $builddir
+
+  local dist=$1
+  [[ -z $dist ]] && dist=$(make show-dist-git)
+  local x= __f=
+  for x in .tar.bz2 .tar.gz .tar.Z
+  do
+    __f=$dist$x 
+    if [[ -e $__f ]];then
+      # : ${(P)__v::=$builddir/$__f}
+      set -A $__v $builddir $dist $x
+      break
+    fi
+    __f=
+  done
+  popd
+  [[ -z $__f ]] && print -u2 - "Cannot find archive [$dist]" && return 1
+  return 0
+}
+
+main ()
+{
+  local builddir=$1 srcdir=$2 dist=$3
+
+  [[ -z $builddir ]] && builddir=.
+  local abs_builddir=${builddir:A}
+  if [[ -z $srcdir ]];then
+    srcdir=$bindir:h:h
+  fi
+  local treeid=$srcdir/TreeID
+  [[ ! -e $treeid ]] && print -u2 - "Abort.  No $treeid." && return 1
+  . $treeid
+
+  local tarp=
+  get_tarf tarp $builddir $dist || return $?
+  # print - $tarf
+
+  local taropts=
+  case $tarp[3] in
+  (*.bz2) taropts=j;;
+  (*)     taropts=z;;
+  esac
+
+  local tarf=$tarp[1]/$tarp[2]$tarp[3]
+  local xlist=
+  xlist=($(tar ${taropts}tf $tarf |
+               sed -e 's@[^/]*/@@' -e '/~$/d')) || return $?
+  cd $srcdir
+  xlist=($(git ls-files --others $xlist) )
+  xlist=(${xlist%%*~})
+  xlist=(${xlist:#TreeID})
+  tar ${taropts}cf ${abs_builddir}/$tarp[1]/${tarp[2]}_ign$tarp[3] $xlist
+
+  return $?
+}
+
+main "$@"
+exit $?

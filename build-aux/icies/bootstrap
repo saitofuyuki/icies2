@@ -1,0 +1,53 @@
+#!/bin/sh
+# Time-stamp: <2020/09/17 18:29:18 fuyuki bootstrap>
+# Copyright: 2011--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+d=`dirname $0`
+
+MAGIC='It was a dark and stormy night'
+
+if test "$1" = "$MAGIC"; then
+  :
+else
+  cat <<EOF >&2
+-----------------------------------
+ bootstrap for IcIES-2 preparation
+-----------------------------------
+This script calls sequentially two scripts to construct some
+(hopefully) useful files on clean resources obtained from, e.g., git
+repository.  Mostly you do not have to run this script, in particular,
+when you obtain the resources as a tar archive file.
+
+  $d/tree-all - generate TreeID file which records current git hash id
+  $d/auto-all - generate Makefile.am's from Makefile.tmpl's, and run 'autoreconf'
+
+In case you doubt, please confirm the scripts.
+
+If you are sure, 'rerun' this script with a magic argument:
+
+   $0 '$MAGIC'
+
+Note that you may need to quote the argument to be interpreted as single.
+
+Optionally, you may run the following script directly to enable automatic updates
+of TreeID file using git hook system:
+
+  $d/hooks-all - install files in $d/icies/hooks
+
+----------------------------------------
+$0: Aborted
+----------------------------------------
+EOF
+  exit 1
+fi
+
+echo "$0: start..."
+for c in tree-all auto-all
+do
+  c=$d/$c
+  test -x $c && $c $@
+done
+echo "$0: done"
+exit 0

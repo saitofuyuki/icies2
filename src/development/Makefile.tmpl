@@ -1,0 +1,40 @@
+# src/development/Makefile.tmpl --- IcIES/Development Makefile.am template
+# Maintainer:  SAITO Fuyuki
+# Created: Nov 2 2011
+# Revision:  Snoopy0.9
+# Time-stamp: <2020/09/15 11:03:00 fuyuki Makefile.tmpl>
+
+# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+libicies_local_la_ORIGINS	=	danntr.F denvms.F \
+								dbstrp.F dpathn.F dmpims.F dlogms.F dvioms.F \
+								ddroot.F
+
+LIB_DEPEND_DIRS	=	unison
+
+EXTRA_DIST = dvainc.F dvainc.m4 ##%% a
+
+dvioms.f: dvainc.F
+
+BUILT_SOURCES	=	dvainc.F
+MAINTAINERCLEANFILES = dvainc.F ##%% a
+
+CREATE_DVAINC = $(AUTOM4TE) -l M4sugar -o $@ $<
+if MAINTAINER_MODE
+# always try to build when maintainer-mode
+dvainc.F: dvainc.m4
+	$(CREATE_DVAINC)
+else
+dvainc.F: dvainc.m4
+	@if test -f $@; then \
+       echo keep $@; \
+    elif -f $(srcdir)/$@; then \
+       $(CP) $(srcdir)/$@ $@; \
+    else $(CREATE_DVAINC); fi
+endif
+
+### Local Variables:
+### mode: makefile-automake
+### end:

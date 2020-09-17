@@ -1,0 +1,25 @@
+================
+ IcIES-2/README
+================
+
+This is Ice sheet model for Integrated Earth system Studies II (IcIES-2), a three-dimensional
+numerical ice-sheet model that is developed under collaboration between Japan Agency for
+Marine-Earth Science and Technology (JAMSTEC) and Atmosphere and Ocean Research Institute,
+University of Tokyo (AORI).
+
+The Ice sheet model for Integrated Earth system Studies (the original IcIES, hereafter referred to
+as IcIES-1) is another numerical ice-sheet model which has been developed under the same
+collaboration.  As a successor of IcIES-1, IcIES-2 partially inherits the philosophy of IcIES-1,
+however, IcIES-2 is a completely different model that has been developed from a scratch.  IcIES-2
+shares nothing with IcIES-1, including source codes, scripts, documents, and also the license and
+policy.  Please do not mixture IcIES-2 and IcIES-1.
+
+In all of the resources in this package, a word `IcIES' indicates IcIES-2 even without the suffix,
+while IcIES-1 is always explicitly mentioned.
+
+IcIES-2 is licensed under the Apache License, Version 2.0.
+See LICENSE for license information.
+See NOTICE for copyright information.
+See AUTHORS for authors and contributors.
+See INSTALL-icies2 for specific installation instructions for IcIES-2.
+See INSTALL for generic installation instructions.

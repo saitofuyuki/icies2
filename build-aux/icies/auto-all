@@ -1,0 +1,49 @@
+#!/bin/sh
+# Maintainer: SAITO Fuyuki
+# Time-stamp: <2020/09/15 13:10:57 fuyuki auto-all>
+# Package: IcIES-2
+# Copyright: 2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+bindir=$(dirname "$0")
+top_srcdir=${bindir}/../..
+
+while test $# -gt 0
+do
+  case $1 in
+  -f) force=-f;;
+  -v) verbose=--verbose;;
+  -*) echo "Invalid argument $1." >&2; exit 1;;
+  esac
+  shift
+done
+
+# Makefile.am generation
+
+mkmkam=$bindir/mkmkam
+tmpl=Makefile.tmpl
+am=Makefile.am
+dir=.
+
+find $dir -name $tmpl |\
+  while read -r fs
+  do
+    ft=$(dirname "$fs")/$am
+    if test x"$force" = x  -a  -e "$ft"  -a  "$ft" -nt "$fs"; then
+      echo "skip to generate $ft." >&2
+    else
+      echo "generate $ft from $fs." >&2
+      $mkmkam "$fs"
+    fi
+  done
+
+{ cd $top_srcdir; m4dir=$(pwd)/build-aux/m4; }
+
+if test -d "$m4dir"; then
+  autoreconf $verbose -i -I "${m4dir}"
+else
+  echo "$0: autotools disabled (not found $m4dir)" >&2
+  echo "$0: You may run \`autoreconf -i' manually (which may fail)." >&2
+  exit 1
+fi

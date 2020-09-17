@@ -1,0 +1,163 @@
+#!@ZSH@ -f
+# Maintainer:  SAITO Fuyuki <saitofuyuki@jamstec.go.jp>
+# Time-stamp: <2020/09/15 16:15:53 fuyuki dev_insert.sh.in>
+# Copyright: 2016--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_.[dev]
+###_   , dev_help
+dev_help ()
+{
+  print - "IcIES/development utilitiy"
+  print - "  -t TOP      output top directory"
+  print - "  -c          copy executable"
+  print - "  -r RUN      run name"
+  print - "  -w TYPE     work-dir type"
+}
+###_   , dev_parser
+dev_parse ()
+{
+  if    [[ $1 == -i ]];then
+    DEV[w]=0
+  elif  [[ $1 == -s ]];then
+    : ${(P)2::='r:w:t:c'}
+  elif  [[ $1 == -p ]];then
+    dev_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    case $name in
+    (c) DEV[$name]=T;;
+    (*) DEV[$name]=$arg;;
+    esac
+  fi
+  return 0
+}
+###_   , dev_parse_post
+dev_parse_post ()
+{
+  [[ $VERBOSE -gt 1 ]] && print -u2 "($0)"
+
+  local p= d=
+  [[ -z $DEV[t] ]] && DEV[t]='O'
+
+
+  if [[ $DEV[w] == 0 ]];then
+    local b=$pbase
+    [[ -n $DEV[r] ]] && b=$b/$DEV[r]
+
+    local i=$DEV[t]/$b u=$DEV[t]/$b/u
+    DEV[dir/0]=.
+    DEV[dir/1]=$i
+    for p in p r i g
+    do
+      DEV[dir/$p]=$u/$p
+    done
+    for p in O L V
+    do
+      DEV[dir/$p]=$i/$p
+    done
+  elif [[ $DEV[w] == 1* ]];then
+    ## no EXE
+    local b=$DEV[r]
+    local i=$DEV[t]/$b
+    local u=$i/u
+    DEV[tag/s]='%[S3]'
+    DEV[dir/0]=.
+    DEV[dir/1]=$i
+    for p in p r i g
+    do
+      DEV[dir/$p]=$u/$p
+    done
+    [[ $DEV[w] == 1s ]] && DEV[dir/g]=$i
+    for p in O L V
+    do
+      DEV[dir/$p]=$i/$p
+    done
+  fi
+  local mkdirs=
+  for p in ${(ko)DEV}
+  do
+    ## print -u2 "($p) $DEV[$p]"
+    [[ $p == dir/* ]] || continue
+    d=$DEV[$p]
+    [[ $p == dir/0 ]] || d=${DEV[dir/0]:-.}/$d
+    [[ $VERBOSE -gt 1 ]] && print -u2 "($0) directory[$p]: $d"
+    if [[ -n $d && $d:A != $PWD:A ]];then
+      if [[ -z $FORCE ]];then
+        if [[ -e $d ]];then
+          [[ -n ${(M)mkdirs:#${d:A}} ]] && continue
+          print -u2 "($0) already exists [$d], abort."
+          return 1
+        else
+          @MKDIR_P@ $d
+        fi
+      else
+        @MKDIR_P@ $d
+      fi
+      mkdirs=($mkdirs $d:A)
+    fi
+  done
+  return $?
+}
+###_   , dev_init
+dev_init ()
+{
+  if [[ -z ${(t)DEV} ]];then
+    typeset -gA DEV
+
+    zui_init || exit $?
+
+    zui_help  add    D dev_help   || exit $?
+    zui_parse append D dev_parse  || exit $?
+  fi
+  return 0
+}
+
+###_ , dev_check_exec
+dev_check_exec ()
+{
+  local __n=$1; shift || return 1
+  local __b=$1
+  if [[ -n $DEV[c] ]];then
+    local __c=$DEV[dir/i]/$__b:t
+    cp $__b $__c
+    __b=$__c
+  fi
+  : ${(P)__n::=$__b}
+  return 0
+}
+
+###_ , dev_sysin_entry_run
+dev_sysin_entry_run ()
+{
+  local cargs; cargs=("$@")
+  print -n " &NICARG"
+  print -n " X = '$xbin',"
+  print -n " A = '$cargs',"
+  print    " &END"
+  return 0
+}
+
+###_ , dev_create_sysin
+dev_create_sysin ()
+{
+  local sysin=$1
+  shift || return $?
+  print - " &NIDMBS KCHECK = 1, FILE = '$sysin' &END"
+
+  dev_sysin_entry_run "$@"
+
+  if [[ -n $DEV[r] ]];then
+    print - " &NIDPTV TAG = 'RUN', VALUE='$DEV[r]', &END"
+  fi
+  if [[ -n $DEV[t] ]];then
+    print - " &NIDPTV TAG = 'TOP', VALUE='$DEV[t]', &END"
+  fi
+  if [[ -n $DEV[tag/s] ]];then
+    print - " &NIDPTV TAG = 'SUB', VALUE='$DEV[tag/s]', &END"
+  fi
+
+  return 0
+}

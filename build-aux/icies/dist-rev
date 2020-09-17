@@ -1,0 +1,29 @@
+#!/usr/bin/zsh -f
+# Time-stamp: <2020/09/15 12:23:17 fuyuki dist-rev>
+# Copyright: 2017--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+COMMIT=$1
+[[ -z $COMMIT ]] && COMMIT=HEAD
+
+top_srcdir=$(git rev-parse --show-toplevel)
+rev=$(git rev-parse $COMMIT)
+
+tmpdir=dr$$
+
+git clone -n $top_srcdir $tmpdir
+
+bdir=$PWD:a
+
+pushd $tmpdir
+git checkout $rev
+./build-aux/icies/bootstrap
+./configure --enable-maintainer-mode
+make dist-git
+
+af=$(make -s show-archives-git)
+mv $af $bdir
+
+popd
+rm -rf $tmpdir

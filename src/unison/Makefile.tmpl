@@ -1,0 +1,22 @@
+# src/unison/Makefile.tmpl --- IcIES/Unison Makefile.am template
+# Maintainer:  SAITO Fuyuki
+# Created: Nov 2 2011
+# Revision:  Snoopy0.9
+# Time-stamp: <2020/09/15 11:02:19 fuyuki Makefile.tmpl>
+
+# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+libicies_local_la_ORIGINS = ufortw.F \
+							udbgst.F ustrmn.F \
+							uarmpi.F ukvtbl.F \
+							ueaoms.F utmplm.F uuioms.F usymch.F \
+							unmlem.F uxunit.F uxhcal.F uvclst.F \
+							uprfem.F
+
+CLEANFILES = fort.* ##%% a
+
+### Local Variables:
+### mode: makefile-automake
+### end:

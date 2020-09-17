@@ -1,0 +1,137 @@
+%% automatically generated
+\documentclass[a4paper,10pt]{article}
+\usepackage{fullpage}
+
+\usepackage{xifthen}
+\usepackage[T1]{fontenc}
+\usepackage[ansinew]{inputenc}
+\usepackage[hiresbb]{graphicx}
+\usepackage{grffile}
+\usepackage[sub]{psfragx}
+\usepackage{color}
+\pagestyle{empty}
+\usepackage{siunitx}
+\sisetup{detect-all}
+\usepackage{bropd}
+\usepackage{tikz}
+\makeatletter
+\let\filename@simple\grffile@filename@simple
+\makeatother
+% \newcommand{\REPL}[2][]{{\LARGE\sffamily\bfseries #2}\small\texttt{#1}}
+\newcommand{\REPL}[2][]{%
+  \setkeys*[SF]{base,coor,leg}{C,A,Ap,B,t,T,P,k,#1}\Insert{#2}}
+\newcommand{\Percent}{\%}
+
+\usepackage{xkeyval}%      \define@cmdkey
+\usepackage{xargs}%        \newcommandx
+\usepackage{xstring}
+\usepackage{etoolbox}
+%\usepackage{stringstrings}
+\usepackage{trimspaces}
+
+% \newcommand{\InsertIfNotEmpty}[2][]{\ifthenelse{\equal{#2}{}}{}{#1#2}}
+% \newcommand{\CallIfNotEmpty}[2]{\ifthenelse{\equal{#2}{}}{}{#1{#2}}}
+
+\newcommand{\InsertIfNotEmpty}[2][]{\IfStrEq{#2}{}{}{#1#2}}
+\newcommand{\CallIfNotEmpty}[2]{\IfStrEq{#2}{}{}{#1{#2}}}
+\newcommand{\AppendIfNotEmpty}[2][]{\ifblank{#2}{}{{#2}{#1}}}
+
+\makeatletter
+
+\def\Var@A{\ensuremath{\mathcal{A}}}
+\def\Var@L{\ensuremath{\lambda}}
+\def\Var@Lm{\ensuremath{\lambda}}
+\def\Var@d{Depth}
+\def\Var@D{Normalized depth}
+\def\Var@za{\ensuremath{z}}
+\def\Var@dAdza{\ensuremath{\mathcal{A^{\prime}}}}
+\def\Var@zb{\ensuremath{\zeta}}
+\def\Var@zc{\ensuremath{\mathsf{Z}}}
+\def\Var@dzb{\ensuremath{\Delta\zeta}}
+\def\Var@dzc{\ensuremath{\Delta\mathsf{Z}}}
+
+\def\Pfx@D{\ensuremath{\Delta}}
+\def\Pfx@R{\ensuremath{\delta}}
+
+\define@cmdkey[SF]{coor}{pt}[]{}
+\define@cmdkey[SF]{coor}{ut}[]{}
+\define@cmdkey[SF]{coor}{lt}[]{}
+
+\define@cmdkey[SF]{base}{format}[N]{}
+\define@cmdkey[SF]{base}{mode}[N]{\SF@base@format{#1}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\def\C@r{RCIP}
+\def\C@m{RCIP+corr}
+\def\C@s{UP-2}
+\def\C@u{UP-1}
+\def\C@n{UP-1n}
+
+\def\T@sol{Benchmark}
+\def\k@sol{Benchmark}
+
+\def\Ap@e{7:1}
+\def\Ap@c{1:1}
+\def\Ap@g{1:7}
+
+\define@cmdkey[SF]{leg}{A}[]{}
+\define@cmdkey[SF]{leg}{B}[]{}
+\define@cmdkey[SF]{leg}{T}[]{}
+\define@cmdkey[SF]{leg}{C}[]{}
+\define@cmdkey[SF]{leg}{P}[]{}
+\define@cmdkey[SF]{leg}{Ap}[]{}
+\define@cmdkey[SF]{leg}{t}[]{}
+\define@cmdkey[SF]{leg}{k}[]{}
+
+\def\InsertUnit#1{\ifx#1\@empty\relax\else\textbf{(\si{#1})}\fi}
+
+% \def\InsertLeg#1{\csname InsertLeg#1\endcsname}
+\def\InsertLeg#1{\csname InsertLeg#1\endcsname}
+\def\InsertLegC{\csname C@\cmdSF@leg@C\endcsname}
+\def\InsertLegT{\csname T@\cmdSF@leg@T\endcsname}
+\def\InsertLegk{\csname k@\cmdSF@leg@k\endcsname}
+
+\def\InsertTime#1{$\SI{#1}{kyr}$\,\,}
+\def\InsertLegt{\CallIfNotEmpty{\InsertTime}{\cmdSF@leg@t}}
+
+\def\InsertAcc#1{$a_{cc}=\SI{#1}{cm~yr^{-1}}$\,\,}
+\def\InsertLegA{\CallIfNotEmpty{\InsertAcc}{\cmdSF@leg@A}}
+
+\def\InsertBml#1{$M_{\mathrm{B}}=\SI{#1}{mm~yr^{-1}}$\,\,}
+\def\InsertLegB{\CallIfNotEmpty{\InsertBml}{\cmdSF@leg@B}}
+
+\def\InsertAp#1{$\mathsf{h:l={\csname Ap@#1\endcsname}}$\,\,}
+\def\InsertLegAp{\CallIfNotEmpty{\InsertAp}{\cmdSF@leg@Ap}}
+
+\expandafter\def\csname P@vii100\endcsname{100}
+\expandafter\def\csname P@vii50\endcsname{50}
+\expandafter\def\csname P@vii25\endcsname{25}
+
+\def\InsertPfx#1{$\Delta t=\SI{\csname P@#1\endcsname}{yr}$}
+\def\InsertLegP{\CallIfNotEmpty{\InsertPfx}{\cmdSF@leg@P}}
+
+\def\Insert@C#1{{\Huge\sffamily\bfseries%
+    \csname Pfx@\cmdSF@coor@pt\endcsname%
+    \csname Var@\cmdSF@coor@lt\endcsname%
+    $\InsertUnit{\cmdSF@coor@ut}$%
+  }}
+\newcommand{\ParseText}[1][]{%
+   \InsertLeg{k}%
+   \InsertLeg{C}\InsertLeg{T}\InsertLeg{P}%
+   \InsertLeg{A}\InsertLeg{Ap}\InsertLeg{B}\InsertLeg{t}%
+}
+
+\def\Insert@L#1{%
+ {\tikz \draw node[anchor=mid,fill=white,inner sep=0pt]
+   {\large\sffamily\bfseries \ParseText};
+ }}
+
+\def\Insert@G#1{%
+ {\tikz \draw node[anchor=mid,fill=white,inner sep=0pt]
+   {\Large\sffamily\bfseries \ParseText};
+ }}
+
+\newcommand{\Insert}[1]{\csname Insert@\cmdSF@base@format\endcsname{#1}}
+
+\makeatother
+\endinput

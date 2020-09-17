@@ -1,0 +1,950 @@
+#!@ZSH@ -f
+# Time-stamp: <2020/09/16 13:46:20 fuyuki xicies_jp.sh.in>
+#
+# Copyright: 2019--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+#---------------------------------------------------------------------- predefined
+typeset -A CFGH CFGM CFGA CFGE CFGW CFGC
+setopt nullglob
+
+thisd=$0:h
+thisx=$0:t
+thisp=$0
+
+## H (thickness m)
+CFGH[a]='1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700 2800 2900 3000 3100 3200 3300 3400 3500'
+CFGH[i]='1000 2000 3000'
+CFGH[j]='1000 2000 3000 4000'
+CFGH[m]='3000 4000'
+CFGH[n]='3000 3000'
+CFGH[q]='2200 3000'
+
+## M (min mass balance ratio)
+CFGM[b]='1 0.75 0.5 0.25 0 -0.25 -0.5 -0.75 -1'
+CFGM[h]='1 0 -1'
+CFGM[k]='1 0.5 0.25 0 -0.25 -0.5 -1'
+CFGM[l]='1 0.5'
+
+CFGM[o]='1 0.5 0.25 0'
+CFGM[p]='1 0.5 0.25'
+
+## A (max mass balance)
+CFGA[v]='0.03 0.024'
+
+##     HSTD:LSTD[:PHASE]  when step
+##     DECR:INCR[:PHASE]  otherwise
+##     HSTD+DECR:LSTD+INCR:DECR:INCR[:PHASE]
+# CFGE=(c 1:1  d 3:1  e 7:1  f 1:3  g 1:7   0  0:1   1 1:0)
+CFGE=(c 1:1  d 3:1  e 7:1  f 1:3  g 1:7   0 1:0 l  0:1   u 1:0)
+
+## W
+CFGW=(const 0   vialov 1  power 2)
+
+## Age
+CFGC=(up1 1:u   rcip 2:r  up2 4:s  modr 5:m   up1n 1:n:0)
+
+typeset -A RECG
+RECG=(VMTI  : VMTA : VMTD : VMHB 100
+      VMHI  : VMHW :
+      VXCFG - VMHR -)
+
+typeset -A GFILV
+GFILV=(VMHB Ms:Mb
+       VMTA age:dad3
+       VMHI oH:oS:oB:nH:nS:nB
+       VMHW Hinv:dHdt:dBdt
+       VMTI wadv:wh:dwdZ)
+
+bpath=($thisd)
+cbase=cnx.sh
+xbase=icies_tgv
+
+ADIR=()
+
+help ()
+{
+  local verbose=$1
+  cat << USAGE
+$thisx - IcIES-2(JP) run script
+
+Usage: $thisp [OPTION]... KEY=CONFIGURATION...
+
+Options:
+   -h          display this help and exit (longer help with multiple -v)
+   -v          increase verbose level
+   -n          dry-run
+   -f          force overwrite (default to preserve)
+   -t  [END][:[DT]][:[REC]]
+               set integration time (END), time step (DT),
+               and/or recording interval (REC)
+   -C  PATH    path to conversion script (cnx.sh)
+   -X  PATH    path to executable (icies_tgv)
+   -x  PREFIX  prefix to output directory
+USAGE
+
+  if [[ $verbose -gt 0 ]]; then
+    cat <<CONFIG
+
+Configuration keys
+ Mandatory
+   A   surface mass balance condition  MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
+         MAX as id for maximum {${(k)CFGA}} or value
+         MIN as id for minimum {${(k)CFGM}}
+         EVOL as id for evolution phasing {${(k)CFGE}}
+         FUNC as id for evolution function {step cosine linear exponential var}
+   B   basal mass balance condition    MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
+   C   numerical scheme for advection solver {${(k)CFGC}}
+   H   thickness condition  REF[:MIN[:EVOL[:DUR[:FUNC]]]]
+         REF as id for reference {${(k)CFGH}}
+   Z   vertical levels  [LEVELS][:[PARAMETER]]
+
+ Optional
+   W   vertical velocity condition (default=vialov) {${(k)CFGW}}
+
+Examples
+  $thisp -t 1000000:100:100000 Z=129 C=rcip A=3cm:k:c:100000:step B=0 H=m
+CONFIG
+  fi
+  if [[ $verbose -gt 1 ]]; then
+    help_config CFGM "id for minimum value (ratio to maximum value)"
+    help_config CFGE "id for evolution phasing (duration ratio to full cycle)"
+    help_config CFGH "id for reference thickness"
+  fi
+  return 0
+}
+
+help_config ()
+{
+  local __cfg=$1; shift
+  local -A cfg=()
+  set -A cfg "${(@Pkv)__cfg}"
+  print -
+  [[ $# -gt 0 ]] && print -l - "$@"
+  local k= v=
+  for k in ${(ok)cfg}
+  do
+    v="$cfg[$k]"
+    print - "   $k:   $v"
+  done
+}
+#---------------------------------------------------------------------- driver
+main ()
+{
+  local tmpa=
+  local tcfg=3000000
+  local GRPS=VMTA:VMTD:VXCFG:VMHB:VMTI:VMHR:VMHI:VMHW
+  local xpfx=
+  local force=
+  local args=("$@")
+  local dry=
+  local verbose=0 help=
+  while [[ $# -gt 0 ]]
+  do
+    case $1 in
+    (-v)   let verbose++;;
+    (-vv)  verbose=2;;
+    (-vvv) verbose=3;;
+    (-n)  dry=$1;;
+    (-h)  help=T;;
+    (-f)  force=T;;
+    (-t)  tcfg=$2; shift;;
+    (-t*) tcfg=${1: 2};;
+    (-G)  GRPS=$2; shift;;
+    (-G*) GRPS=${1: 2};;
+    (-C)  xcnx=$2; shift;;
+    (-C*) xcnx=${1: 2};;
+    (-X)  xicies=$2; shift;;
+    (-X*) xicies=${1: 2};;
+    (-x)  xpfx=$2; shift;;
+    (-x*) xpfx=${1: 2};;
+    (-A)  ADIR+=($2); shift;;
+    (-A*) ADIR+=(${1: 2});;
+    (*) break;;
+    esac
+    shift
+  done
+  [[ $# -eq 0 || -n $help ]] && help $verbose && return 0
+
+  local p=
+  if [[ -z $xicies ]]; then
+    local grp= ncf=
+    for p in $bpath
+    do
+      xicies=$p/$xbase
+      [[ -e $xicies ]] && break
+    done
+  fi
+  xicies=${xicies:a}
+  [[ ! -x $xicies ]] && print -u2 - "$thisx: not found $xicies." && return 1
+
+  if [[ -z $xcnx ]]; then
+    for p in $bpath
+    do
+      xcnx=$p/$cbase
+      [[ -e $xcnx ]] && break
+    done
+  fi
+  xcnx=${xcnx:a}
+  [[ ! -x $xcnx ]] && print -u2 - "$thisx: netcdf conversion disabled." && xcnx=
+
+  ########## parse times  -t [END][:[DT][:[REC]]]
+  tcfg=("${(@s/:/)tcfg}" '' '')
+  local tend=$tcfg[1]; shift tcfg
+  local dt=${tcfg[1]:-10}; shift tcfg
+  local rect=$tcfg[1]
+  if [[ -z $rect ]];then
+    local odr=$((tend / 1000))
+    rect=1
+    while [[ $rect -lt $odr ]]
+    do
+      rect=$((rect * 10))
+    done
+  elif [[ $rect[1] == '@' ]];then
+    rect=$((tend / ${rect: 1} ))
+  fi
+  [[ $rect -lt $dt ]] && rect=$dt
+  local TEND=$((tend+dt))
+  ########## parse groups
+  local grps= gtmp=
+  for grps in ${(s/:/)GRPS}
+  do
+    grps=(${(s/,/)grps})
+    [[ -n $grps[2] ]] && RECG[$grps[1]]=$grps[2]
+    gtmp=($gtmp $grps[1])
+  done
+  GRPS=($gtmp)
+
+  ########## parse configuration
+  local cfgw=vialov cfba= cfgb= cfgh= cfgz= cfgc=
+
+  local k= v=
+  while [[ $# -gt 0 ]]
+  do
+    case $1 in
+    (*=*)
+      k=${1%=*}
+      v=${1#*=}
+      case $k in
+      (H) cfgh=$v;;
+      (Z) cfgz=$v;;
+      (A) cfga=$v;;
+      (B) cfgb=$v;;
+      (C) cfgc=$v;;
+      (W) cfgw=$v;;
+      (*) print -u2 - "$thisx: unknown config key $k"; return 1;;
+      esac
+      ;;
+    (*) break;;
+    esac
+    shift
+  done
+  # parse W   TYPE[:PARAMETER]
+  local idw=
+  v=("${(@s/:/)cfgw}"); k=$v[1]; shift v
+  if [[ -z $CFGW[$k] ]];then
+    print -u2 "$thisx: unknown configuration (W) $cfgw"
+    return 1
+  fi
+  idw=$k[1]${(j:_:)v[1]}
+  cfgw=${CFGW[$k]}:${v[1]:--}
+
+  # parse Z   [NLEV][:][PARAMETER]
+  local idz=
+  [[ -z $cfgz ]] && print -u2 "$thisx: need Z configuration." && return 1
+  v=("${(@s/:/)cfgz}"); k=$v[1]; shift v
+  if [[ $k[1] =~ [0-9] ]];then
+    cfgz=${k}:${v[1]:--}
+    idz=${k}$v[1]
+  else
+    cfgz=:${k}
+    idz=$k
+  fi
+
+  # parse H  REFid[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
+  local idh= iddur= cfgdur=
+  [[ -z $cfgh ]] && print -u2 "$thisx: need H configuration." && return 1
+  v=("${(@s/:/)cfgh}"); k=$v[1]; shift v
+  if [[ -z $CFGH[$k] ]];then
+    print -u2 "$thisx: unknown configuration (H) $cfgh"
+    return 1
+  fi
+  idh=${k}${v[1]}
+  gen_durid iddur cfgdur ${v: 1} || return $?
+  idh=${idh}$iddur
+  cfgh=${k}:${v[1]:-$k}:${cfgdur}
+
+  # parse A  MAX[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
+  #          MAXid[:file[:EFUNC[:id]]]]
+  local ida= maxm=
+  [[ -z $cfga ]] && print -u2 "$thisx: need A configuration." && return 1
+  v=("${(@s/:/)cfga}" '' '' '' ''); k=$v[1]; shift v
+  ida=$k
+  if [[ -n $CFGA[$k] ]]; then
+    cfga=$k
+  else
+    maxm=$(units -t -- $k m) || return $?
+    cfga=${maxm}
+  fi
+  k=$v[1]; shift v
+  if [[ -e $k ]]; then
+    afile=$k
+    efunc=$v[1]; shift v
+    k=$v[1]
+    [[ -z $k ]] && k=x
+    ida=$ida$k
+    iddur= cfgdur=
+    case $efunc in
+    (s*) iddur=s cfgdur=5;;
+    (*) print -u2 - "$thisx: unknown efunc $efunc"; exit 1;;
+    esac
+    ida=$ida$iddur
+    cfga=$cfga:${afile:a}:0:0:$cfgdur
+  else
+    ida=$ida$k
+    if [[ -z $k ]];then
+      cfga=${cfga}:$maxm
+    elif [[ -z $CFGM[$k] ]];then
+      print -u2 "$thisx: unknown configuration (A) $cfga"
+      return 1
+    else
+      cfga=${cfga}:$k
+    fi
+    gen_durid iddur cfgdur ${v} || return $?
+    ida=${ida}$iddur
+    cfga=$cfga:${cfgdur}
+  fi
+
+  # parse B MAX[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
+  local idb= maxm=
+  [[ -z $cfgb ]] && cfgb=0
+  v=("${(@s/:/)cfgb}" '' '' '' ''); k=$v[1]; shift v
+  if [[ $k == 0 ]]; then
+    maxm=0
+  else
+    maxm=$(units -t -- $k m) || return $?
+    maxm=-$maxm
+  fi
+  idb=$k
+  cfgb=${maxm}
+  k=$v[1]; shift v
+  idb=$idb$k
+  if [[ -z $k ]]; then
+    cfgb=${cfgb}:${maxm}
+  elif [[ -z $CFGM[$k] ]];then
+    print -u2 "$thisx: unknown configuration (B) $cfgb"
+    return 1
+  else
+    cfgb=$cfgb:${k}
+  fi
+  gen_durid iddur cfgdur ${v} || return $?
+  idb=${idb}$iddur
+  cfgb=$cfgb:${cfgdur}
+
+  # parse C
+  [[ -z $cfgc ]] && print -u2 "$thisx: need C configuration." && return 1
+  v=("${(@s/:/)cfgc}"); k=$v[1]; shift v
+  if [[ -z $CFGC[$k] ]];then
+    print -u2 "$thisx: unknown configuration (C) $cfgc"
+    return 1
+  fi
+  cfgc=(${(s/:/)CFGC[$k]})
+  local idc=$cfgc[2] cadv=$cfgc[3]
+  cfgc=$cfgc[1]
+
+  # diag
+  print -u2 - "##  Configuration"
+  print -u2 - "W: $idw $cfgw"
+  print -u2 - "Z: $idz $cfgz"
+  print -u2 - "H: $idh $cfgh"
+  print -u2 - "A: $ida $cfga"
+  print -u2 - "B: $idb $cfgb"
+  print -u2 - "C: $idc $cfgc $cadv"
+
+  local xdir=${xpfx:-ox}.W${idw}_H${idh}_A${ida}_B${idb}_Z${idz}_C${idc}.${xsfx:-00}
+  print -u2 - "output: $xdir"
+
+  for a in $ADIR
+  do
+    if [[ ${a: -2} == // ]]; then
+      a=(${a} ${a}*(/))
+    fi
+    for a in $a
+    do
+      [[ -e $a/$xdir ]] && print -u2 "$thisx: archived ($a/$xdir)." && return 0
+    done
+  done
+  [[ -e $xdir && -n $force ]] && print -u2 "$thisx: force overwrite $xdir." && rm -rf $xdir
+  [[ -e $xdir ]] && print -u2 "$thisx: already exists $xdir" && return 1
+
+  mkdir -p $xdir
+  cp $xicies $xdir
+  cd $xdir
+  local sysin=sysin
+
+  gen_sysin $sysin "$cfgw" "$cfgz" "$cfgh" "$cfga" "$cfgb" "$cfgc:$cadv" || return $?
+
+  if [[ -n $dry ]]; then
+    print -u2 - "$thisx: dry-run: ${xdir}"
+    return 0
+  fi
+  local udir=u
+  mkdir $udir
+  mkdir O V L
+  ( time ./${xicies:t} < $sysin > $udir/output ) 2> $udir/error
+
+  if [[ -n $xcnx ]]; then
+    local grp= ncf=
+    for grp in $GRPS
+    do
+      ncf=${grp:l}.nc
+      $xcnx -f -G $grp -F $ncf L/vrep.000*
+    done > $udir/log.cnx 2>&1
+  fi
+
+  return 0
+}
+
+gen_durid ()
+{
+  local __vi=$1; shift
+  local __vc=$1; shift
+  if [[ $# -eq 0 ]];then
+    : ${(P)__vi::=}
+    : ${(P)__vc::=0:0:0}
+    return 0
+  fi
+  if [[ $# -ne 3 ]];then
+    print -u2 "$thisx: invalid duration setting $@."; return 1
+  fi
+  local k=$1 d=$2 t=$3
+  [[ -z $CFGE[$k] ]] && print -u2 "$thisx: unknown evolution switch $k" && return 1
+  local __id=$k
+  local __d=$d
+  for yu yf in m 1000000  k 1000
+  do
+    if [[ $((d % yf)) -eq 0 ]];then
+      __d=$((d / yf))$yu
+      break
+    fi
+  done
+  __id=${k}${__d}$t[1]
+  case $t in
+  (s*) t=1;;
+  (c*) t=2;;
+  (l*) t=3;;
+  (e*) t=4;;
+  (v*) t=5;;
+  (*)    print -u2 - "$thisx: invalid evolution pattern $t"; return 1;;
+  esac
+  : ${(P)__vi::=$__id}
+  : ${(P)__vc::=$k:$d:$t}
+  return 0
+}
+
+gen_sysin ()
+{
+  local sysin=$1; shift || return $?
+  local k= v=
+  for k in cfgw cfgz cfgh cfga cfgb cfgc
+  do
+    v=$1
+    local $k=
+    set -A $k "${(@s/:/)v}"
+    print -u2 "$thisx: $k: ${(@q-P)k}"
+    shift || return $?
+  done
+
+  local CROOT=${CROOT:-ID}
+
+  if [[ x${sysin:--} == x- ]]; then
+    exec 3>&1
+  else
+    exec 3> $sysin
+  fi
+  print -u3 - " &NIDMBS KCHECK=1, FILE='$sysin' &END"
+  print -u3 - " &NICARG X='$cmd ${args}', &END"
+  print -u3 - " &NIDPTV TAG='TOP', VALUE='.', &END"
+  print -u3 - " &NIDPTV TAG='SUB', VALUE='%[S3]', &END"
+  print -u3 - " &NILOGC CH='V', ROOT='vrep', &END"
+  print -u3 - " &NITPMS KTEST=-1, WLX=100, WLY=0, DGL=, &END"
+  print -u3 - " &NITPMI CROOT='$CROOT', KSW=0, ACC=0.3d0, HINI=0.0d0, &END"
+  print -u3 - " &NIPRMD &END"
+  print -u3 - " &NIPRMS &END"
+
+  # time
+  print -u3 - " &NITMMD CROOT='$CROOT', TINI=0, TEND=$TEND, DT=$dt, TSSA=$TEND, &END"
+
+  # geometry
+  local htag=$cfgh[1] atag=$cfga[2] btag=$cfgb[2]
+  local htagm=$cfgh[2]
+  local H=(${=CFGH[$htag]})
+  local mbu=$cfgb[1] mbl= msu=$cfga[1] msl=
+  local A=
+  local isfx= axfile=
+  if [[ -e $atag ]]; then
+    [[ -z $CFGA[$msu] ]] && return 1
+    axfile=$atag
+    A=(${=CFGA[$msu]})
+    isfx=A$msu
+    mbl= msl=
+  elif [[ -n $CFGM[$btag] ]]; then
+    mbl=$cfgb[2]
+    A=(${=CFGM[$btag]})
+    isfx=B$btag
+  elif [[ -n $CFGM[$atag] ]]; then
+    msl=$cfga[2]
+    A=(${=CFGM[$atag]})
+    isfx=A$atag
+  else
+    print -u2 "$thisx: either a($atag) or b($btag) can be set as transient."
+    return 1
+  fi
+
+  local NXG=$#H NYG=$#A
+  local WX=$((NXG-1)) WY=$((NYG-1))
+
+  print -u3 - " &NIGEOM CROOT='$CROOT', CKIND='X', O=0.0d0, T='R', W=$WX, WN=-1, &END"
+  print -u3 - " &NIGEOM CROOT='$CROOT', CKIND='Y', O=0.0d0, T='R', W=$WY, WN=-1, &END"
+  print -u3 - " &NIEDLA CROOT='$CROOT', KDL=3,"
+  print -u3 - "         NXG=$NXG, NYG=$NYG, NR=${NR:-1},"
+  print -u3 - "         LXB=1, LYB=1, LXO=0, LYO=0, LXW=0, LYW=0, ISH=1, &END"
+
+  # geometry Z
+  arp_ag_create_sysin_z $CROOT "${(@)cfgz}" >&3
+
+  # scheme
+  local kaadvl=
+  [[ -n $cfgc[2] ]] && kaadvl="KAADVL=$cfgc[2], "
+  print -u3 - " &NIMSWD MSW=0, MINI=0, KAGEC=$cfgc[1], ${kaadvl}&END"
+
+  # initialization
+  local DIMS="$NXG,$NYG"
+
+  local grp=
+  for grp in VMI VMTI VMHI VMHB VXCFG
+  do
+    print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='*', COOR='*', FMT='SKIP', &END"
+  done
+
+  local iniH=./iniH_H${htag}${isfx}.dat
+  local vm= vh=
+  for vm in $A
+  do
+    print -l $H
+  done > $iniH
+  local hmaxf=$iniH hminf=
+  if [[ $htag == $htagm ]];then
+    hminf=$hmaxf
+  else
+    hminf=./iniH_H${htagm}${isfx}.dat
+    for vm in $A
+    do
+      print -l ${=CFGH[$htagm]}
+    done > $hminf
+  fi
+
+  local msminf= mbminf= msmaxf=
+  if [[ -z $mbl$msl ]]; then
+    msmaxf=./msmax_H${htag}${isfx}.dat
+    for vm in $A
+    do
+      for vh in $H
+      do
+        print "$vm"
+      done
+    done > $msmaxf
+  elif [[ -z $mbl ]]; then
+    msminf=./msmin_H${htag}${isfx}.dat
+    for vm in $(print -l $A | gmt math STDIN -Ca $msu MUL =)
+    do
+      for vh in $H
+      do
+        print "$vm"
+      done
+    done > $msminf
+  elif [[ -z $msl ]]; then
+    mbminf=./mbmin_H${htag}${isfx}.dat
+    for vm in $(print -l $A | gmt math STDIN -Ca $mbu MUL =)
+    do
+      for vh in $H
+      do
+        print "$vm"
+      done
+    done > $mbminf
+  fi
+
+  nml_input $CROOT VMHI  oH    ID.Ha 0.0d0 $iniH   $DIMS || return $?
+  nml_input $CROOT VMHI  oB    ID.Ha 0.0d0              || return $?
+  # nml_input $CROOT VMHR  refMs ID.Ha $msu               || return $?
+
+  nml_input $CROOT VXCFG hmax  ID.Ha 0.0d0 $hmaxf  $DIMS || return $?
+  nml_input $CROOT VXCFG hmin  ID.Ha 0.0d0 $hminf  $DIMS || return $?
+  if [[ -n $msmaxf ]]; then
+    nml_input $CROOT VXCFG msmax ID.Ha 0.0d0 $msmaxf $DIMS || return $?
+    nml_input $CROOT VXCFG msmin ID.Ha 0.0d0 || return $?
+    nml_input $CROOT VXCFG mbmax ID.Ha $mbu || return $?
+    nml_input $CROOT VXCFG mbmin ID.Ha $mbu || return $?
+  elif [[ -z $mbl ]]; then
+    nml_input $CROOT VXCFG msmax ID.Ha $msu                || return $?
+    nml_input $CROOT VXCFG msmin ID.Ha 0.0d0 $msminf $DIMS || return $?
+    nml_input $CROOT VXCFG mbmax ID.Ha $mbu || return $?
+    nml_input $CROOT VXCFG mbmin ID.Ha $mbu || return $?
+  elif [[ -z $msl ]]; then
+    nml_input $CROOT VXCFG msmax ID.Ha $msu || return $?
+    nml_input $CROOT VXCFG msmin ID.Ha $msu || return $?
+    nml_input $CROOT VXCFG mbmax ID.Ha $mbu || return $?
+    nml_input $CROOT VXCFG mbmin ID.Ha 0.0d0 $mbminf $DIMS || return $?
+  fi
+
+  # experiment setting
+  print -u3 - " &NITGVB"
+  nml_tgvb -u3 MS "${(@)cfga: 2}" || return $?
+  nml_tgvb -u3 MB "${(@)cfgb: 2}" || return $?
+  nml_tgvb -u3 DH "${(@)cfgh: 2}" || return $?
+  print -u3 -n " KWTYP=$cfgw[1],"
+  [[ x${cfgw[2]:--} != x- ]] && print -u3 -n " WPOWER=$cfgw[2],"
+  [[ -n $axfile ]] && print -u3 -n " FILEMS='$axfile',"
+  print -u3 - " &END"
+
+  # output
+  print -u3 - " &NIAFWR CROOT='$CROOT', GROUP=' ', DT=$rect, KSW=-9, &END"
+
+  local grp= gdt= ksw= gv=
+  for grp in $GRPS
+  do
+    gdt=$RECG[$grp]
+    case $gdt in
+    (:) gdt='';;
+    (-) gdt="DT=$TEND,";;
+    ('') gdt='';;
+    (*)  [[ $gdt -lt $dt ]] && gdt=$dt
+         gdt="DT=$gdt,";;
+    esac
+    ksw=+1
+    [[ -n $GFILV[$grp] ]] && ksw=-1
+    print -u3 - " &NIAFWR CROOT='$CROOT', GROUP='$grp', ${gdt} KSW=$ksw, &END"
+    for gv in ${(s/:/)GFILV[$grp]}
+    do
+      print -u3 - " &NIAVFL CROOT='$CROOT', GROUP='$grp', VAR='$gv', KSW=+1, &END"
+    done
+  done
+
+  exec 3>&-
+  return 0
+}
+
+nml_tgvb ()
+{
+  local opts=$1; shift || return $?
+  local vtag=$1;  shift || return $?
+  local etag=$1 dur=$2 type=$3
+
+  local evt=(${(s/:/)CFGE[$etag]})
+  local hdec= decr= linc= incr= hstd= lstd= phs=
+  local yd= yi=
+  if [[ $#evt -le 3 ]]; then
+    chk_unit_dim yd $evt[1] yr
+    chk_unit_dim yi $evt[2] yr
+    if [[ -z $yd && -z $yi ]];then
+      decr=$(gmt math -Q $dur $evt[1] MUL $evt[1] $evt[2] ADD DIV =) || return $?
+      incr=$(gmt math -Q $dur $evt[2] MUL $evt[1] $evt[2] ADD DIV =) || return $?
+      phs=$(gmt math -Q $dur ${evt[3]:-0} MUL $evt[1] $evt[2] ADD DIV =) || return $?
+      hstd=0 lstd=0
+    elif [[ -z $yd ]];then
+      print -u2 "$thisx: not implemented yet $evt"
+      return 1
+    elif [[ -z $yi ]];then
+      print -u2 "$thisx: not implemented yet $evt"
+      return 1
+    else
+      print -u2 "$thisx: not implemented yet $evt"
+      return 1
+    fi
+  else
+    hdec=$evt[1] linc=$evt[2] decr=$evt[3] incr=$evt[4]
+  fi
+
+  local vtag2=
+  case $vtag in
+  (MS) vtag2=S;;
+  (MB) vtag2=B;;
+  (DH) vtag2=H;;
+  esac
+  print -n $opts - " KSW${vtag}P=$type,"
+  print -n $opts - " TDECR${vtag2}=$decr,"
+  print -n $opts - " TINCR${vtag2}=$incr,"
+  print -n $opts - " THSTD${vtag2}=$hstd,"
+  print -n $opts - " TLSTD${vtag2}=$lstd,"
+  print -n $opts - " TPHS${vtag2}=$phs,"
+  print    $opts -
+  return 0
+}
+
+chk_unit_dim ()
+{
+  local __v=$1 __i=$2 __u=$3
+  local __x=
+  if __x=$(units -t -- $__i $__u > /dev/null 2>&1); then
+    : ${(P)__v::=$__x}
+    return 0
+  else
+    ${(P)__v::=}
+    return 1
+  fi
+}
+
+nml_input ()
+{
+  local croot=$1 grp=$2 var=$3 coor=$4; shift 4 || return $?
+  local val=$1 inif=$2 dims=$3
+
+  if [[ -z $inif ]]; then
+    print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='$var', COOR='$coor',"
+    print -u3 - "         VAL=$val, FNM=' ', "
+    print -u3 - "         FMT='CONST', LB=-1, IR=0, &END"
+  elif [[ -z $dims ]];then
+    print -u2 - "$thisx: need dimension for namelist $croot/$grp/$var/$coor."
+    return 1
+  else
+    print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='$var', COOR='$coor',"
+    print -u3 - "         VAL=$val, FNM='$inif', DIMS=$dims, "
+    print -u3 - "         FMT=' ', LB=-1, IR=0, &END"
+  fi
+}
+
+# copy from arp_insert.sh
+arp_ag_create_sysin_z ()
+{
+  local croot=$1
+  local nz=$2 ztyp=$3
+  case $ztyp in
+  (l) :
+      ;;
+  (p1p*)
+      local wtyp=${(M)ztyp%%[ivxn]*}
+      : ${wtyp:=ii}
+      set_weight wtyp $wtyp || return $?
+      local pset=${ztyp%%[ivxn]*}
+      local pb=${pset#p1p}
+      print " &NIGEOZ CROOT='$croot', IPOWER=1,   CWGT=1.0d0,     COFS=0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=$pb, CWGT=$wtyp.0d0, COFS=0.0d0  &END"
+      ;;
+  (e*e*)
+      local wtyp=${(M)ztyp%%[ivx]*}
+      : ${wtyp:=i}
+      local pset=${ztyp%%[ivx]*}
+      local pb=(${(s:p:)pset})
+      pa=$pa[1]; shift pb
+      set_weight wtyp $wtyp || return $?
+      print " &NIGEOZ CROOT='$croot', IPOWER=$pa, CWGT=1.0d0, COFS=-1.0d0, CIFLG='E', &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=$pb, CWGT=$wtyp.0d0, COFS=-1.0d0, CIFLG='E', &END"
+      ;;
+  (e*)
+      local pe=${ztyp#e}
+      print " &NIGEOZ CROOT='$croot', IPOWER=$pe, CWGT=1.0d0, COFS=-1.0d0, CIFLG='E', &END"
+      ;;
+
+  (p2) print " &NIGEOZ CROOT='$croot', IPOWER=2,  CWGT=1.0d0,  COFS=0.0d0  &END"
+       ;;
+  (glimmer)
+      print " &NIGEOZ CROOT='$croot', IPOWER=0,  CWGT=-1.0d0, COFS= 0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=-2, CWGT= 4.0d0, COFS=-2.0d0 &END"
+      ;;
+  (wv3d4)
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1, CWGT = 4.0d0,   COFS =  0.0d0, DNM=16.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 0, CWGT = 12.0d0,  COFS =  0.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1, CWGT = -15.0d0, COFS = -1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 5, CWGT = 3.0d0,   COFS = -1.0d0, &END"
+      ;;
+  (wv3)
+      print " &NIGEOZ CROOT='$croot', IPOWER=0, CWGT=0.0d0,  COFS=0.0d0, DNM=4.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=0, CWGT=4.0d0,  COFS=0.0d0,  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=1, CWGT=-5.0d0, COFS=-1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=5, CWGT=1.0d0,  COFS=-1.0d0, &END"
+      ;;
+  (wv3intg)
+      # : = [- d^6 + 15 d^2 - 24 d + 10] / 10
+      print " &NIGEOZ CROOT='$croot', IPOWER=0, CWGT=0.0d0,  COFS=0.0d0, DNM=10.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=0, CWGT=10.0d0, COFS=-1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=1, CWGT=-24.0d0,COFS=-1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=2, CWGT=15.0d0, COFS=-1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=6, CWGT=-1.0d0, COFS=-1.0d0, &END"
+      ;;
+  (sally)
+      print " &NIGEOZ CROOT='$croot', NLV=11, DXN= 1.d0, DXD=100.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN= 6.d0, DXD=0.0d0   &END"
+      ;;
+  (levtest)
+      print " &NIGEOZ CROOT='$croot', NLV=113, DXN= 1.d0,   DXD=256.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=35,  DXN= 2.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1,  DXN= 4.d0,   DXD=0.0d0 &END"
+      ;;
+  (levdv)
+      ## 1 8192 530 931
+      ## 2 8192 117 931
+      ## 4 8192 85 931
+      ## 8 8192 64 931
+      ## 16 8192 49 931
+      ## 32 8192 39 931
+      ## 64 8192 35 931
+      ## 128 8192 20 931
+      print " &NIGEOZ CROOT='$croot', NLV=9,  DXN= 1.d0, DXD=32.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=7,   DXN= 2.d0, DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1,  DXN= 4.d0, DXD=0.0d0 &END"
+      [[ x${nz:--} == x- ]] && nz=18
+      ;;
+  (optsdiv)
+      ## ./levopt 3 5 10 0.015 0 3000 50000 1
+      print " &NIGEOZ CROOT='$croot', NLV=13, DXN=1.d0, DXD=32.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=5, DXN=2.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=4.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=20
+      ;;
+  (optsbix)
+      print " &NIGEOZ CROOT='$croot', NLV=69, DXN=1.d0, DXD=512.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=17, DXN=2.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=12, DXN=4.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=11, DXN=8.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=9, DXN=16.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=32.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=119
+      ;;
+  (optsbx)
+      print " &NIGEOZ CROOT='$croot', NLV=137, DXN=1.d0, DXD=1024.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=33, DXN=2.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=25, DXN=4.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=20, DXN=8.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=17, DXN=16.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=32.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=238
+      ;;
+  (optsbxi)
+      print " &NIGEOZ CROOT='$croot', NLV=275, DXN=1.d0, DXD=2048.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=64, DXN=2.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=49, DXN=4.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=39, DXN=8.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=35, DXN=16.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=32.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=477
+      ;;
+  (optsbxiii)
+      ## 1 8192 530 931
+      ## 2 8192 117 931
+      ## 4 8192 85 931
+      ## 8 8192 64 931
+      ## 16 8192 49 931
+      ## 32 8192 39 931
+      ## 64 8192 35 931
+      ## 128 8192 20 931
+      print " &NIGEOZ CROOT='$croot', NLV=529, DXN= 1.d0,   DXD=8192.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=117, DXN= 2.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=85,  DXN= 4.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=64,  DXN= 8.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=49,  DXN= 16.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=39,  DXN= 32.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=35,  DXN= 64.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1,  DXN= 128.d0, DXD=0.0d0 &END"
+      [[ x${nz:--} == x- ]] && nz=931
+      ;;
+  (optsbxiv)
+      ## 1 16384 742 1301
+      ## 2 16384 159 1301
+      ## 4 16384 117 1301
+      ## 8 16384 85 1301
+      ## 16 16384 64 1301
+      ## 32 16384 49 1301
+      ## 64 16384 39 1301
+      ## 128 16384 35 1301
+      ## 256 16384 20 1301
+      print " &NIGEOZ CROOT='$croot', NLV=741, DXN= 1.d0,   DXD=16384.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=159, DXN= 2.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=117, DXN= 4.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=85,  DXN= 8.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=64,  DXN= 16.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=49,  DXN= 32.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=39,  DXN= 64.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=35,  DXN= 128.d0, DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1,  DXN= 256.d0, DXD=0.0d0 &END"
+      [[ x${nz:--} == x- ]] && nz=1301
+      ;;
+  (optsexiii)
+      print " &NIGEOZ CROOT='$croot', NLV=569, DXN=1.d0, DXD=8192.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=125, DXN=2.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=91, DXN=4.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=70, DXN=8.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=53, DXN=16.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=43, DXN=32.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=38, DXN=64.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=128.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=998
+      ;;
+  (optsfxiv)
+      print " &NIGEOZ CROOT='$croot', NLV=1135, DXN=1.d0, DXD=16384.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=248, DXN=2.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=182, DXN=4.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=137, DXN=8.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=106, DXN=16.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=87, DXN=32.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=76, DXN=64.d0, DXD=0.d0, &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=128.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=1994
+      ;;
+  (optsfxv)
+      print "&NIGEOZ CROOT='$croot', NLV=2271, DXN=1.d0, DXD=32768.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=496, DXN=2.d0, DXD=0.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=364, DXN=4.d0, DXD=0.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=272, DXN=8.d0, DXD=0.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=211, DXN=16.d0, DXD=0.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=171, DXN=32.d0, DXD=0.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=152, DXN=64.d0, DXD=0.d0, &END"
+      print "&NIGEOZ CROOT='$croot', NLV=-1, DXN=128.d0, DXD=0.d0, &END"
+      [[ x${nz:--} == x- ]] && nz=3989
+      ;;
+  (optsc)
+      # 581 0.0001
+      # 175 0.0002
+      #  82 0.0005
+      #  59 0.001
+      #  66 0.002
+      #  35 0.005
+      #  32 0.01
+      #   9 0.02
+      print " &NIGEOZ CROOT='$croot', NLV=581, DXN= 1.d0,   DXD=10000.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=176, DXN= 2.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=83,  DXN= 5.d0,   DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=60,  DXN= 10.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=67,  DXN= 20.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=36,  DXN= 50.d0,  DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=33,  DXN= 100.d0, DXD=0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1,  DXN= 200.d0, DXD=0.0d0 &END"
+      ;;
+  esac
+  [[ -n $nz ]] && print " &NICOOR CROOT='$croot', NZ=$nz, &END"
+  return 0
+}
+
+set_weight ()
+{
+  local __v=$1 __r=
+  case $2 in
+  (i)    __r=1;;
+  (ii)   __r=3;;
+  (iii)  __r=7;;
+  (iv)   __r=15;;
+  (v)    __r=31;;
+  (vi)   __r=63;;
+  (vii)  __r=127;;
+  (viii) __r=255;;
+  (ix)   __r=511;;
+  (x)    __r=1023;;
+  (n*)   __r=${2: 1}; let __r--;;
+  (*)    print -u2 "$thisx: unknown weight id $wtyp ($ztyp)"; return 1;;
+  esac
+  : ${(P)__v::=$__r}
+  return 0
+}
+
+main "$@"
+exit $?

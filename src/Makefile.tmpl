@@ -1,0 +1,38 @@
+# src/Makefile.tmpl --- IcIES src/Makefile.am template
+# Maintainer:  SAITO Fuyuki
+# Created: Nov 2 2011
+# Revision:  Snoopy 0.9
+# Time-stamp: <2020/09/17 13:47:59 fuyuki Makefile.tmpl>
+
+# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+bin_PROGRAMS_ORIGINS	=	icies_tgv.F
+bin_PROGRAMS = icies_tgv   ##%% t
+
+icies_tgv_LDADD			=	libicies.la
+
+lib_LTLIBRARIES = libicies.la
+libicies_la_SOURCES =
+nodist_EXTRA_libicies_la_SOURCES = dummy.F
+
+LIB_DEPEND_DIRS	=	unison development arpeggio movement begleitung
+
+libicies_la_LIBADD = unison/libicies_local.la development/libicies_local.la arpeggio/libicies_local.la movement/libicies_local.la begleitung/libicies_local.la
+
+SUBDIRS       = $(LIB_DEPEND_DIRS) ##%% t
+DIST_SUBDIRS  = $(SUBDIRS) ostinato cadenza
+
+noinst_LTLIBRARIES	=	##%% n
+## nodist_libicies_local_la_SOURCES	=	##%% n
+
+# force nullify
+LCLCNDH	= ##%% t
+
+install-cadenza:
+	@cd cadenza; $(MAKE) $(AM_MAKEFLAGS) all install
+
+### Local Variables:
+### mode: makefile-automake
+### end:

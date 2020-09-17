@@ -1,0 +1,366 @@
+#!/usr/bin/zsh -f
+# Maintainer:  SAITO Fuyuki
+# Time-stamp: <2020/09/15 12:23:02 fuyuki clockcond>
+# Copyright: 2015--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+: ${ONpfx:=CLOCK_ON_}            ## clock-on prefix
+: ${GONpfx:=CLOCK_GROUP_ON_}     ## per-group clock-on prefix
+: ${CONDpfx:=_CLOCK_COND_}       ## clock condition prefix
+: ${IDpfx:=_CLOCK_ID_}           ## clock id prefix
+
+###_ functions
+
+###_. gen_local_id
+gen_local_id ()
+{
+  local u=$1; shift
+  local IDSTART=$1; shift
+  local C; C=($@)
+  local nc=$#C
+  local c
+
+  [[ -z $u ]] && u=1
+  local opts; opts=(-u $u)
+
+  local ic=0
+  for c in $C
+  do
+    ID=$IDpfx$c
+    let ic++
+    print $opts "#define $ID ($ic+$IDSTART)"
+  done
+  return 0
+}
+
+###_. gen_local_condition
+gen_local_condition ()
+{
+  local u=$1; shift
+  local IDSTART=$1; shift
+  local C; C=($@)
+  local nc=$#C
+  local c
+
+  [[ -z $u ]] && u=1
+  local opts; opts=(-u $u)
+
+  for c in $C
+  do
+    ON=$ONpfx$c
+    print $opts "#ifndef   $ON"
+    print $opts "#  define $ON 0"
+    print $opts "#endif"
+  done
+  for c in $C
+  do
+    ON=$ONpfx$c
+    COND=$CONDpfx$c
+    print $opts "#if       $ON"
+    print $opts "#  define $COND .true."
+    print $opts "#endif"
+  done
+  for c in $C
+  do
+    COND=$CONDpfx$c
+    print $opts "#ifndef   $COND"
+    print $opts "#  define $COND .false."
+    print $opts "#endif"
+  done
+  return 0
+}
+
+###_. gen_local_group
+gen_local_group ()
+{
+  local u=$1; shift
+  local M; M=($@)
+
+  [[ -z $u ]] && u=1
+  local opts; opts=(-u $u)
+
+  local G; G=(${(@)M#*:})
+  ## print -u2 GROUP: ${(u)G}
+
+  local g GON m ON
+  for g in ${(u)G}
+  do
+    GON=$GONpfx$g
+    print $opts "#ifndef   $GON"
+    print $opts "#  define $GON 0"
+    print $opts "#endif"
+    print $opts "#if $GON"
+    for m in $M
+    do
+      if [[ $m == *:$g ]];then
+        m=${m%:$g}
+        ON=$ONpfx$m
+        print $opts "#define $ON 1"
+      fi
+    done
+    print $opts "#endif"
+  done
+
+  return 0
+}
+
+###_. gen_local_tag
+gen_local_tag ()
+{
+  local u=$1; shift
+  local T; T=($@)
+
+  [[ -z $u ]] && u=1
+  local opts; opts=(-u $u)
+
+  local k t kt g ID
+  for kt in ${(u)T}
+  do
+    kt=(${(s@:@)kt})
+    k=$kt[1] t=$kt[2]
+    # ID=$IDpfx$k
+    # print $opts "$ID $t"
+    print $opts "$k $t"
+  done
+
+  return 0
+}
+
+###_. mv_if
+## mv_if LINES TARGET TEMPORARY
+##  nullify if lines in TEMPORARY < LINES
+mv_if ()
+{
+  local nl=$1 new=$2 tmp=$3
+
+  local sw=
+  if [[ -e $new ]];then
+    if [[ -n $force ]];then
+      print -u $uMSG "Force $new"
+      sw=mv
+    elif cmp --quiet $tmp $new;then
+      print -u $uMSG "Keep $new"
+      sw=rm
+    else
+      print -u $uMSG "Revise $new"
+      sw=mv
+    fi
+  else
+    local ltmp
+    ltmp=($(wc -l $tmp))
+    if [[ $ltmp[1] -le $nl  ]];then
+      print -u $uMSG "Null $new"
+      sw=rm
+    else
+      print -u $uMSG "Create $new"
+      sw=mv
+    fi
+  fi
+  if   [[ $sw == mv ]];then
+    mv $tmp $new
+  elif [[ $sw == rm ]];then
+    rm -f $tmp
+  fi
+  return 0
+}
+
+###_. show_usage
+show_usage ()
+{
+  local args; args=($@)
+  local cmd=clockcond
+  print $args "$cmd - generate header files to set clock environment"
+  print $args "usage:"
+  print $args "  $cmd [OPTIONS] FILES....."
+  return 0
+}
+
+###_ main
+
+###_. argument parser
+
+while getopts fqvhlcg:t:s: o
+do
+  case $o in
+  f) force=T;;
+  v) verbose=1;;
+  q) verbose=-1;;
+  h) help=T;;
+  c) check=T;;
+  l) lhdbase=$OPTARG;;
+  g) ghd=$OPTARG;;      ## directory or header file
+  t) top_srcdir=$OPTARG;;
+  s) subdir=$OPTARG;;
+  *) print -u2 "invalid argument";;
+  esac
+done
+shift $((OPTIND-1))
+
+[[ -n $help ]] && show_usage && exit 0
+
+: ${verbose:=0}
+
+###_. various logs
+uLOG=3
+exec 3>&2  ## verbose log
+if [[ $verbose -le 0 ]]; then
+  ## 3>&- not work, why?
+  exec 3> /dev/null
+fi
+uMSG=6
+exec 6>&2  ## normal message
+if [[ $verbose -lt 0 ]]; then
+  exec 6> /dev/null
+fi
+
+###_. definitions
+: ${top_srcdir:=.}
+: ${lhdbase:=lclcnd.h}
+
+: ${ghd:=.}
+[[ -d $ghd ]] && ghd=$ghd/gcldef.h
+ghdbase=$ghd:t
+
+print -u $uLOG "local header(base):  $lhdbase"
+print -u $uLOG "global header:       $ghd"
+
+LHD=_${${(U)lhdbase:t}/./_}
+GHD=_${${(U)ghdbase:t}/./_}
+
+print -u $uLOG "macros: $LHD $GHD"
+
+FILES=($@)
+DIRS=(${(u)@:h})
+T=()
+
+print -u $uLOG "target files: $FILES"
+print -u $uLOG "target directories: $DIRS"
+
+###_. parse directories (to generate local headers)
+typeset -A NID
+for argd in $DIRS
+do
+  print -u $uLOG -n - "Parse $argd"
+  ## set output local header
+  psrcdir=$argd
+  if [[ -n $top_srcdir ]];then
+    if [[ -n $subdir ]];then
+      psrcdir=$top_srcdir/$subdir
+    else
+      psrcdir=$top_srcdir/$argd
+    fi
+  else
+    psrcdir=$argd/$lhdbase
+  fi
+  lhd=$argd/$lhdbase
+  print -u $uLOG - " to generate $lhd"
+  ## subdir parser
+  sd=$argd
+  [[ -n $subdir ]] && sd=$subdir
+  SD=${(j:_:)${(s:/:)${(U)sd}}}
+  ## open local header file
+  uLHD=4
+  if [[ -n $check ]];then
+    lhdtmp=
+    exec 4>&1
+  else
+    lhdtmp=$lhd.tmp
+    exec 4> $lhdtmp
+  fi
+  ## header manifest
+  IDSTART=$IDpfx${SD}_0
+  print -u $uLHD "C automatic generation from $sd files"
+  print -u $uLHD "#ifndef $LHD"
+  print -u $uLHD "#define $LHD"
+  print -u $uLHD "#include \"$ghdbase\""
+  ## individual files
+  for f in $FILES
+  do
+    [[ $f:h == $argd ]] || continue
+    fb=$f:t
+    ff=$psrcdir/$fb
+    print -u $uLOG "  Parse $ff ($f)"
+    # get 1:3 (key:group)
+    M=($(sed -ne '/^ *CLOCK_IK *(\([^,]*\),.*,\(.*\)).*$/s//\1:\2/p' $ff))
+    # get 1:2 (key:tag)
+    T=($T $(sed -ne '/^ *CLOCK_IK *(\([^,]*\),\(.*\),.*$/s//\1:\2/p' $ff))
+    # get 1 (key)
+    C=($(sed -ne '/^ *CLOCK_IK* *(\([^,]*\),.*$/s//\1/p' $ff))
+    C=(${(u)C})
+    [[ -n $M ]] && gen_local_group      $uLHD $M
+    [[ -n $C ]] && gen_local_condition  $uLHD $IDSTART $C
+    # if [[ -n $T ]];then
+    #   gen_local_tag        $uTMP $T
+    # fi
+    : $((NID[$SD]+=$#C))
+  done
+  print -u $uLHD "#endif /* $LHD */"
+  ## diff and mv
+  if [[ -n $lhdtmp ]];then
+    exec 4>&-
+    mv_if 0 $lhd $lhdtmp
+  fi
+done
+
+###_. generate global header
+typeset -A SEQID
+for kv in $T
+do
+  kv=(${(s@:@)kv})
+  SEQID[$kv[1]]=$kv[2]
+done
+
+## parse global old
+if [[ -e $ghd ]];then
+  sed -ne "/#define $IDpfx\([^ ].*\)$/{s//\1/; s@[/\*]@@g; p}" $ghd |\
+  while read k i t
+  do
+    if [[ -n $SEQID[$k] ]];then
+      :
+    else
+      SEQID[$k]="$t"
+    fi
+    ## print -u2 "$k//$i//$n//"
+  done
+fi
+
+## create global header
+## print -u2 ${(kv)SEQID}
+
+integer uGHD=5
+if [[ -n $check ]];then
+  ghdtmp=
+  exec {uGHD}>&1
+else
+  ghdtmp=$ghd.tmp
+  exec {uGHD}> $ghdtmp
+fi
+
+print -u $uGHD "C automatic generation"
+print -u $uGHD "#ifndef $GHD"
+print -u $uGHD "#define $GHD"
+ik=0
+for k in ${(ok)SEQID}
+do
+  let ik++
+  print -u$uGHD "#define $IDpfx$k $ik /* $SEQID[$k] */"
+done
+
+print -u $uGHD "#define MAX_CLOCK_ID $#SEQID"
+print -u $uGHD "#endif /* $GHD */"
+
+SETTAG=CLOCK_ID_TAG_SET
+print -u $uGHD "#ifdef $SETTAG"
+for k in ${(ok)SEQID}
+do
+  print -u $uGHD "      $SETTAG ($IDpfx$k) = $SEQID[$k]"
+done
+print -u $uGHD "#endif /* $SETTAG */"
+
+
+if [[ -n $ghdtmp ]];then
+  exec {uGHD}>&-
+  mv_if 0 $ghd $ghdtmp
+fi
+exit 0

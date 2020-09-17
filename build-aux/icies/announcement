@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+# Maintainer:  SAITO Fuyuki
+# Time-stamp: <2020/09/15 12:21:58 fuyuki announcement>
+# Copyright: 2016--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+# usage announcement [FILES...]
+#   Parse cpp macros and create body of announcement subroutine
+#   to standard output.
+#   Order of the macros is preserved.
+
+# import os
+import sys
+import re
+
+# ifndef .. /* NA ...*/ will be skipped.
+ifndef = re.compile(r'^#\s*ifndef\s+([\w]+)\s*((?:/\*\s*NA)?)')
+# define ...(A,..) will be skipped
+define_arg = re.compile(r'^#\s*define\s+([\w]+)\(\s*')
+
+
+def output(fout, iop, a=None, common=False):
+    tab = (r' ' * 6)
+    fmt = tab + r'%s' + '\n'
+    if (iop == -1):
+        cond = 'else'
+        a = "' '"
+        common = True
+        fout.write(fmt % cond)
+    else:
+        if (iop == 0):
+            cond = 'if'
+        else:
+            cond = 'else if'
+        fout.write(fmt % (r'%-7s (IOP.eq.%d) then' % (cond, iop)))
+    if common:
+        fout.write(fmt % ('   ' + (r"STRA = %s" % a)))
+        fout.write(fmt % ('   ' + (r"STRB = ' '")))
+    else:
+        fout.write(fmt % ('   ' + (r"STRA = '%s'" % a)))
+        fout.write(fmt % ('   ' + (r'write (STRB, *) %s' % a)))
+    if (iop == -1):
+        fout.write(fmt % 'endif')
+    return (iop + 1)
+
+
+def generate(src, fout=None):
+    if fout is None:
+        fout = sys.stdout
+
+    fin = open(src)
+
+    iop = 0
+
+    iop = output(fout, iop, '_TSTAMP', True)
+    iop = output(fout, iop, '_FNAME', True)
+    iop = output(fout, iop, '_REV', True)
+
+    flag = {}
+
+    K = []
+
+    for l in fin:
+        l = l[:-1]
+        x = ifndef.match(l)
+        if x:
+            k = x.group(1)
+            if not x.group(2):
+                flag[k] = True
+                K.append(k)
+            continue
+        x = define_arg.match(l)
+        if x:
+            k = x.group(1)
+            flag[k] = False
+            K.append(k)
+        pass
+
+    for k in K:
+        if flag[k]:
+            iop = output(fout, iop, k)
+
+    output(fout, -1)
+    pass
+
+
+###_. main
+def main(args):
+    for a in args:
+        generate(a)
+        pass
+    pass
+
+###_. driver
+if __name__ == '__main__':
+    main(sys.argv[1:])
+    pass

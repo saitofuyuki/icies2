@@ -1,0 +1,27 @@
+==================================================================
+ Ice sheet model for Integrated Earth system Studies II (IcIES-2)
+==================================================================
+
+Main contributors
+-----------------
+
+SAITO Fuyuki <saitofuyuki AT jamstec DOT go DOT jp>
+  Maintainer.
+  Numerical design, technical design, optimization, etc.
+
+Ayako ABE-OUCHI
+  Director.
+  Creator of the ancestor of IcIES and IcIES-1.
+  
+
+Other Contributors
+------------------
+Either explicit or implicit, in alphabetical order
+
+Heinz BLATTER
+Ralf GREVE
+Yuuki MATSUO
+Takashi OBASE
+David POLLARD
+Tatsuru SATO
+Kunio TAKAHASHI

@@ -1,0 +1,13 @@
+#!/bin/sh
+# Time-stamp: <2020/09/15 12:24:00 fuyuki tree-all>
+# Copyright: 2011--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+d=`dirname $0`/tree
+
+for c in pkggen idgen listgen
+do
+  c=$d/$c
+  test -x $c && $c $@
+done

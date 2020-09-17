@@ -1,0 +1,65 @@
+#!/usr/bin/zsh -f
+# Time-stamp: <2020/09/15 12:22:12 fuyuki apchelp>
+# Copyright: 2016--2020 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+: ${AUTOM4TE:=autom4te}
+
+###_ functions
+###_. help
+show_usage ()
+{
+  exit 0
+}
+
+###_ main
+
+###_. argument parser
+
+while getopts fqvhno:t: o
+do
+  case $o in
+  f) force=T;;
+  v) verbose=1;;
+  q) verbose=-1;;
+  h) help=T;;
+  n) dry=T;;
+  o) outf=$OPTARG;;
+  t) otype=$OPTARG;;
+  *) print -u2 "invalid argument";;
+  esac
+done
+shift $((OPTIND-1))
+
+[[ -n $help ]] && show_usage && exit 0
+
+: ${verbose:=0}
+bindir=$0:h
+m4hdir=$bindir/m4
+
+amopts=(-l M4sugar)
+[[ -n $outf ]] && amopts=($amopts -o $outf)
+
+# output type
+if   [[ $otype == e* ]];then
+  # shell/export
+
+elif [[ $otype == s* ]];then
+  # shell
+
+elif [[ $otype == a* ]];then
+  # shell, associative array
+
+elif [[ $otype == t* ]];then
+  # trace/cpp
+  amopts=(-t '_dummy:$ %' $amopts)
+else
+  # default cpp-macro
+  cfgh=$m4hdir/defcpp.m4
+fi
+
+root=$0:t:r
+m4h=$m4hdir/$root.m4
+
+${AUTOM4TE} $amopts $cfgh $m4h $@

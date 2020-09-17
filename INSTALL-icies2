@@ -1,0 +1,122 @@
+========================
+ IcIES-2/INSTALL-icies2
+========================
+
+:Maintainer: SAITO Fuyuki
+:Created:    Nov 5 2013
+:Time-stamp: <2020/09/17 13:48:35 fuyuki INSTALL-icies2>
+
+Copyright 2013--2020 Japan Agency for Marine-Earth Science and Technology,
+                     Ayako ABE-OUCHI
+Licensed under the Apache License, Version 2.0
+  (https://www.apache.org/licenses/LICENSE-2.0)
+
+
+Requirements
+============
+Following is standard requirement:
+
+- FORTRAN 90 (or later) compiler such as gfortran, to build IcIES-2
+
+Following are optional requirements:
+
+- python2, to generate Makefile.am from Makefile.tmpl
+- autoconf, automake, libtool, to generate autotools scripts and some
+  derived sources
+- zsh, to run some scripts
+- netcdf library, to build conversion program  of IcIES-2 native outputs.
+
+Preparation
+===========
+Unless the package contains configuration files such as configure,
+Makefile.am, etc, you need to generate these files first.  This
+is the case when you are using a git version of the source.
+build-aux/icies/bootstrap in this package can help you generate them.
+
+% sh ./build-aux/icies/bootstrap
+
+General instruction
+===================
+See INSTALL for generic installation instructions.
+
+Installation specific to `IcIES-2`
+==================================
+
+Brief description of the optional features:
+
+--enable-cpp-concatenation
+
+  Use ``##`` for token concatenation when preprocessing with cpp.
+  Please see cpp manuals.  Use ``/**/`` if disabled.
+
+--enable-fortran-standard[=DIALECT]
+
+  Enable fortran features specified by DIALECT.
+  Default is 95 (Fortran-95).
+  Set 77 in order to perform a static F77 checker (ftnchek).
+
+--enable-gnu-extension 
+   Force enable fortran gnu-extension.
+
+--disable-gnu-extension 
+   Force disable fortran gnu-extension.
+
+--with-mpi
+  compile with MPI (parallelization) support.
+  If none is found, MPI is not used. Default: auto
+
+
+Influential environment variables.
+
+ :CPP:         C preprocessor
+ :MPIF77:      MPI Fortran77 compiler command (use this if mpi enabled)
+ :F77:         Fortran 77 compiler command (use this if mpi disabled)
+ :FFLAGS:      Fortran 77 compiler flags
+
+All these variables above should be set precisely to build `IcIES-2`.
+
+ :NETCDF_CPPFLAGS:    C preprocessor flags for NETCDF headers
+ :NETCDF_LDFLAGS:     linker flags for NETCDF libraries
+ :NETCDFINC:          directory where nedcdf.inc exists
+
+All these variable above should be set precisely to build cadenza utilities.
+
+
+Typical configure invocation
+============================
+
+linux/``gfortran`` for building `IcIES-2`.
+::
+
+  % ./configure --with-mpi MPIF77=mpif90 CPP='mpif90 -E' \
+                FFLAGS='-g -O2 -Wall -fimplicit-none  -ffloat-store -fallow-argument-mismatch'
+
+Previously ``-finit-real=nan'' is recommended to set in FFLAGS, which is now
+deprecated because it may freeze the compilation (to check in detail).
+
+linux/``gfortran`` for syntax check of `IcIES-2`.
+::
+
+  % ./configure --disable-gnu-extension --enable-fortran-standard=77 --disable-fortran-check \
+                --without-mpi --enable-dependency-tracking F77=gfortran CPPFLAGS='-I/usr/include/mpich' \
+                FFLAGS='-g -O2 -Wall -fimplicit-none'
+
+Use ``ifort`` to compile while ``gcc -E`` to preprocess.
+::
+
+  % ./configure --disable-gnu-extension CPP='gcc -E'
+
+UV1000/``ifort`` for building `IcIES-2`.
+::
+
+  % ./configure --disable-gnu-extension --with-mpi \
+                MPIF77='ifort -lmpi' \
+                FFLAGS='-opt-report 3 -O2 -shared-intel -mcmodel=large -xSSE4.2 -g -fp-model precise' \
+                CPP='gcc -E'
+
+.. caution::
+  Typically if you use a compiler except for GNU compiler (e.g.,
+  gfortran) while ``gcc -E`` for preprocessing, you may have to
+  configure with ``--disable-gnu-extension`` in order to avoid
+  Fortran GNU extensions.  This may be automatically resolved in the
+  future.

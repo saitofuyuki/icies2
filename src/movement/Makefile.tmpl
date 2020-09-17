@@ -1,0 +1,54 @@
+# src/movement/Makefile.tmpl --- IcIES/Movement Makefile.am template
+# Maintainer:  SAITO Fuyuki
+# Created: Nov 4 2011
+# Revision:  Snoopy0.9
+# Time-stamp: <2020/09/15 22:08:44 fuyuki Makefile.tmpl>
+
+# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+libicies_local_la_ORIGINS	= muvcio.F mutcfg.F mumcol.F mppmth.F mprtft.F mpenhf.F mifunc.F mibakw.F mmxoms.F msbmos.F mmsbcg.F msfunc.F mmcipc.F mmheud.F mmwcol.F mbscol.F mdrvrm.F mslbcg.F mglcol.F msnita.F mscpli.F mtfunc.F mttcol.F magcol.F
+## $(MDRVBF)
+EXTRA_SRCS = 
+
+LIB_DEPEND_DIRS	=	arpeggio development unison
+
+BUILT_SOURCES	=	movement.h mutests.h
+EXTRA_DIST  	=	movement.h movement.m4 mutests.h mutests.m4 mvdef.sh mvdef.m4 ##%% a
+
+MAINTAINERCLEANFILES = movement.h ##%% a
+
+SQIHELP	= $(top_srcdir)/build-aux/icies/sqihelp
+if MAINTAINER_MODE
+movement.h: movement.m4
+	$(SQIHELP) -o $@ $<
+
+mutests.h: mutests.m4
+	$(SQIHELP) -o $@ $<
+
+else
+movement.h: movement.m4
+	@if test -f $@; then \
+		echo keep $@; \
+	elif test -f $(srcdir)/$@; then \
+		$(CP) $(srcdir)/$@ $(builddir); \
+	else \
+		$(SQIHELP) -o $@ $<; \
+	fi
+mutests.h: mutests.m4
+	@if test -f $@; then \
+		echo keep $@; \
+	elif test -f $(srcdir)/$@; then \
+		$(CP) $(srcdir)/$@ $(builddir); \
+	else \
+		$(SQIHELP) -o $@ $<; \
+	fi
+endif
+
+install-cadenza:
+	@cd $(top_builddir); $(MAKE) $(AM_MAKEFLAGS) $@
+
+### Local Variables:
+### mode: makefile-automake
+### end:
