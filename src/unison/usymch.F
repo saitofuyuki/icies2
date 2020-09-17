@@ -4,13 +4,14 @@ C Created: Mar 11 2011
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:45:57 fuyuki usymch.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:17:06 fuyuki usymch.F>'
 #define _FNAME 'symmcheck/usymch.F'
-#define _REV   'Snoopy0.7'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2011--2020
 C           Japan Agency for Marine-Earth Science and Technology
+C
 C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)
 C

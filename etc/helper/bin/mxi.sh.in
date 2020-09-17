@@ -1,0 +1,505 @@
+#!@ZSH@ -f
+# Maintainer:  SAITO Fuyuki
+# Time-stamp: <2020/09/17 09:05:28 fuyuki mxi.sh.in>
+# Copyright: 2018--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+@ZUI_INSERT@
+@DEV_INSERT@
+@ARP_INSERT@
+@MOV_INSERT@
+@BGL_INSERT@
+
+###_. mxi_run
+mxi_run ()
+{
+  zui_init || return $?
+  dev_init || return $?
+  arp_init || return $?
+  mov_init || return $? ## must after arp
+  bgl_init || return $?
+  mxi_cnx_init || return $?
+
+  if [[ $# -eq 0 ]];then
+    zui_help view || exit $?
+    exit 0
+  fi
+
+  CARGS=("$@")
+
+  local pbin=
+  if [[ $1 == [---+]* ]];then
+    pbin=:
+  else
+    pbin=$1; shift
+    if [[ ! -x $pbin ]];then
+      zui_help view || exit $?
+      print -u2 "error: unknown executable: $pbin"
+      exit 1
+    fi
+  fi
+
+  local pbase=$pbin:r:t
+
+  zui_parse do_all ARGS $@ || return $?
+  [[ $VERBOSE -gt 1 ]] && zui_parse show -u2
+  [[ $VERBOSE -gt 1 ]] && print -u2 XENV: $ZUI_XENV
+
+  if [[ $pbin == : ]];then
+    :
+  else
+    mxi_run_standard $pbin $pbase $ARGS || return $?
+  fi
+  # mxi_sysin_all >&2
+  return 0
+}
+
+###_. mxi_run_standard
+##
+## sequence
+##       [:]TAG[.var][:OUTPUT[:ARGS...]]
+mxi_run_standard ()
+{
+  [[ $# -lt 2 ]] && print -u2 "$0: insufficient arguments" && exit 1
+  local pbin=$1 pbase=$2; shift 2
+
+  local DEP; DEP=(sysin run rst nc:run asc:nc fig:nc)
+
+  ## parse sequence
+  local SEQall; SEQall=(sysin run rst nc asc fig)
+  local c= cc=
+  local -a seq
+  for c in $@
+  do
+    case $c in
+    all)     seq+=($SEQall);;
+    def)     seq+=(sysin run nc.all);;
+    :sysin*) seq+=($c[2,-1]);;
+    :run*)   seq+=(sysin $c[2,-1]);;
+    :nc*)    seq+=(sysin run $c[2,-1]);;
+    :rst*)   seq+=(sysin run $c[2,-1]);;
+    :asc*)   seq+=(sysin run nc $c[2,-1]);;
+    :fig*)   seq+=(sysin run nc $c[2,-1]);;
+    :*)      seq+=(sysin run nc.$c[2,-1]);;
+    *) cc=(${(s@:@)c}); cc=$cc[1]
+       if [[ -z $SEQall[(k)$cc] ]];then
+         seq+=(nc.$c)
+       else
+         seq+=($c)
+       fi;;
+    esac
+  done
+
+  ## Attirubutes cluster
+  local -A ATTR
+  mov_standard_env ATTR
+
+  ## functions
+  ATTR[f/sysin]=mxi_create_sysin
+  ATTR[f/run]=mxi_create_run
+  ATTR[f/nc]=mxi_create_nc
+  ATTR[f/rst]=mxi_create_rst
+  ATTR[f/asc]=mxi_create_asc
+  ATTR[f/fig]=:
+
+  ## output variable
+  # local $SEQall
+  ## input/output relation
+  ATTR[i/run]=sysin
+  ATTR[i/nc]=run
+  ATTR[i/rst]=run
+  ATTR[i/asc]=nc
+  ATTR[i/fig]=asc
+
+  [[ $VERBOSE -gt 3 ]] && zui_debug_aa ATTR -u 2
+
+  ## do sequence
+  local copts= ropts= in= ifile= ofile= f= args= err=
+  [[ $VERBOSE -gt 0 ]] && print -u2 "SEQs: $seq"
+  for c in $seq
+  do
+    ## print -u2 "0 $c"
+    copts=("${(@s@:@)c}")
+    ropts=("${(@s@.@)copts[1]}")
+    c=$ropts[1]
+    shift copts; shift ropts
+    # ropts=("${(@s@/@)c}")
+    # copts=("${(@s/:/)ropts[1]}"); shift ropts
+    # c=$copts[1]; shift copts
+    ## print -u2 "1 [$ropts] {$copts} $c//"
+    in=$ATTR[i/$c]
+    ifile= ofile=
+    if [[ -n $in ]];then
+      ifile=$ATTR[u/$in]
+      [[ -z $ifile ]] && ifile=$copts[2]
+      [[ -z $ifile ]] && ifile=$ATTR[d/$in]
+      [[ -z $ifile ]] && print -u2 "$0[$c] Invalid input" && exit 1
+    fi
+    [[ -z $ofile ]] && ofile=$copts[1]
+    [[ -z $ofile ]] && ofile=$ATTR[d/$c]
+    f=$ATTR[f/$c]
+    [[ -z $f ]] && f=$ATTR[f/$ATTR[f]]
+    ## [[ -z $ropts ]] && shift 2 copts || :
+    args=("$pbin" "$ifile" "$ofile" $copts $ropts)
+    [[ -z "$FORCE" && -e $ofile ]] && print -u2 "Exists $ofile." && exit 1
+    [[ $VERBOSE -gt 0 ]] && print -u2 "SEQ[$c] $f $args"
+    $f "${(@)args}"; err=$?
+    if [[ $err != 0 ]];then
+      print -u2 "STOP AT [$c]"
+      return $err
+    fi
+    ATTR[u/$c]=$ofile
+  done
+
+  return 0
+}
+
+###_. mxi_create_sysin
+mxi_create_sysin ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofile=$2; shift 2
+
+  if [[ x$ofile == x- ]];then
+    mxi_sysin_all $pbin || return $?
+  else
+    mxi_sysin_all $pbin $ofile > $ofile || return $?
+  fi
+  return 0
+}
+
+###_. mxi_sysin_all
+mxi_sysin_all ()
+{
+  local pbin=$1; shift
+  local pbase=$pbin:r:t
+
+  local ofile=$1
+  if [[ -z $ofile ]];then
+    dev_create_sysin $ATTR[d/sysin]  "${(@)CARGS}" || return $?
+  else
+    dev_create_sysin $ofile          "${(@)CARGS}" || return $?
+  fi
+  if [[ $pbase == msbmos ]];then
+    print " &NITEST OFULL = T &END"
+  fi
+
+  print " &NILOGC CH = 'V', ROOT = 'vrep', &END"
+
+  # local cargs; cargs=("${(@)CARGS}")
+  # print -n " &NICARG "
+  # print -n " A = '$cargs', "
+  # print " &END"
+
+  mov_mg_create_sysin    || return $?
+  mov_md_create_sysin    || return $?
+  mov_msl_create_sysin   || return $?
+  mov_msn_create_sysin   || return $?
+  bgl_bb_create_sysin    || return $?
+  arp_ag_create_sysin    || return $?
+  arp_ae_create_sysin    || return $?
+  return 0
+}
+
+###_. mxi_create_run
+mxi_create_run ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofile=$2; shift 2
+
+  if [[ x$ofile == x- ]];then
+    mxi_create_run_all $pbin $ifile
+  else
+    mxi_create_run_all $pbin $ifile > $ofile
+    if grep -q 'HELP ME!!!' $ofile; then
+      print -u2 "PANIC!!!"
+      return 1
+    fi
+  fi
+
+  return 0
+}
+mxi_create_run_all ()
+{
+  local pbin=$1 sysin=$2; shift 2
+  local exe=$pbin
+  local f='%Y%m%d %H%M%S'
+  local nr=$AE[p]
+
+  : ${MPITYPE:=@MPITYPE@}
+
+  LANG= date +"start: $f"
+
+  dev_check_exec exe $pbin || return $?
+
+  if [[ $nr -gt 0 ]];then
+    if [[ $MPITYPE == openmpi ]];then
+      zui_mpi_check || return $?
+      zui_mpi_exec "${(@)ZUI_XENV}" --stdin $sysin -- -n $nr $exe
+    else
+      local wrap=$sysin:h/wrap.$sysin:e
+      # print -u2 WRAP: $wrap
+      print "$exe < $sysin" > $wrap
+      chmod +x $wrap
+      zui_mpi_check || return $?
+      # env $ZUI_XENV $MPIEXEC -l -n $nr $wrap
+      zui_mpi_exec "${(@)ZUI_XENV}" -- -l -n $nr $wrap
+    fi
+  else
+    env $ZUI_XENV $exe < $sysin
+  fi
+  LANG= date +"end: $f"
+}
+###_. mxi_create_nc
+mxi_create_nc ()
+{
+  ## print -u2 $0: in $@
+  ## return 0
+  local pbin=$1; shift
+  local ifile=$1 ofmt=$2; shift 2
+  local -a vrep
+  vrep=($(sed -ne '/^\(.*\<DVI\> *[0-9]*\>\)/s///p' $ifile | sort | uniq))
+  local opts
+  [[ $VERBOSE -lt 0 ]] && opts+=(+q)
+  opts+=($FORCE)
+  # print -u2 "CNXargs: $CNXargs"
+  opts+=(-o d:${AE[x/N]}:-:${AE[y/N]}:-)
+  opts+=("${(@)CNXargs}")
+
+  zui_finder cnx cnx.sh
+  local ofile
+  for v in $@
+  do
+    ofile=$(printf "$ofmt" $v)
+    # print -u2 - env $ZUI_XENV $cnx $opts +v -G $v -F $ofile $vrep
+    env $ZUI_XENV $cnx $opts -G $v -F $ofile $vrep
+    if [[ ! -e $ofile ]];then
+      print -u2 "$0: Failed to create $ofile"
+      return 1
+    fi
+  done
+  return 0
+}
+
+mxi_cnx_help ()
+{
+  print - "CNX arguments"
+  print - "  -o ARGS  passed to cnx.sh"
+}
+mxi_cnx_parse ()
+{
+  if    [[ $1 == -i ]];then
+    CNXargs=()
+  elif  [[ $1 == -s ]];then
+    : ${(P)2::='o:'}
+  elif  [[ $1 == -p ]];then
+    :
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    case $name in
+    (*) CNXargs=("${(@)CNXargs}" -$name "$arg");;
+    esac
+  fi
+  return 0
+}
+
+
+mxi_cnx_init ()
+{
+  if [[ -z ${(t)CNXargs} ]];then
+    typeset -ga CNXargs
+
+    zui_init || exit $?
+
+    zui_help  add    NC mxi_cnx_help  || exit $?
+    zui_parse append NC mxi_cnx_parse || exit $?
+  fi
+  return 0
+}
+
+
+###_. mxi_create_rst
+##   rst:[OUTPUT]:[INITCFG]:[TIME]:GROUPS...
+mxi_create_rst ()
+{
+  print -u2 $0: in $@
+
+  local pbin=$1; shift
+  local ifile=$1 ofmt=$2; shift 2
+  local rcf=$1; shift
+  local time=$1; shift
+
+  [[ -z $rcf ]] && rcf=${ATTR[d/rcf]}
+  [[ x$rcf == x- ]] && rcf=
+  print -u2 $rcf
+
+  local -a vrep
+  vrep=($(sed -ne '/^\(.*\<DVI\> *[0-9]*\>\)/s///p' $ifile | sort | uniq))
+  local opts
+  # [[ $VERBOSE -lt 0 ]] && opts+=(+q)
+  opts+=($FORCE)
+  if [[ -e $rcf ]];then
+    if [[ -z $FORCE ]];then
+      print -u2 "$rcf exists"; return 1
+    else
+      rm -f $rcf
+    fi
+  fi
+
+  zui_finder cnx cnx.sh
+  local ofile cmd
+  [[ -n $rcf ]] && touch $rcf
+  for v in $@
+  do
+    ofile=$(printf "$ofmt" $v)
+    cmd=(env $ZUI_XENV $cnx  -X cabcnv $opts -T $time -G $v -F $ofile $vrep)
+    if [[ -n $rcf ]];then
+      $cmd >> $rcf
+    else
+      $cmd
+    fi
+    if [[ ! -e $ofile ]];then
+      print -u2 "$0: Failed to create $ofile"
+      return 1
+    fi
+  done
+  return 0
+}
+
+###_. mxi_create_asc
+mxi_create_asc ()
+{
+  # print -u2 $0: in $@
+  local pbin=$1; shift
+  local ifile=$1 ofmt=$2; shift 2
+  local a args
+  for a in $@
+  do
+    if [[ $a == bench ]];then
+       args+=(VMI:H.Ha:L:-:m)
+       args+=(VMTI:T.Ta:L:m:m:-)  # T.Ta (x=m,y=m,*,  t=L)
+       args+=(VMTI:T.Ta:L:24:m:-) # T.Ta (x=m,y=m,*,  t=L)
+       args+=(VMTI:T.Ta:L:-:m:b)  # T.Ta (x=*,y=m,z=b,t=L)
+    elif [[ $a == testX ]];then
+       args+=(VMI:H.Ha:L:-:m)
+    elif [[ $a == testY ]];then
+       args+=(VMI:H.Ha:L:m:-)
+    elif [[ $a == testT ]];then
+       args+=(VMI:H.Ha:-:m:m)
+    fi
+  done
+  for a in $args
+  do
+    mxi_extract_asc "$a" $ifile $ofmt || return $?
+  done
+  # print -u2 $0: ifile $ifile
+  # print -u2 $0: ofmt $ofmt
+  # print -u2 $0: args $@
+  return 0
+}
+
+mxi_extract_asc ()
+{
+  local a="$1" ifile=$2 ofmt=$3
+  a=(${(s@:@)a})
+  local grp=$a[1] var=$a[2]; shift 2 a
+  local tidx=$a[1]; shift a
+  ifile=$(printf "$ifile" $grp)
+  local r
+  r=($(ncks -m -v "$var" $ifile | \
+        sed -n -e "s/,/ /g"  -e "/^$var dimension/s///p" | \
+        gawk '{print $2,$5}'))
+  local n s XN XS
+  for n s in $r
+  do
+    XN=($XN $n)
+    XS=($XS $s)
+  done
+  ## print -u2 $XN
+  ## print -u2 $XS
+  local -a nargs
+  local gxc gxi
+  local sfx
+  xi=1
+  if  [[ $tidx == - ]];then
+    gxc=$XN[$xi]
+    gxi=$#XN
+  else
+    sfx=($tidx)
+    if    [[ $tidx == L ]];then
+      nargs+=(-d $XN[$xi],$XS[$xi])
+    else
+      nargs+=(-d $XN[$xi],$tidx)
+    fi
+  fi
+  xi=2
+  local x
+  for x in ${(Oa)a}
+  do
+    if [[ $x == - ]];then
+      gxc=$XN[$xi]
+      gxi=$(($#XN-xi+1))
+      if [[ $XN[$xi] == Z* ]];then
+         r=($(ncks -F -H -v $XN[$xi] $ifile |\
+              sed -e 's/=/ /g' |\
+              gawk '$2>=0&&$2<=1{print NR}' | sed -n -e '1p;$p'))
+         ## print -u2 - $r
+         nargs+=(-d $XN[$xi],$r[1],$r[2])
+      fi
+    else
+      sfx=($x $sfx)
+      if [[ $x == m ]];then
+        nargs+=(-d $XN[$xi],$((XS[$xi]/2+1)))
+      elif [[ $x == b ]];then
+        if [[ $XN[$xi] == Z* ]];then
+           r=($(ncks -F -H -v $XN[$xi] $ifile |\
+                sed -e 's/=/ /g' |\
+                gawk '$2>=0&&$2<=1{print NR}' | sed -n -e '1p'))
+          nargs+=(-d $XN[$xi],$r)
+        else
+          nargs+=(-d $XN[$xi],1)
+        fi
+      elif [[ $x == t ]];then
+        if [[ $XN[$xi] == Z* ]];then
+           r=($(ncks -F -H -v $XN[$xi] $ifile |\
+                sed -e 's/=/ /g' |\
+                gawk '$2>=0&&$2<=1{print NR}' | sed -n -e '$p'))
+          nargs+=(-d $XN[$xi],$r)
+        else
+          nargs+=(-d $XN[$xi],$XS[$xi])
+        fi
+      else
+        nargs+=(-d $XN[$xi],$x)
+      fi
+    fi
+    let xi++
+  done
+  ## print -u2 - nargs: $nargs $gxc $gxi
+  if [[ x$ofmt == x- ]];then
+    mxi_extract_asc_sub $gxi $var $ifile $nargs
+  else
+    local pfx=${var}_${gxc}_$grp_${(j:_:)sfx}
+    local of=$(printf $ofmt $pfx)
+    [[ $VERBOSE -gt 0 ]] && print -u2 "$0: create $of"
+    ## print -u2 - $of
+    mxi_extract_asc_sub $gxi $var $ifile $nargs > $of
+  fi
+  return 0
+}
+
+mxi_extract_asc_sub ()
+{
+  local gxi=$1 var=$2 file=$3; shift 3 || return $?
+  gxi=$((gxi*2))
+  ncks -F -C -H -v "$var" $@ $ifile |\
+      sed -e 's/=/ /g' |\
+      gawk -v i=$gxi '{print $i,$NF}'
+}
+
+
+###_. driver
+mxi_run $@ || exit $?
+
+exit 0

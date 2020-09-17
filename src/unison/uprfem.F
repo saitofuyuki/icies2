@@ -4,9 +4,9 @@ C Created: Apr 4 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2013/09/26 06:49:30 fuyuki uprfem.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:50:09 fuyuki uprfem.F>'
 #define _FNAME 'unison/uprfem.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2013--2020

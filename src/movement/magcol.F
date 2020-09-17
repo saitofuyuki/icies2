@@ -4,9 +4,9 @@ C Created: Nov 1 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2019/09/04 23:02:02 fuyuki magcol.F>'
+#define _TSTAMP 'Time-stamp: <2020/01/08 14:51:03 fuyuki magcol.F>'
 #define _FNAME 'movement/magcol.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2018--2020
@@ -29,18 +29,17 @@ CCC_* Options
 #define OPT_RCIP_ADJUST_SMALL_DAGE 0
 #endif
 CCC_ + Debug
-CCC_* MABstp
+CCC_* [MAB] batch driver
 CCC_ & MABstp  ## Movement/Age integration suite batch
       subroutine MABstp
      O    (iErr,
      M     CW,   VMTA, VMTD,
      I     KTB,  NHt,
-     I     VMTI, VMTW, VMHI, VMHW,
-     I     VMHB, OMM,  IMM,  PMM,   T,    DT,
+     I     VMTI, VMHW,
+     I     OMM,  IMM,  PMM,  T,     DT,
      I     WW,   WZV,
      I     MH,   LH,   NZ,   LZ,    KZ0,
      I     IE,   ipKW, iMA,  ipCG,  LCG,  idGM, IFPl)
-CCC_  - Description
 CCC_  - Declaration
       implicit none
       _INTENT(OUT,  integer)  iErr
@@ -51,11 +50,8 @@ c
       _INTENT(INOUT,_REALSTD) VMTA (LH, LZ, *)
       _INTENT(INOUT,_REALSTD) VMTD (LH, LZ, *)
 c
-      _INTENT(IN,   _REALSTD) VMHB (LH, *)
-      _INTENT(IN,   _REALSTD) VMHI (LH, *)
       _INTENT(IN,   _REALSTD) VMHW (LH, *)
       _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VMTW (LH, LZ, *)
 c
       _INTENT(OUT,  _REALSTD) CW   (*)
       _INTENT(IN,   integer)  KTB  (LH, *)
@@ -83,14 +79,14 @@ CCC_   . upwind
             call MACdah
      O          (iErr,
      M           VMTA, VMTD, CW,
-     I           VMTI, VMHI,
+     I           VMTI, VMHW,
      I           WW,
      I           KTB,  NHt,  MH,  LH,  NZ,   LZ,  KZ0,
      I           IMM,  ipKW, iMA)
          endif
          if (iErr.eq.0) then
            call MAUcxw
-     O           (iErr,
+     O          (iErr,
      M           VMTD,
      I           VMTA, VMTI, VMHW,
      I           KTB,  WZV,
@@ -101,7 +97,7 @@ CCC_   . upwind
            call MAUbld
      O         (iErr,
      M          VMTD,
-     I          VMTA, VMHW, VMHB,
+     I          VMTA, VMHW,
      I          KTB,  WZV,  PMM,  IMM, DT,
      I          NHt,  LH,   NZ,   LZ,  KZ0,
      I          IFPl)
@@ -133,14 +129,14 @@ CCC_   . upwind second-order explicit
             call MACdah
      O          (iErr,
      M           VMTA, VMTD, CW,
-     I           VMTI, VMHI,
+     I           VMTI, VMHW,
      I           WW,
      I           KTB,  NHt,  MH,  LH,  NZ,   LZ,  KZ0,
      I           IMM,  ipKW, iMA)
          endif
          if (iErr.eq.0) then
            call MAUcxw
-     O           (iErr,
+     O          (iErr,
      M           VMTD,
      I           VMTA, VMTI, VMHW,
      I           KTB,  WZV,
@@ -152,7 +148,7 @@ CCC_   . upwind second-order explicit
      O         (iErr,
      M          VMTD,
      I          VMTD_W1, VMTD_W2,
-     I          VMTA,  VMHW, VMHB,
+     I          VMTA,  VMHW,
      I          KTB,   WZV,  PMM,  IMM, DT,
      I          NHt,   LH,   NZ,   LZ,  KZ0,
      I          IFPl)
@@ -205,19 +201,20 @@ CCC_  - outputs
 CCC_  - post processing
       if (IMM(IMD_AGEC).ne. SW_AGEC_OFF) then
          if (iErr.eq.0) then
-            call MACzst
-     M          (VMTD,
-     I           VMTD_W1,  KTB, NHt, MH, LH, NZ, LZ, KZ0, 0.0d0)
-            call MACzst
-     M          (VMTD,
-     I           VMTD_W2,  KTB, NHt, MH, LH, NZ, LZ, KZ0, 0.0d0)
+            call MUMzsc
+     M          (VMTD,  VMTD_W1,
+     I           0.0d0, KTB, NHt, MH, LH, NZ, LZ, KZ0)
+            call MUMzsc
+     M          (VMTD,  VMTD_W2,
+     I           0.0d0, KTB, NHt, MH, LH, NZ, LZ, KZ0)
          endif
          if (iErr.eq.0) then
-            call MTFbwz
+c           old:MTFbwz
+            call MUMbwz
      O          (VMTA,  VMTA_age,
      I           VMTD,  VMTD_W1,
      I           KTB,   NHt, MH, LH, NZ, LZ, KZ0)
-            call MTFbwz
+            call MUMbwz
      O          (VMTA,  VMTA_dad3,
      I           VMTD,  VMTD_W2,
      I           KTB,   NHt, MH, LH, NZ, LZ, KZ0)
@@ -228,39 +225,11 @@ c$$$      call DAtrcU (IFPl, iErr, 'R', 'MABstp')
       RETURN
       END
 CCC_* [MAC] common
-CCC_ & MACzst  ## set skipped grids as constant
-      subroutine MACzst
-     O    (VMTD,
-     I     KTW,  KTB, NHt, MH, LH, NZ, LZ, KZ0, A0)
-CCC_  - Declaration
-      implicit none
-c
-      _INTENT(IN, integer)  NHt
-      _INTENT(IN, integer)  KTB (LH, *)
-      _INTENT(IN, integer)  MH, LH
-      _INTENT(IN, integer)  NZ, LZ, KZ0
-      _INTENT(OUT,_REALSTD) VMTD (LH, LZ, *)
-      _INTENT(IN, _REALSTD) A0
-      _INTENT(IN, integer)  KTW
-      integer  jh, jht
-      integer  jz, jzz
-      integer  kfw
-CCC_  - Body
-      kfw  = 1
-      do jzz = 1, NZ
-         jz = KZ0 + jzz - 1
-         do jht = NHt + 1, MH
-            jh = KTB (jht, kfw)
-            VMTD (jht, jz, KTW) = A0
-         enddo
-      enddo
-      RETURN
-      END
 CCC_ & MACdah  ## age lateral derivatives
       subroutine MACdah
      O    (iErr,
      M     VMTA, VMTD, CW,
-     I     VMTI, VMHI,
+     I     VMTI, VMHW,
      I     WW,
      I     KTB,  NH,   MH,  LH,  NZ,   LZ,  KZ0,
      I     IMM,  ipKW, iMA)
@@ -276,7 +245,7 @@ c
       _INTENT(INOUT,_REALSTD) VMTD (LH, LZ, *)
       _INTENT(INOUT,_REALSTD) VMTA (LH, LZ, *)
       _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VMHI (LH, *)
+      _INTENT(IN,   _REALSTD) VMHW (LH, *)
       _INTENT(IN,   _REALSTD) WW  (*)
       _INTENT(IN,   integer)  ipKW (*), iMA (*)
       _INTENT(IN,   integer)  IMM(*)
@@ -289,8 +258,8 @@ c
 CCC_  - Body
       iErr = 0
       if (iErr.eq.0) then
-         KHU = VMHI_ADVXe
-         KHL = VMHI_ADVXw
+         KHU = VMHW_ADVXe
+         KHL = VMHW_ADVXw
          KDA = VMTA_dad1
          KOD = KWO_GXab
          KOC = KWO_FCba
@@ -310,14 +279,14 @@ CCC_   . result
             jz = KZ0 + jzz - 1
             do jh = 1,  MH
                VMTA(jh, jz, KDA) =
-     $              +VMHI (jh, KHU) * VMTD (jh, jz, VMTD_W1)
-     $              +VMHI (jh, KHL) * VMTD (jh, jz, VMTD_W2)
+     $              +VMHW (jh, KHU) * VMTD (jh, jz, VMTD_W1)
+     $              +VMHW (jh, KHL) * VMTD (jh, jz, VMTD_W2)
             enddo
          enddo
       endif
       if (iErr.eq.0) then
-         KHU = VMHI_ADVYn
-         KHL = VMHI_ADVYs
+         KHU = VMHW_ADVYn
+         KHL = VMHW_ADVYs
          KDA = VMTA_dad2
          KOD = KWO_GYac
          KOC = KWO_FCca
@@ -337,8 +306,8 @@ CCC_   . result
             jz = KZ0 + jzz - 1
             do jh = 1,  MH
                VMTA(jh, jz, KDA) =
-     $              +VMHI (jh, KHU) * VMTD (jh, jz, VMTD_W1)
-     $              +VMHI (jh, KHL) * VMTD (jh, jz, VMTD_W2)
+     $              +VMHW (jh, KHU) * VMTD (jh, jz, VMTD_W1)
+     $              +VMHW (jh, KHL) * VMTD (jh, jz, VMTD_W2)
             enddo
          enddo
       endif
@@ -438,8 +407,6 @@ CCC_   . Gamma
       enddo
       RETURN
       END
-CCC_* preparation
-CCC_ & MAWxpr  ## Movement Age vertical velocity transform
 CCC_* [MAU] Upwind scheme
 CCC_ & MAUcxw  ## equation coefficients, variation wadj
       subroutine MAUcxw
@@ -618,7 +585,7 @@ CCC_ & MAUxsv  ## Upwind: explicit second-order (vertical) solver
      O    (iErr,
      M     VMTD,
      I     Kage, Kgrd,
-     I     VMTA, VMHW, VMHB,
+     I     VMTA, VMHW,
      I     KTB,  WZV,  PMM,  IMM, DT,
      I     NH,   LH,   NZ,   LZ,  KZ0,
      I     IFPl)
@@ -631,7 +598,6 @@ c
       _INTENT(INOUT,_REALSTD) VMTD (LH, LZ, *)
       _INTENT(IN,   _REALSTD) VMTA (LH, LZ, *)
       _INTENT(IN,   _REALSTD) VMHW (LH, *)
-      _INTENT(IN,   _REALSTD) VMHB (LH, *)
       _INTENT(IN,   integer)  Kage, Kgrd
 c
       _INTENT(IN,   integer)  KTB  (LH, *)
@@ -831,7 +797,7 @@ CCC_ & MAUbld  ## Upwind: matrix builder core
       subroutine MAUbld
      O    (iErr,
      M     VMTD,
-     I     VMTA, VMHW, VMHB,
+     I     VMTA, VMHW,
      I     KTB,  WZV,  PMM,  IMM, DT,
      I     NH,   LH,   NZ,   LZ,  KZ0,
      I     IFPl)
@@ -844,7 +810,6 @@ c
       _INTENT(INOUT,_REALSTD) VMTD (LH, LZ, *)
       _INTENT(IN,   _REALSTD) VMTA (LH, LZ, *)
       _INTENT(IN,   _REALSTD) VMHW (LH, *)
-      _INTENT(IN,   _REALSTD) VMHB (LH, *)
 c
       _INTENT(IN,   integer)  KTB  (LH, *)
       _INTENT(IN,   _REALSTD) PMM  (*)
@@ -990,7 +955,7 @@ c              E3 < 0 or w > 0
       enddo
       RETURN
       END
-CCC_ & MAUpsp  ## upwind post processing
+CCC_ & MAUpsp  ## Upwind: post processing
       subroutine MAUpsp
      O    (iErr,
      M     VMTD,

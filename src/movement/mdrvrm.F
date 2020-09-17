@@ -1,13 +1,12 @@
 C movement/mdrvrm.F --- IcIES/Movement/driver
 C Maintainer: SAITO Fuyuki
 C Created: Oct 28 2011
-C Revision:  Snoopy0.9
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/12/18 09:20:32 fuyuki mdrvrm.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:44:28 fuyuki mdrvrm.F>'
 #define _FNAME 'movement/mdrvrm.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2011--2020
@@ -356,7 +355,7 @@ CCC_    * vertical velocity (other field for temperature update)
             if (iErr.eq.0) then
                call MMWcmp
      O             (iErr,
-     M              VMHI,  VMTI,  VMTW,
+     M              VMHW,  VMTI,  VMTW,
      W              VMW,   CW,
      I              VMI,   VMC,   VMHB, QM,   F0,   WZV,  T, DT,
      I              IMM,   WW,
@@ -386,7 +385,7 @@ CCC_    * compute fields for temperature (i)
             if (iErr.eq.0) then
                call MTBuvs
      O             (iErr,
-     M              VMTI,  VMTW, VMHI, VMHW,
+     M              VMTI,  VMTW, VMHW,
      O              CW,
      I              VMID,  VMHB, PMM,  IMM,
      I              WW,    WZV,
@@ -443,12 +442,11 @@ CCC_ & MDstpT  ## Movement/Driver integration suite (thermodynamics)
      O    (iErr,
      M     VMHI, VMTI,
      W     CW,   VMHW, VMTW,
-     I     KTB,
+     I     KTB,  NHt,  KHH,  KHB,
      I     VMHB, OMM,  IMM,  PMM,   T,    DT,
      I     WW,   WZV,
      I     MH,   LH,   NZ,   LZ,    KZ0,
      I     IE,   ipKW, iMA,  ipCG,  LCG,  idGM, IFPl)
-CCC_  - Description
 CCC_  - Declaration
       implicit none
       _INTENT(OUT,  integer)  iErr
@@ -462,7 +460,6 @@ c
       _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
 c
       _INTENT(OUT,  _REALSTD) CW   (*)
-      _INTENT(OUT,  integer)  KTB  (LH, *)
 c
       _INTENT(IN,   logical)  OMM  (*)
       _INTENT(IN,   integer)  IMM  (*)
@@ -470,6 +467,9 @@ c
       _INTENT(IN,   _REALSTD) T, DT
 c
       _INTENT(IN,   _REALSTD) VMHB (LH, *)
+      _INTENT(IN,   integer)  KTB  (LH, *)
+      _INTENT(IN,   integer)  NHt
+      _INTENT(IN,   integer)  KHH, KHB
 c
       _INTENT(IN,   _REALSTD) WW   (LH, *)
       _INTENT(IN,   _REALSTD) WZV  (*)
@@ -479,17 +479,16 @@ c
       _INTENT(IN,   integer)  idGM (*)
 c
       _INTENT(IN,   integer)  IFPl
-CCC_   . interior
-      integer NHt
 CCC_  - Body
+      iErr = 0
 CCC_   . compute fields for temperature (ii)
       if (iErr.eq.0) then
          call MTButp
      O       (iErr,
-     O        KTB,   NHt,
      M        VMTI,  VMTW, VMHI, VMHW,
      O        CW,
      I        VMHB,  PMM,  IMM,
+     I        KTB,   NHt,  KHH,  KHB,
      I        WW,    WZV,  DT,
      I        MH,    LH,   NZ,   LZ,   KZ0,
      I        ipCG,  LCG,  ipKW, iMA,  IFPl)
@@ -2821,7 +2820,7 @@ CCC_ @ MDTEST  ## Mdrvrm test program
       program MDTEST
 CCC_  - Test suites
 CC::   KINDS 1 2 3 4 5 6 7 8
-CC::   SOURCES mmcipc.F mmsbcg.F mutcfg.F msnita.F mibakw.F mmxoms.F mbscol.F msbmos.F mmwcol.F mttcol.F
+CC::   SOURCES mmcipc.F mmsbcg.F mutcfg.F msnita.F mibakw.F mmxoms.F mbscol.F msbmos.F mmwcol.F mttcol.F magcol.F
 CC::   SOURCES 4 dbg_mttcol.F
 CCC_  - Declaration
       implicit none
@@ -2905,6 +2904,7 @@ CCC_    * 3d velocity
       _REALSTD   VMTI (LTPref * VMTI_MAX)
 CCC_    * conversion table
       integer    KTB  (LHPref, 2)
+      integer    NHT
 CCC_    * integration weights
       integer    NTH
       parameter (NTH = 2)
@@ -2966,6 +2966,8 @@ CCC_   . Test configuration
       _REALSTD PMTI (MAXMTP)
 CCC_   . misc
       integer    jedmy
+      integer    KHH, KHB
+      _REALSTD   HC
 CCC_  - Body
       iErr = 0
 CCC_   . i/o configuration
@@ -3037,6 +3039,9 @@ CCC_    * gradient dH/dx:b
      I        ipCG,  LCG,  ipKW, iMA, ipL)
       endif
 #endif
+      KHH = VMHI_nHa
+      KHB = VMHI_nBa
+      HC  = 0.0d0
 CCCCCCC
 c$$$      OMM (OMM_WITH_RUPD) = .not. (IMM (IMD_RF) .eq. SW_RF_CONST)
       OMM (OMM_WITH_RUPD) = .TRUE.
@@ -3090,13 +3095,17 @@ CCC_    * boundary condition at new (or old) topography
      I              MH,   LH,
      I              ipKW, ipL)
             endif
+CCC_    * Categorize
+            if (iErr.eq.0) then
+               call MUMidv (KTB, NHt, VMHI, KHH, HC, MH, LH)
+            endif
 CCC_    * new temperature
             if (iErr.eq.0) then
                call MDstpT
      O             (iErr,
      M              VMHI, VMTI,
      W              CW,   VMHW, VMTW,
-     W              KTB,
+     I              KTB,  NHt,  KHH,   KHB,
      I              VMHB, OMM,  IMM,   PMM,   T,   DTI,
      I              WW,   WZV,
      I              MH,   LH,   NZ,    LZ,    KZ0,

@@ -4,9 +4,9 @@ C Created: Tue Feb  4 2003
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:44:01 fuyuki uxunit.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:24:46 fuyuki uxunit.F>'
 #define _FNAME 'unison/uxunit.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -16,16 +16,51 @@ C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)
 C
 CCC_! Description
+CCC_ + Expressions
+CC     Units expressions adopted in these subroutines are roughly a
+CC     small subset of units(1).  Multiplication is denoted by
+CC     asterisk(*), blank( ), or semicolon(;), division by slash(/) and
+CC     power by circumflex(^).  Colon(:) is also a multiplication
+CC     separator, but it is appended to the previous item and work as
+CC     prefix of the next term (see example), but MAY NOT WORK WELL at
+CC     this implementation.  The other symbols as well as alphabets and
+CC     digits are parsed as components of a unit name or a number
+CC     literal.  The first slash marks the beginning of the denominator
+CC     until the next asterisk.
+CC     Grouping by parentheses is not supported.
+CC
+CC     Since SI prefixes (e.g., kilo, centi,...) are not supported, such
+CC     units must be declared independently.
+CC     Non-integer power of a unit is not supported.  There is a way
+CC     around, which is not well documented and tested at the moment.
+CC
+CCC_  - examples
+CC         m/s    ==  m s^-1  ==  /s*m
+CC         m/s s  ==  m s^-2  ==  m/s/s
+CC         m/s*s  ==  m s^0   ==  m
+CC         k:m    ==  k: * m
+CC         /k:m   ==  k:m^-1  == k:^-1 m^-1
+CC
+CCC_ + Unique unit-id
+CC     All the registered units (either single or compounds) have a
+CC     corresponding unique id.  Identical compounds have one common id
+CC     even their notation differ.
+CC
+CCC_ + Limitation
+CC     * Negative factor/denominator may not be correctly parsed as expected.
+CC     * Colon-suffix units are not fully tested.  Better to define such units
+CC       with prefix (e.g., cm, hPa) separately.
+CC
 CCC_ + /FDM/ scaling definition
-CC      Linear unit conversions are declared with three numbers, called FDM table,
-CC      which stands for Factor/Denominator/Magnitude.
+CC     Linear unit conversions are declared with three numbers, called
+CC     FDM table, which stands for Factor/Denominator/Magnitude.
 CC
 CC      ex.
 CC         mm  := [F:1,  D:1,  M:-3] m    (mm  := 1  / 1  * 10^-3 m)
 CC         day := [F:24, D:1,  M:0]  hr   (day := 24 / 1  * 10^0  hr)
 CC         mon := [F:1,  D:12, M:0]  yr   (mon := 1  / 12 * 10^0  yr)
 CC
-CC      Non-linear unit conersions can be also declared, where FDM,
+CC      Non-linear unit conversions can be also declared, where FDM,
 CC      is internally all set as 0.
 CC
 CC      ex.
@@ -34,15 +69,28 @@ CC
 CCC_ + decomposition and conversion
 CC
 CC     /Decomposition/ is to deduce a unique sequence of primitive units
-CC    with a scaling array to multiply, from given (single or compound) units.
-CC    For example, /86400 s/ from /day/, /1000 kg m^-1 s^-2/ from /kPa/ etc.
+CC     with a scaling array to multiply, from given (single or compound)
+CC     units.
+CC     For example, /86400 s/ from /day/, /1000 kg m^-1 s^-2/ from /kPa/
+CC     etc.
 CC
-CC    /Conversion/ from one unit to another is achieved through decomposition.
-CC    First, /SRC DEST^-1/ is registered as a compound.  Then, this compound
-CC    is decomposed.  If the dimension of SRC and that of DEST are identical,
-CC    then the final decomposed unit is *DIMENSIONLESS*.
+CC     /Conversion/ from one unit to another is achieved through
+CC     decomposition.  First, /SRC DEST^-1/ is registered as a compound.
+CC     Then, this compound is decomposed.  If the dimension of SRC and
+CC     that of DEST are identical,
+CC     then the final decomposed unit is *DIMENSIONLESS*.
 CC
 CCC_* Macros
+CCC_ + Test
+#ifndef TEST_UXUNIT
+#  define TEST_UXUNIT 0
+#endif
+#if TEST_UXUNIT
+#  ifndef WITH_TEST_UXUNIT
+#  define WITH_TEST_UXUNIT 1
+#  endif
+#endif
+c$$$#define OPT_UNIT_DBG_PARSER 1
 CCC_ + include
 #include "ofdlct.h" /* fortran dialect */
 #include "ologfm.h" /* logging */
@@ -58,12 +106,19 @@ CCC_ + Buffer configuration
 #  define  OPT_UNIT_EXPANSION_LOOP  1024
 #endif
 #ifndef    OPT_UNIT_HASH_BASE       /* default hash base */
-#  define  OPT_UNIT_HASH_BASE       13
+#  define  OPT_UNIT_HASH_BASE       101
 #endif
 #ifndef    OPT_UNIT_HASH_BASE_FINAL /* default hash base at bottom */
-#  define  OPT_UNIT_HASH_BASE_FINAL 17
+#  define  OPT_UNIT_HASH_BASE_FINAL 127
+#endif
+#ifndef    OPT_UNIT_AUTO_LIMIT /* auto unit allocation trial limit */
+#  define  OPT_UNIT_AUTO_LIMIT 64
+#endif
+#ifndef    OPT_UNIT_DBG_PARSER /* verbose unit parser */
+#  define  OPT_UNIT_DBG_PARSER 0
 #endif
 CCC_ + Dimension/Unit configuration
+#define _FDM_BASE  10.d0   /* base of FDM magnitude */
 CCC_  - coeff-power table
 #define _CPTBL_CF    1 /* constant */
 #define _CPTBL_POW   2 /* power */
@@ -97,9 +152,17 @@ CCC_ + Special
 #define _ID_UNDEF        -99
 CCC_ + Special characters
 #define _CHAR_DIV    '/'   /* division operator */
+#define _CHAR_MUL    '*'   /* multiplication operator */
 #define _CHAR_POW    '^'   /* exponent operator */
 #define _CHAR_IGNORE ';'   /* ignored separator */
+#define _CHAR_FINAL  ':'   /* separator but included as the final */
+c$$$#define _CHAR_FINAL  '-'   /* separator but included as the final */
+CCC_ + FDM operation id (in UXTopr)
+#define _OPR_MUL  1  /* a *= b */
+#define _OPR_DIV  2  /* a /= b */
+#define _OPR_IDIV 3  /* a = b / a */
 CCC_ + Attribute cluster
+CCC_  - Entries
 CC integer attributes allocation
 CC           basic          _OFF_IATTR
 CC   [P, ID] single         _UATTR_MAX * LS
@@ -145,11 +208,17 @@ CC
 #define _USTR(VS,ID)    VS(ID)
 #define _CFTS(VS,P,ID)   VS(P+(ID-1)*_COEFF_MAX) /* coeff for single */
 #define _CFTD(VS,P,ID)   VS(P+(ID-1)*_COEFF_MAX) /* coeff for decomposition */
-CCC_ + Debug
-#if TEST_UXUNIT
-c$$$#  define _DBG_UNIT_PARSER
+CCC_  - Array size indication
+#define UXILIM(U,D,C,T) (U)*_UATTR_MAX+(D)*_DATTR_MAX+(C)*_CATTR_MAX+(T)*_IPTBL_MAX+_OFF_IATTR
+#define UXALIM(U)       (U)
+#define UXSLIM(U,D)     (U+D)*_COEFF_MAX
+CCC_ + function
+#if   HAVE_F77_MODULO
+#   define _MODULO MODULO
+#else /* not HAVE_F77_MODULO */
+#   define _MODULO imodul
 #endif
-CCC_* [UXS] Unit shell
+CCC_* [UXS] Unit shell (controlled by string)
 CCC_ & UXSdpc  ## Unit/Shell: define primitive unit and class
 CC     Declare new Unit and Ucls as its alias
       subroutine UXSdpc
@@ -166,9 +235,7 @@ CC     Declare new Unit and Ucls as its alias
       integer  idU, idC
       _REALSTD FDM (UXC_MAX)
 c
-      FDM(UXC_F) = 1.d0
-      FDM(UXC_D) = 1.d0
-      FDM(UXC_M) = 0.d0
+      call UXTrst(FDM)
       call UXCreg (iErr, idU, Uname, FDM, ' ', KU,SU,AU)
       if (iErr.eq.0) then
          if (Ucls.ne.' ') then
@@ -320,6 +387,28 @@ c
       call UXCali (iErr, idU, Uname, Ubase, KU,SU,AU)
       RETURN
       END
+CCC_ & UXSdpu  ## Unit/Shell: define with prefix
+      subroutine UXSdpu
+     O    (iErr,
+     I     Upfx, Ubase,
+     M     KU,   SU,    AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(IN,   character) Upfx*(*)
+      _INTENT(IN,   character) Ubase*(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idU
+      character Usrc*(OPT_UNIT_LEN)
+      character Unew*(OPT_UNIT_LEN)
+c
+      iErr = 0
+      call USCntc(Usrc, _CHAR_FINAL, Upfx, Ubase)
+      call USCsta(Unew, Upfx, Ubase)
+      call UXCali(iErr, idU, Unew, Usrc, KU,SU,AU)
+      RETURN
+      END
 CCC_ & UXSdco  ## Unit/Shell: define constant (dimensionless)
       subroutine UXSdco
      O    (iErr,
@@ -335,6 +424,25 @@ CCC_ & UXSdco  ## Unit/Shell: define constant (dimensionless)
       integer idU
 c
       call UXCcon (iErr, idU, Uname, C, KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXSpmi  ## Unit/Shell: define prefix (integer magnitude)
+      subroutine UXSpmi
+     O    (iErr,
+     I     Upfx, IMAG,
+     M     KU,   SU,    AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(IN,   character) Upfx*(*)
+      _INTENT(IN,   integer)   IMAG
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idU
+      character Uname*(OPT_UNIT_LEN)
+c
+      call USCsta(Uname, Upfx, _CHAR_FINAL)
+      call UXCcmi (iErr, idU, Uname, IMAG, KU,SU,AU)
       RETURN
       END
 CCC_ & UXSdnl  ## Unit/Shell: define non-linear
@@ -354,6 +462,25 @@ c
       call UXCnln (iErr, idU, Uname, Ubase, KU,SU,AU)
       RETURN
       END
+CCC_ & UXSdpw  ## Unit/Shell: define by power
+      subroutine UXSdpw
+     O    (iErr,
+     I     Uname, P,  Ubase,
+     M     KU,    SU, AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(IN,   character) Uname*(*)
+      _INTENT(IN,   character) Ubase*(*)
+      _INTENT(IN,   _REALSTD)  P
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idU
+c
+      iErr = 0
+      call UXCpwc(iErr, idU, Uname, P,  Ubase, KU,SU,AU)
+      RETURN
+      END
 CCC_ & UXSdxu  ## Unit/Shell: define conversion
       subroutine UXSdxu
      O    (iErr,
@@ -368,7 +495,73 @@ CCC_ & UXSdxu  ## Unit/Shell: define conversion
       _INTENT(INOUT,character) AU(*)*(*)
       integer idX
 c
-      call UXCxps (iErr, idX, Usrc, Udst, KU,SU,AU)
+      call UXSxps (iErr, idX, Usrc, Udst, KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXSdcf  ## Unit/Shell: get decomposition factor
+      subroutine UXSdcf
+     O    (iErr,  F,
+     I     Ustr,
+     M     KU,    SU,    AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  _REALSTD)  F
+      _INTENT(IN,   character) Ustr*(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _REALSTD V(UXC_MAX)
+      call UXSdct(iErr, V, Ustr, UXLEV_F, KU,SU,AU)
+      if (iErr.eq.0) F = V(UXC_F)
+      RETURN
+      END
+CCC_ & UXSdcf  ## Unit/Shell: get decomposition factor (table)
+      subroutine UXSdct
+     O    (iErr,  FDM,
+     I     Ustr,  KLV,
+     M     KU,    SU,    AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  _REALSTD)  FDM(*)
+      _INTENT(IN,   character) Ustr*(*)
+      _INTENT(IN,   integer)   KLV
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idU, idX
+      iErr = 0
+      idU = 0
+      idX = 0
+      if (iErr.eq.0) call UXCprf (iErr, idU, Ustr, KU,SU,AU)
+      if (iErr.eq.0) call UXCdcm (iErr, idX, idU,  KU,SU,AU)
+      call UXCftb (iErr, FDM, idX, .TRUE., KLV, KU,SU)
+      RETURN
+      END
+CCC_ & UXSdtu  ## Unit/Shell: get decomposition factor (table) and units
+      subroutine UXSdtu
+     O    (iErr,  FDM,   Udec,
+     I     Ustr,  KLV,
+     M     KU,    SU,    AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  _REALSTD)  FDM(*)
+      _INTENT(OUT,  character) Udec*(*)
+      _INTENT(IN,   character) Ustr*(*)
+      _INTENT(IN,   integer)   KLV
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idU, idX, idB
+      iErr = 0
+      idU = 0
+      idX = 0
+      if (iErr.eq.0) call UXCprf (iErr, idU, Ustr, KU,SU,AU)
+      if (iErr.eq.0) call UXCdcm (iErr, idX, idU,  KU,SU,AU)
+      call UXCftb (iErr, FDM, idX, .TRUE., KLV, KU,SU)
+      if (iErr.eq.0) then
+         call UXAgbi(iErr, idB, idX, KU)
+         call UXAqun(iErr, Udec, idB, _CHAR_IGNORE, KU, AU)
+      endif
       RETURN
       END
 CCC_ & UXSdec  ## Unit/Shell: define decomposition
@@ -385,16 +578,32 @@ CCC_ & UXSdec  ## Unit/Shell: define decomposition
       integer idU, idX
 c
       iErr = 0
-      if (iErr.eq.0) call UXCprc (iErr, idU, Ustr, KU,SU,AU)
-c     fail if exist unknown units
-      if (iErr.gt.0) iErr = ERR_UNIT_INVALID_COMPOUND
-      if (iErr.eq.0) call UXCdcm (iErr, idX, idU, KU,SU,AU)
+      if (iErr.eq.0) call UXCprf (iErr, idU, Ustr, KU,SU,AU)
+      if (iErr.eq.0) call UXCdcm (iErr, idX, idU,  KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXSqfc  ## Unit/Shell: get conversion factor
+      subroutine UXSqfc
+     O    (iErr,
+     O     F,
+     I     Usrc, Udst,
+     M     KU,   SU,   AU)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  _REALSTD)  F
+      _INTENT(IN,   character) Usrc*(*), Udst*(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _REALSTD V(UXC_MAX)
+      call UXSqfx(iErr, V, Usrc, Udst, UXLEV_F, KU,SU,AU)
+      F = V(UXC_F)
       RETURN
       END
 CCC_ & UXSqfx  ## Unit/Shell: get conversion table
       subroutine UXSqfx
      O    (iErr,
-     M     FDM,
+     O     FDM,
      I     Usrc, Udst, KLV,
      M     KU,   SU,   AU)
 CCC_  - Declaration
@@ -409,8 +618,24 @@ CCC_  - Declaration
       integer idX
 CCC_  - Body
       iErr = 0
-      if (iErr.eq.0) call UXCxps (iErr, idX, Usrc, Udst, KU,SU,AU)
-      call UXCftb (iErr, FDM, idX, .TRUE., KLV, KU,SU)
+      if (iErr.eq.0) call UXSxps (iErr, idX, Usrc, Udst, KU,SU,AU)
+      if (iErr.eq.0) call UXCftb (iErr, FDM, idX, .TRUE., KLV, KU,SU)
+      RETURN
+      END
+CCC_ & UXSqrg  ## Unit/SHell: check registered
+      subroutine UXSqrg
+     O    (iErr,
+     I     Usrc, KU, AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, character) Usrc*(*)
+      _INTENT(IN, integer)   KU(*)
+      _INTENT(IN, character) AU(*)*(*)
+      integer idUs
+CCC_  - Body
+      iErr = 0
+      call UXCinq (iErr, idUs, Usrc, KU,AU)
       RETURN
       END
 CCC_ & UXSqxr  ## Unit/Shell: check relation between two units
@@ -427,11 +652,16 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       integer jErr
       integer idUs, idUd
+      _REALSTD   FDMs(UXC_MAX), FDMd(UXC_MAX)
 CCC_  - Body
       jErr = 0
-      if (jErr.ge.0) call UXCprc (jErr, idUs, Usrc, KU,SU,AU)
-      if (jErr.ge.0) call UXCprc (jErr, idUd, Udst, KU,SU,AU)
-      if (jErr.ge.0) call UXCrch (iDstt, iCstt, idUs, idUd, KU,SU,AU)
+      call UXTrst(FDMs)
+      call UXTrst(FDMd)
+      if (jErr.ge.0) call UXCprc (jErr, idUs, FDMs, Usrc, KU,SU,AU)
+      if (jErr.ge.0) call UXCprc (jErr, idUd, FDMd, Udst, KU,SU,AU)
+      if (jErr.ge.0) call UXTopr (FDMs, FDMd, _OPR_DIV)
+      if (jErr.ge.0)
+     $     call UXCrch (iDstt, iCstt, idUs, idUd, FDMs, KU,SU,AU)
       RETURN
       END
 CCC_ & UXScss  ## Unit/Shell: convert (single/assign)
@@ -442,11 +672,11 @@ CCC_ & UXScss  ## Unit/Shell: convert (single/assign)
      M     KU, SU,   AU)
 CCC_  - Declaration
       implicit none
-      _INTENT(OUT,integer)     iErr
-      _INTENT(OUT,_REALSTD)    VD
-      _INTENT(IN, _REALSTD)    VS
-      _INTENT(IN, character)   Usrc*(*), Udst*(*)
-      _INTENT(IN, integer)     KSW
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  _REALSTD)  VD
+      _INTENT(IN,   _REALSTD)  VS
+      _INTENT(IN,   character) Usrc*(*), Udst*(*)
+      _INTENT(IN,   integer)   KSW
       _INTENT(INOUT,integer)   KU(*)
       _INTENT(INOUT,_REALSTD)  SU(*)
       _INTENT(INOUT,character) AU(*)*(*)
@@ -503,7 +733,35 @@ CCC_  - Declaration
       integer idX
 CCC_  - Body
       iErr = 0
-      call UXCxps (iErr, idX, Usrc, Udst, KU,SU,AU)
+      call UXSxps (iErr, idX, Usrc, Udst, KU,SU,AU)
+      if (iErr.eq.0) then
+         if (KSW.lt.0) then
+            call UXCrvc (iErr, VS, idX, KU,SU)
+         else
+            call UXCcnv (iErr, VS, idX, KU,SU)
+         endif
+      endif
+      RETURN
+      END
+CCC_ & UXSixs  ## Unit/Shell: convert (single/modify/id)
+      subroutine UXSixs
+     O    (iErr,
+     M     VS,
+     I     idX,  KSW,
+     M     KU,   SU)
+CCC_  - Description
+CC         KSW positive or zero :: src to dst conversion
+CC         KSW negative         :: dst to src conversion (reverse)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,_REALSTD)  VS
+      _INTENT(IN,   integer)   idX
+      _INTENT(IN,   integer)   KSW
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+CCC_  - Body
+      iErr = 0
       if (iErr.eq.0) then
          if (KSW.lt.0) then
             call UXCrvc (iErr, VS, idX, KU,SU)
@@ -532,13 +790,77 @@ CCC_  - Declaration
       integer idX
 CCC_  - Body
       iErr = 0
-      call UXCxps (iErr, idX, Usrc, Udst, KU,SU,AU)
+      call UXSxps (iErr, idX, Usrc, Udst, KU,SU,AU)
       if (iErr.eq.0) then
          if (KSW.lt.0) then
             call UXCrca (iErr, VS, NV, idX, KU,SU)
          else
             call UXCcva (iErr, VS, NV, idX, KU,SU)
          endif
+      endif
+      RETURN
+      END
+CCC_ & UXSixa  ## Unit/Shell: convert (array/modify/id)
+      subroutine UXSixa
+     O    (iErr,
+     M     VS,
+     I     NV, idX, KSW,
+     I     KU, SU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,_REALSTD)  VS(*)
+      _INTENT(IN,   integer)   NV
+      _INTENT(IN,   integer)   idX
+      _INTENT(IN,   integer)   KSW
+      _INTENT(IN,   integer)   KU(*)
+      _INTENT(IN,   _REALSTD)  SU(*)
+CCC_  - Body
+      iErr = 0
+      if (iErr.eq.0) then
+         if (KSW.lt.0) then
+            call UXCrca (iErr, VS, NV, idX, KU,SU)
+         else
+            call UXCcva (iErr, VS, NV, idX, KU,SU)
+         endif
+      endif
+      RETURN
+      END
+CCC_ & UXSxps  ## Unit/Shell: conversion registration after parsing
+      subroutine UXSxps
+     O    (iErr, idX,
+     I     Usrc, Udst,
+     M     KU,   SU,    AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  integer)   idX
+      _INTENT(IN,   character) Usrc*(*), Udst*(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idUs, idUd
+CCC_  - Body
+      iErr = 0
+      idX  = _ID_UNDEF
+CC    to do: UXCprc returns number of unknowns
+      if (iErr.eq.0) call UXCprf(iErr, idUs, Usrc, KU,SU,AU)
+      if (iErr.eq.0) call UXCprf(iErr, idUd, Udst, KU,SU,AU)
+      if (iErr.eq.0) call UXCxrg(iErr, idX,  idUs, idUd, KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXSchk  ## Unit/Shell: dignostics of unit systems
+      subroutine UXSchk (iErr, KU,SU,AU)
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, integer)   KU(*)
+      _INTENT(IN, _REALSTD)  SU(*)
+      _INTENT(IN, character) AU(*)*(*)
+      integer nPS
+      iErr = 0
+      call UXAnps(nPS, KU)
+      if (nPS.gt.0) then
+         call UXMrpp(iErr, -999, KU,SU,AU)
+         if (iErr.eq.0) iErr = nPS
       endif
       RETURN
       END
@@ -551,6 +873,30 @@ CCC_ & UXSrep  ## Unit/Shell: report
       _INTENT(IN, character) AU(*)*(*)
 c
       call UXMrep(iErr, -999,  KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXShch  ## Unit/Shell: health check
+      subroutine UXShch(iErr, ipL)
+      implicit none
+      _INTENT(OUT,integer) iErr
+      _INTENT(IN, integer) ipL
+      integer k, l, m, n
+CCC_  - MOD
+      iErr = 0
+      do l = 3, -3, -6
+         do k = 3, -3, -1
+            m = k / l
+            m = k - (m * l)
+            N = MOD(K, L)
+            if (L.gt.0) then
+               if (N.lt.0) N = N + L
+            else if (L.lt.0) then
+               if (N.gt.0) N = N + L
+            endif
+            if (iErr.eq.0) call UFHmdi(iErr, ipL, k, l, m)
+            if (iErr.eq.0) call UFHmli(iErr, ipL, k, l, n)
+         enddo
+      enddo
       RETURN
       END
 CCC_* [UXC] Unit core
@@ -658,15 +1004,32 @@ CCC_  - Body
       endif
       RETURN
       END
+CCC_ & UXCrcw  ## Unit/Core: check relation (wrapper)
+      subroutine UXCrcw
+     O    (iDstt, iCstt,
+     I     idUs,  idUd,
+     M     KU,    SU,    AU)
+      implicit none
+      _INTENT(OUT,  integer)   iDstt, iCstt
+      _INTENT(IN,   integer)   idUd,  idUs
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _REALSTD  FDM(UXC_MAX)
+      call UXTrst(FDM)
+      call UXCrch(iDstt,iCstt, idUs,idUd,FDM,  KU,SU,AU)
+      RETURN
+      END
 CCC_ & UXCrch  ## Unit/Core: check relation
       subroutine UXCrch
      O    (iDstt, iCstt,
-     I     idUs,  idUd,
+     I     idUs,  idUd,  FDM,
      M     KU,    SU,    AU)
 CCC_  - Declaration
       implicit none
       _INTENT(OUT,  integer)   iDstt, iCstt
       _INTENT(IN,   integer)   idUd,  idUs
+      _INTENT(IN,   _REALSTD)  FDM(*)
       _INTENT(INOUT,integer)   KU(*)
       _INTENT(INOUT,_REALSTD)  SU(*)
       _INTENT(INOUT,character) AU(*)*(*)
@@ -676,28 +1039,45 @@ CCC_  - Body
       jErr  = 0
       call UXCxrg (jErr, idX, idUs, idUd, KU,SU,AU)
       if (jErr.eq.0) then
-         call UXCdch(iDstt, iCstt, idX, KU,SU)
+         call UXCdch(iDstt, iCstt, idX, FDM, KU,SU)
       else
          iDstt = ERR_UNIT_PANIC
          iCstt = jErr
       endif
       RETURN
       END
-CCC_ & UXCdch  ## Unit/Core: check decomposition result
-      subroutine UXCdch
+CCC_ & UXCdcw  ## Unit/Core: check decomposition result (wrapper)
+      subroutine UXCdcw
      O    (iDstt, iCstt,
      I     idU,
      I     KU,    SU)
+      implicit none
+      _INTENT(OUT,integer)   iDstt, iCstt
+      _INTENT(IN, integer)   idU
+      _INTENT(IN, integer)   KU(*)
+      _INTENT(IN, _REALSTD)  SU(*)
+      _REALSTD  FDM(UXC_MAX)
+      call UXTrst(FDM)
+      call UXCdch(iDstt, iCstt, idU,FDM, KU,SU)
+      RETURN
+      END
+CCC_ & UXCdch  ## Unit/Core: check decomposition result
+      subroutine UXCdch
+     O    (iDstt, iCstt,
+     I     idU,   FDMi,
+     I     KU,    SU)
 CCC_  - Description
-CC        Return negative error number or unit id of idU decomposition
-CC       as iDstt, such that iDstt = 0 = _ID_DIMENSIONLESS if the same dimension.
-CC        Return iCstt as conversion characteristics:  0 if non-linear,
+CC      Return negative error number or unit id of idU decomposition as
+CC      iDstt, such that iDstt = 0 = _ID_DIMENSIONLESS if the same
+CC      dimension.  Return iCstt as conversion characteristics: 0 if
+CC      non-linear,
 CC       1 if identical, 2 if different.
 CC      -1 if identical/negative, -2 if magnitude/sign both different
 CCC_  - Declaration
       implicit none
       _INTENT(OUT,integer)   iDstt, iCstt
       _INTENT(IN, integer)   idU
+      _INTENT(IN, _REALSTD)  FDMi(*)
       _INTENT(IN, integer)   KU(*)
       _INTENT(IN, _REALSTD)  SU(*)
       integer  idB
@@ -708,13 +1088,16 @@ CCC_  - Body
       iDstt = 0
       iCstt = 0
       if (jErr.eq.0) then
-         call UXCftb (jErr, FDM, idU, .TRUE., UXLEV_F, KU,SU)
+         call UXCftb (jErr, FDM, idU, .TRUE., UXLEV_FDM, KU,SU)
+         if (jErr.eq.0) then
+            call UXTopr(FDM, FDMi, _OPR_MUL)
+            call UXTcnt(F, FDM)
+         endif
       endif
       if (jErr.eq.0) then
-         F = FDM(UXC_F)
-         if (F.eq. 1.d0) then
+         if (F.eq. +1.d0) then
             iCstt = +1
-         else if (F.eq. - 1.d0) then
+         else if (F.eq. -1.d0) then
             iCstt = -1
          else if (F.eq. 0.d0) then
             iCstt = 0
@@ -756,9 +1139,7 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       _REALSTD FDM(UXC_MAX)
 CCC_  - Body
-      FDM(UXC_F) = 1.d0
-      FDM(UXC_D) = D
-      FDM(UXC_M) = 0.d0
+      call UXTset(FDM, 1.d0, D, 0.d0)
       call UXCreg (iErr, idU, Uname, FDM, Ubase, KU,SU,AU)
       RETURN
       END
@@ -798,9 +1179,7 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       _REALSTD FDM(UXC_MAX)
 CCC_  - Body
-      FDM(UXC_F) = F
-      FDM(UXC_D) = 1.d0
-      FDM(UXC_M) = 0.d0
+      call UXTset(FDM, F, 1.d0, 0.d0)
       call UXCreg (iErr, idU, Uname, FDM, Ubase, KU,SU,AU)
       RETURN
       END
@@ -840,9 +1219,7 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       _REALSTD FDM(UXC_MAX)
 CCC_  - Body
-      FDM(UXC_F) = 1.d0
-      FDM(UXC_D) = 1.d0
-      FDM(UXC_M) = E
+      call UXTset(FDM, 1.d0, 1.d0, E)
       call UXCreg (iErr, idU, Uname, FDM, Ubase, KU,SU,AU)
       RETURN
       END
@@ -883,9 +1260,7 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       _REALSTD FDM(UXC_MAX)
 CCC_  - Body
-      FDM(UXC_F) = 1.d0
-      FDM(UXC_D) = 1.d0
-      FDM(UXC_M) = 0.d0
+      call UXTrst(FDM)
       call UXCreg (iErr, idU, Uname, FDM, Ubase, KU,SU,AU)
       RETURN
       END
@@ -905,9 +1280,27 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       _REALSTD FDM(UXC_MAX)
 CCC_  - Body
-      FDM(UXC_F) = C
-      FDM(UXC_D) = 1.d0
-      FDM(UXC_M) = 0.d0
+      call UXTset(FDM, C, 1.d0, 0.d0)
+      call UXCnew(iErr, idU, Uname, FDM, _ID_DIMENSIONLESS, KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXCcmi  ## Unit/Core: unit registration dimensionless (integer magnitude)
+      subroutine UXCcmi
+     O    (iErr,  idU,
+     I     Uname, IM,
+     M     KU,    SU,    AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  integer)   idU
+      _INTENT(IN,   character) Uname *(*)
+      _INTENT(IN,   integer)   IM
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _REALSTD FDM(UXC_MAX)
+CCC_  - Body
+      call UXTset(FDM, 1.0d0, 1.d0, _XREALS(IM))
       call UXCnew(iErr, idU, Uname, FDM, _ID_DIMENSIONLESS, KU,SU,AU)
       RETURN
       END
@@ -927,10 +1320,81 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       _REALSTD FDM(UXC_MAX)
 CCC_  - Body
-      FDM(UXC_F) = 0.d0
-      FDM(UXC_D) = 0.d0
-      FDM(UXC_M) = 0.d0
+      call UXTset(FDM, 0.d0, 0.d0, 0.d0)
       call UXCreg (iErr, idU, Uname, FDM, Ubase, KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXCpwc  ## Unit/Core: unit registration power (dimensionless only)
+      subroutine UXCpwc
+     O    (iErr,  idU,
+     I     Uname, P,   Ubase,
+     M     KU,    SU,  AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  integer)   idU
+      _INTENT(IN,   character) Uname *(*)
+      _INTENT(IN,   _REALSTD)  P
+      _INTENT(IN,   character) Ubase *(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _REALSTD FDM(UXC_MAX)
+      integer  M
+      _REALSTD F, D, E
+      integer idB, idX, idXbs
+      integer jfp
+      integer ipT (_IPTBL_MAX, 1)
+      integer nipt
+#if HAVE_F77_FLOOR == 0
+      integer floorS
+#define FLOOR(V) FLOORS(V)
+#endif
+CCC_  - Body
+      iErr = 0
+      if (iErr.eq.0) call UXCprf (iErr, idB, Ubase, KU,SU,AU)
+      if (iErr.eq.0) call UXCdcm (iErr, idX, idB,   KU,SU,AU)
+      if (iErr.eq.0) call UXAgbi (iErr, idXbs, idX, KU)
+      if (iErr.eq.0) then
+         if (idXbs.ne. _ID_DIMENSIONLESS) then
+            iErr = ERR_UNIT_INVALID_BASE
+            call UXAgid(jfp, KU)
+ 101        format('UNIT: NOT DIMENSIONLESS [', A, '] =', 3(1x,I0))
+            if (COND_N(jfp)) then
+               write(jfp, 101) _TRIM(Ubase), idB, idX, idXbs
+            else if (COND_S(jfp)) then
+               write(*,   101) _TRIM(Ubase), idB, idX, idXbs
+            endif
+         endif
+      endif
+      if (iErr.eq.0) then
+         if (P.ge.0.0d0) then
+            M = FLOOR(P)
+            E = P - _XREALS(M)
+         else
+            M = - FLOOR(-P)
+            E = P - _XREALS(M)
+         endif
+         NipT = 1
+         ipT (_IPTBL_ID,  NipT) = idB
+         ipT (_IPTBL_POW, NipT) = M
+         call UXCrcs(iErr, idB, ipT, NipT, KU,AU)
+      endif
+      if (iErr.eq.0) call UXAgxt(iErr, FDM, idX, KU, SU)
+      if (iErr.eq.0) then
+         if (P.ge.0.0d0) then
+            F = FDM(UXC_F) ** E
+            D = FDM(UXC_D) ** E
+         else
+            F = FDM(UXC_D) ** (-E)
+            D = FDM(UXC_F) ** (-E)
+         endif
+         E = FDM(UXC_M) * E
+         call UXTset(FDM, F, D, E)
+      endif
+      if (iErr.eq.0) then
+         call UXCnew(iErr, idU, Uname, FDM, idB, KU,SU,AU)
+      endif
       RETURN
       END
 CCC_ & UXCxps  ## Unit/Core: conversion registration after parsing
@@ -951,13 +1415,10 @@ CCC_  - Body
       iErr = 0
       idX  = _ID_UNDEF
 CC    to do: UXCprc returns number of unknowns
-      if (iErr.eq.0) call UXCprc (iErr, idUs, Usrc, KU,SU,AU)
-      if (iErr.eq.0) call UXCprc (iErr, idUd, Udst, KU,SU,AU)
-      if (iErr.gt.0) then
-         iErr = ERR_UNIT_INVALID_COMPOUND
-      else if (iErr.eq.0) then
-         call UXCxrg (iErr, idX, idUs, idUd, KU,SU,AU)
-      endif
+      if (iErr.eq.0) call UXCprf(iErr, idUs, Usrc, KU,SU,AU)
+      if (iErr.eq.0) call UXCprf(iErr, idUd, Udst, KU,SU,AU)
+      if (iErr.eq.0) call UXCxrg(iErr, idX,  idUs, idUd, KU,SU,AU)
+
       RETURN
       END
 CCC_ & UXCxrg  ## Unit/Core: conversion registration
@@ -986,6 +1447,8 @@ CCC_ & UXCcvc  ## Unit/Core: conversion compound
      O    (iErr, idS,
      I     idUs, idUd,
      M     KU,   AU)
+CCC_  - Notes
+CC    register internal unit: idUs/idUd
 CCC_  - Declaration
       implicit none
       _INTENT(OUT,  integer)   iErr
@@ -1048,7 +1511,7 @@ CCC_   . Todo: check consistency when already registered
          else
             call UXAndi(iErr, idX, KU)
             if (iErr.eq.0) then
-               call UXAndx(iErr, idX, FDM, idR,  KU,SU,AU)
+               call UXAndx(iErr, idX, FDM, idR,  KU,SU)
             endif
             if (iErr.eq.0) then
                call UXAsdi(iErr, idS, idX, KU)
@@ -1128,21 +1591,24 @@ CCC_  - Declaration
       _INTENT(INOUT,character) AU(*)*(*)
       integer    idB
       integer    nunk
+      _REALSTD   FDMi(UXC_MAX)
 CCC_  - Body
       iErr = 0
       if (Ubase.eq.' ') then
          idB = _ID_PRIMITIVE
          call UXCnew(iErr, idU, Uname, FDM, idB, KU,SU,AU)
       else
-         call UXCprc(iErr, idB, Ubase, KU,SU,AU)
+         call UXTcpy(FDMi, FDM)
+         call UXCprc(iErr, idB, FDMi,  Ubase, KU,SU,AU)
 CC       iErr as number of unknowns
          if (iErr.gt.0) then
             nunk = iErr
-            call UXCnrv(iErr, idU, Uname, FDM, idB, nunk, KU,SU,AU)
+            call UXCnrv(iErr, idU, Uname, FDMi, idB, nunk, KU,SU,AU)
          else if (iErr.eq.0) then
-            call UXCnew(iErr, idU, Uname, FDM, idB, KU,SU,AU)
+            call UXCnew(iErr, idU, Uname, FDMi, idB, KU,SU,AU)
          endif
       endif
+c$$$      call UXMdnu (idU, Uname, FDMi, idB, +1, 'uxcreg', iErr, KU,AU)
       RETURN
       END
 CCC_ & UXCnrv  ## Unit/Core: register new unit (reversal)
@@ -1168,10 +1634,11 @@ CC       normally this clause is never executed
          call UXCnew (iErr, idU, Uname, FDM, idB, KU,SU,AU)
       else
          call UXAnch(ncu,  idB, KU)
-         call UXAqui(iErr, idU, Uname, KU,AU)
+         call UXAqai(iErr, idU, Uname, KU,AU)
 CC       Uname registered / Ubase single unregistered
-         if (iErr.eq.0.and.nUnk.eq.1) then
+         if (iErr.eq.0.and.nUnk.gt.0) then
             call UXCinv (iErr, idU, FDM, idB, KU,SU,AU)
+            if (iErr.eq.0) iErr = nUnk - 1
          else
             call UXCnew (iErr, idU, Uname, FDM, idB, KU,SU,AU)
             if (iErr.eq.0) iErr = nUnk
@@ -1193,7 +1660,7 @@ CCC_  - Declaration
       _INTENT(INOUT,integer)   KU(*)
       _INTENT(INOUT,_REALSTD)  SU(*)
       _INTENT(INOUT,character) AU(*)*(*)
-
+c
       integer    LipT, NipT
       parameter (LipT = OPT_UNIT_SEQUENCE_MAX)
       integer    ipTbl  (_IPTBL_MAX, LipT)
@@ -1209,7 +1676,11 @@ CCC_  - Body
       do j = 1, NipT
          if (iErr.eq.0) then
             call UXAgbi(iErr, jb, ipTbl(_IPTBL_ID,j), KU)
-            if (jb.eq. _ID_WAIT) juk = j
+c           find first unknown (with power 1)
+            if (jb.eq. _ID_WAIT.and.juk.eq.0) then
+               ipUK = ipTbl(_IPTBL_POW,j)
+               if (ipUK.eq.1.or.ipUK.eq.-1) juk = j
+            endif
          endif
       enddo
       if (juk.eq.0) iErr = ERR_UNIT_PANIC
@@ -1265,11 +1736,13 @@ CCC_  - Declaration
       integer idB0
 CCC_  - Body
       iErr = 0
-      call UXAqui (iErr, idU, Uname, KU,AU)
+      call UXAqai (iErr, idU, Uname, KU,AU)
+CCC_   . new unit
       if (iErr.eq. ERR_UNIT_NEW_UNIT) then
          call UXAnsu (iErr, idU, Uname, FDM, idB,            KU,SU,AU)
          call UXMdnu (idU, Uname, FDM, idB, +1, 'uxcnew', iErr, KU,AU)
-      else
+CCC_   . defined unit
+      else if (iErr.eq.0) then
          call UXAgbi (iErr, idB0, idU,   KU)
          if (iErr.eq.0) then
             if (idB0.eq. _ID_WAIT) then
@@ -1285,6 +1758,43 @@ CCC_  - Body
                endif
             endif
          endif
+      endif
+      RETURN
+      END
+CCC_ & UXCnfa  ## Unit/Core: register new unit (auto)
+      subroutine UXCnfa
+     O    (iErr,  idU,
+     I     FDM,   idB,
+     M     KU,    SU,  AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  integer)   idU
+      _INTENT(IN,   integer)   idB
+      _INTENT(IN,   _REALSTD)  FDM(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      character U*(OPT_UNIT_LEN)
+      character B*(OPT_UNIT_LEN)
+      integer   LX
+      parameter(LX = OPT_UNIT_AUTO_LIMIT)
+CCC_  - Body
+      iErr = 0
+      call UXTcku(iErr, FDM)
+      if (iErr.eq.0) then
+         idU = idB
+         return
+      endif
+      iErr = 0
+      idU = _ID_UNDEF
+CCC_   . automatic unit name using FDM table ([#Ff][#Dd][#Mm])
+      B = '$T'
+      call USGani(B, idB)
+      call USJntz(B, '.')
+      call UXAqvi(iErr, idU, U, B, FDM, KU, SU, AU)
+      if (iErr.eq. ERR_UNIT_NEW_UNIT) then
+         call UXAnsu (iErr, idU, U, FDM, idB, KU,SU,AU)
       endif
       RETURN
       END
@@ -1338,9 +1848,39 @@ CCC_  - Body
       endif
       RETURN
       END
+CCC_ & UXCprf  ## Unit/Core: parse and register compound/single unit wrapper
+      subroutine UXCprf
+     O    (iErr,  idU,
+     I     Ustr,
+     M     KU,    SU,    AU)
+CCC_  - Description
+CC      UXCprc + UXCnfa
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  integer)   idU
+      _INTENT(IN,   character) Ustr *(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+c
+      _REALSTD FDM(UXC_MAX)
+      integer  idB
+      integer  jErr
+CCC_  - Body
+      iErr = 0
+      jErr = 0
+      call UXTrst(FDM)
+      if (iErr.eq.0) call UXCprc (iErr, idB, FDM, Ustr, KU,SU,AU)
+      if (iErr.ge.0) then
+         call UXCnfa(jErr, idU, FDM, idB, KU,SU,AU)
+      endif
+      if (jErr.ne.0) iErr = jErr
+      RETURN
+      END
 CCC_ & UXCprc  ## Unit/Core: parse and register compound/single unit
       subroutine UXCprc
-     O    (iErr,  idU,
+     O    (iErr,  idU,   FDM,
      I     Udef,
      M     KU,    SU,    AU)
 CCC_  - Description
@@ -1350,6 +1890,7 @@ CCC_  - Declaration
       implicit none
       _INTENT(OUT,  integer)   iErr
       _INTENT(OUT,  integer)   idU
+      _INTENT(INOUT,_REALSTD)  FDM(*)
       _INTENT(IN,   character) Udef *(*)
       _INTENT(INOUT,integer)   KU(*)
       _INTENT(INOUT,_REALSTD)  SU(*)
@@ -1363,16 +1904,13 @@ CCC_  - Declaration
       integer    kpSeq (lSeq)
       integer    nSeq, nTbl
       integer    js
-      integer    idUp
-      _REALSTD   FDM(UXC_MAX)
+      integer    idUp, idUb
+      _REALSTD   T
       integer    nnu
 CCC_  - Body
       iErr = 0
       nTbl = 0
       idU  = _ID_UNDEF
-      FDM(UXC_F) = 1.d0
-      FDM(UXC_D) = 1.d0
-      FDM(UXC_M) = 0.d0
       nnu = 0
 c
       if (iErr.eq.0) then
@@ -1380,19 +1918,36 @@ c
       endif
       if (iErr.eq.0) then
          do js = 1, nSeq
-            call UXAqui (iErr, idUp, uSeq(js), KU,AU)
-            if (iErr.eq. ERR_UNIT_NEW_UNIT) then
-CCC_   . Todo: string to number
-               nnu = nnu + 1
-               call UXAnsu
-     $              (iErr, idUp, uSeq(js), FDM, _ID_WAIT, KU,SU,AU)
-            endif
+CCC_   . number decomposition
+            T = 0.0d0
+            read(uSeq(js), *, IOSTAT=iErr) T
             if (iErr.eq.0) then
-               nTbl = nTbl + 1
-               ipTbl(_IPTBL_ID, nTbl) = idUp
-               ipTbl(_IPTBL_POW,nTbl) = kpSeq (js)
+               call UXTfmg(FDM, T, kpSeq(js))
+            else
+               iErr = 0
+               call UXAqai (iErr, idUp, uSeq(js), KU,AU)
+               if (iErr.eq.0) then
+                  call UXAgbi(iErr, idUb, idUp, KU)
+                  if (idUb.eq. _ID_WAIT) nnu = nnu + 1
+               else if (iErr.eq. ERR_UNIT_NEW_UNIT) then
+                  nnu = nnu + 1
+                  call UXAnsa
+     $                 (iErr, idUp, uSeq(js), _ID_WAIT, KU,SU,AU)
+               endif
+               if (iErr.eq.0) then
+                  nTbl = nTbl + 1
+                  ipTbl(_IPTBL_ID, nTbl) = idUp
+                  ipTbl(_IPTBL_POW,nTbl) = kpSeq (js)
+               endif
             endif
          enddo
+      endif
+      if (iErr.eq.0) then
+         if (nTbl.eq.0) then
+            nTbl = nTbl + 1
+            ipTbl(_IPTBL_ID, nTbl) = _ID_DIMENSIONLESS
+            ipTbl(_IPTBL_POW,nTbl) = 1
+         endif
       endif
       if (iErr.eq.0) then
          call UXPnml (iErr, ipTbl, nTbl)
@@ -1444,19 +1999,20 @@ CCC_ & UXCinq  ## Unit/Core: unit inquiry
       subroutine UXCinq
      O    (iErr, idU,
      I     Uname,
-     M     KU,   AU)
+     I     KU,   AU)
 CCC_  - Declaration
       implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(OUT,  integer)   idU
-      _INTENT(IN,   character) Uname *(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(IN,   character) AU(*)*(*)
+      _INTENT(OUT,integer)   iErr
+      _INTENT(OUT,integer)   idU
+      _INTENT(IN, character) Uname *(*)
+      _INTENT(IN, integer)   KU(*)
+      _INTENT(IN, character) AU(*)*(*)
 CCC_  - Body
-      call UXAqui (iErr, idU, Uname, KU, AU)
-      if (iErr.ne.0) then
+      call UXAiqn (idU, Uname, KU, AU)
+      if (idU.eq._ID_UNDEF) then
          iErr = ERR_UNIT_INVALID_SINGLE
-         idU  = _ID_UNDEF
+      else
+         iErr = 0
       endif
       RETURN
       END
@@ -1486,7 +2042,7 @@ CCC_  - Body
       endif
       if (iErr.eq.0) call UXAgxt (iErr, XC, idX, KU,SU)
       if (iErr.eq.0) then
-         T10 = 10.d0
+         T10 = _FDM_BASE
          T0  = 0.d0
          F   = XC(UXC_F)
          D   = XC(UXC_D)
@@ -1567,6 +2123,68 @@ c
          if (iErr.ne.0) goto 100
       ENDDO
  100  continue
+      iErr = 0
+c
+      if (COND_N(jfp)) then
+         write (jfp, 109)
+      else if (COND_S(jfp)) then
+         write (*,   109)
+      endif
+c
+      RETURN
+      END
+CCC_ & UXMrpp  ## Unit/Message: report summary (pending only)
+      subroutine UXMrpp (iErr, IFP,  KU,SU,AU)
+      implicit none
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, integer)   IFP
+      _INTENT(IN, integer)   KU(*)
+      _INTENT(IN, _REALSTD)  SU(*)
+      _INTENT(IN, character) AU(*)*(*)
+      integer   ju, jub, jus
+      integer   jfp
+      integer   nPS
+      integer   jt0, ntm
+c
+      iErr = 0
+c
+ 101  format ('UNIT REPORT/PENDING ', I5)
+ 109  format ('UNIT REPORT/PENDING DONE')
+      call UXAgiu (jfp, IFP, KU)
+      call UXAnps(nPS, KU)
+c
+      if (COND_N(jfp)) then
+         write (jfp, 101) nPS
+      else if (COND_S(jfp)) then
+         write (*,   101) nPS
+      endif
+c
+      DO jus = _MINUI(KU), _MEMUI(KU)+ _MINUI(KU) -1
+         if (_KSNG(KU,_UATTR_BASE,jus).eq. _ID_WAIT) then
+c           if pending unit
+            call UXMrps (iErr, jus, jfp,  KU,SU,AU)
+            do ju = _MINUI(KU), _MEMUI(KU)+ _MINUI(KU) -1
+               jub = _KSNG(KU,_UATTR_BASE,ju)
+               if (jub.eq.jus) then
+c                 if base == pending unit
+                  call UXMrps (iErr, ju, jfp,  KU,SU,AU)
+               else if (jub.ge._MINCI(KU)
+     $                 .and.jub.lt._MEMCI(KU)+ _MINCI(KU)) then
+c                 if base == compond unit AND contain pending
+                  ntm = _KCOM(KU,_CATTR_NUM,jub)
+                  jt0 = _KCOM(KU,_CATTR_POS,jub)
+                  if (jt0.ne. _ID_UNDEF) then
+                     call UXPcif
+     $                    (iErr,
+     $                    _KCTB(KU,1,jt0), ntm, jus)
+                     if (iErr.gt.0) then
+                        call UXMrps (iErr, ju, jfp,  KU,SU,AU)
+                     endif
+                  endif
+               endif
+            enddo
+         endif
+      ENDDO
       iErr = 0
 c
       if (COND_N(jfp)) then
@@ -1908,7 +2526,6 @@ CCC_  - Declaration
       integer NKU,   NSU,   NAU
 CCC_  - Body
       iErr = 0
-c
       if (MS.le.0 .or. MC.le.0 .or. MD.le.0) then
          call UXAnsg
      O       (iErr, MSI, MDI, MCI,
@@ -2050,7 +2667,7 @@ CCC_ & UXAnsg  ## Unit/Attribute: query buffer size suggestions
      I     LKU,  LSU,  LAU,  NAS, NAD, NAC, NAT,
      I     KTYPE)
 CCC_  - Description
-CC      Give you suggested size of [MS,MD,MC]sg using
+CC      Suggest sizes of [MS,MD,MC]sg using
 CC      the limit sizes of the cluster [LKU,LSU,LAU].
 CC      The inputs [MS,MD,MC] are the hints used for
 CC      those expected members of single/decomposition/compounds.
@@ -2144,14 +2761,9 @@ CCC_   . other suggestion if error
             MCsg = MAX(MAX(0,MS), MAX(0,MD)*_SD_PARA) / _SC_PARA
          endif
       endif
-c$$$#if TEST_UXUNIT
-c$$$      write (*, *) 'CHECK', NKU, NSU, NAU
-c$$$      write (*, *) 'CHECK', LKU, LSU, LAU
-c$$$      write (*, *) 'SUGGEST', iErr, MSsg, MDsg, MCsg
-c$$$#endif
       RETURN
       END
-CCC_ & UXAgid  ## Unit/Attribute: get io iunit
+CCC_ & UXAgid  ## Unit/Attribute: get io iunit system
       subroutine UXAgid (IFP, KU)
       implicit none
       _INTENT(OUT,integer)   IFP
@@ -2211,8 +2823,40 @@ c
       NCTB = _ICTB(KU)
       RETURN
       END
-CCC_ & UXAqui  ## Unit/Attribute: query (signle) unit index by name
-      subroutine UXAqui
+CCC_ & UXAiqn  ## Unit/Attribute: query (signle) unit index by name
+      subroutine UXAiqn
+     O    (idU,
+     I     U,
+     I     KU,   AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)   idU
+      _INTENT(IN, character) U*(*)
+      _INTENT(IN, integer)   KU(*)
+      _INTENT(IN, character) AU(*)*(*)
+      integer j, jh, ju
+      integer UXPhds
+CCC_  - Body
+      idU  = _ID_UNDEF
+c
+      jh  = UXPhds(U, _MEMUI(KU), _HASHB(KU), _HASHF(KU))
+      do j = 0, _MEMUI(KU) - 1
+         ju = MOD (jh + j, _MEMUI(KU)) + _MINUI(KU)
+CCC_   . if found set idUo
+         if (_USTR(AU,ju).eq.U) then
+            idU  = ju
+            goto 100
+CCC_   . if blank break
+         else if (_USTR(AU,ju).eq.' ') then
+            goto 100
+         endif
+      enddo
+CCC_   . loop end means not registered
+ 100  continue
+      RETURN
+      END
+CCC_ & UXAqai  ## Unit/Attribute: query (single) unit index by name or allocate
+      subroutine UXAqai
      O    (iErr, idU,
      I     U,
      M     KU,   AU)
@@ -2237,6 +2881,64 @@ CCC_   . if found set idUo
             idU  = ju
             iErr = 0
             goto 100
+CCC_   . if blank set idUo for preparation
+         else if (_USTR(AU,ju).eq.' ') then
+            idU  = ju
+            iErr = ERR_UNIT_NEW_UNIT
+            _HMAXU(KU) = MAX(_HMAXU(KU), j)
+            goto 100
+         endif
+      enddo
+CCC_   . loop end means overflow
+ 100  continue
+      RETURN
+      END
+CCC_ & UXAqvi  ## Unit/Attribute: query (signle) unit index by name or allocate (with table)
+      subroutine UXAqvi
+     O    (iErr, idU, U,
+     I     UH,   FDM,
+     M     KU,   SU,  AU)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(OUT,  integer)   idU
+      _INTENT(OUT,  character) U*(*)
+      _INTENT(IN,   character) UH*(*)
+      _INTENT(IN,   _REALSTD)  FDM(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(IN,   _REALSTD)  SU(*)
+      _INTENT(IN,   character) AU(*)*(*)
+      integer j, jh, ju
+      integer UXPhds
+      integer jv
+      _REALSTD  X(UXC_MAX)
+CCC_  - Body
+      iErr = ERR_UNIT_OVERFLOW_SINGLE
+      idU  = _ID_UNDEF
+      jv = 0
+      U = UH
+      call USGani(U, jv)
+c
+      jh  = UXPhds(UH, _MEMUI(KU), _HASHB(KU), _HASHF(KU))
+      do j = 0, _MEMUI(KU) - 1
+         ju = MOD (jh + j, _MEMUI(KU)) + _MINUI(KU)
+CCC_   . if found set idUo
+         if (_USTR(AU,ju).eq.U) then
+            call UXAgxt(iErr, X, ju, KU, SU)
+            if (iErr.ne.0) goto 100
+            call UXTech(iErr, X, FDM)
+            if (iErr.eq.0) then
+               idU  = ju
+               iErr = 0
+               goto 100
+            endif
+            jv = jv + 1
+            if (jv.gt. OPT_UNIT_AUTO_LIMIT) then
+               iErr = ERR_UNIT_OVERFLOW_SINGLE
+               goto 100
+            endif
+            U = UH
+            call USGani(U, jv)
 CCC_   . if blank set idUo for preparation
          else if (_USTR(AU,ju).eq.' ') then
             idU  = ju
@@ -2322,9 +3024,6 @@ CCC_  - Body
             ipT(_IPTBL_POW, NipT) = 1
          endif
 CC       to do:  how to pass?
-c$$$      else if (idU.ge. _MINDI(KU)
-c$$$     $        .and.idU.lt. _MINDI(KU) + _MEMDI(KU)) then
-c$$$         continue
       else if (idU.ge. _MINCI(KU)
      $        .and.idU.lt. _MINCI(KU) + _MEMCI(KU)) then
          jt0 = _KCOM(KU,_CATTR_POS,idU)
@@ -2343,6 +3042,27 @@ c$$$         continue
       endif
       if (iErr.eq.0) call UXPnml (iErr, ipT, NipT)
 c
+      RETURN
+      END
+CCC_ & UXAnsa  ## Unit/Attribute: register (single) unit (factor 1)
+      subroutine UXAnsa
+     O    (iErr,
+     I     idU,  U,  idB,
+     M     KU,   SU, AU)
+CCC_  - Declaration
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(IN,   integer)   idU, idB
+      _INTENT(IN,   character) U*(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _REALSTD FDM(UXC_MAX)
+CCC_  - Body
+      iErr  = 0
+      FDM(UXC_F) = 1.0d0
+      FDM(UXC_D) = 1.0d0
+      FDM(UXC_M) = 0.0d0
+      call UXAnsu(iErr, idU, U, FDM, idB, KU, SU, AU)
       RETURN
       END
 CCC_ & UXAnsu  ## Unit/Attribute: register (single) unit
@@ -2429,14 +3149,13 @@ CCC_ & UXAndx  ## Unit/Attribute: register decomposition
       subroutine UXAndx
      O    (iErr,
      I     idU,  X, idB,
-     M     KU,   SU, AU)
+     M     KU,   SU)
 CCC_  - Declaration
       _INTENT(OUT,  integer)   iErr
       _INTENT(IN,   integer)   idU, idB
       _INTENT(IN,   _REALSTD)  X(*)
       _INTENT(INOUT,integer)   KU(*)
       _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
 CCC_  - Body
       iErr  = 0
       if (idU.lt. _MINDI(KU)
@@ -2653,6 +3372,68 @@ CCC_  - Body
       endif
       RETURN
       END
+CCC_ & UXAnps  ## Unit/Attribute: count pending (single)
+      subroutine UXAnps
+     O    (nPS,
+     I     KU)
+      implicit none
+      _INTENT(OUT,integer)   nPS
+      _INTENT(IN, integer)   KU(*)
+      integer ju
+      nPS = 0
+      do ju = _MINUI(KU), _MEMUI(KU)+ _MINUI(KU) -1
+         if (_KSNG(KU,_UATTR_BASE,ju).eq. _ID_WAIT) nPS = nPS + 1
+      enddo
+      RETURN
+      END
+CCC_ & UXAits  ## Unit/Attribute: iteration (single)
+      subroutine UXAits(idUs, KU)
+      implicit none
+      _INTENT(INOUT,integer)   idUs
+      _INTENT(IN,   integer)   KU(*)
+      if (idUs.le.0) idUs = _MINUI(KU) - 1
+      DO
+         idUs = idUs + 1
+         if (idUs.ge._MINUI(KU) + _MEMUI(KU)) then
+            idUs = -999
+            return
+         endif
+         if (_KSNG(KU,_UATTR_BASE,idUs).ne. _ID_UNDEF) return
+      ENDDO
+      RETURN
+      END
+CCC_ & UXAitd  ## Unit/Attribute: iteration (decomposition)
+      subroutine UXAitd(idUd, KU)
+      implicit none
+      _INTENT(INOUT,integer)   idUd
+      _INTENT(IN,   integer)   KU(*)
+      if (idUd.le.0) idUd = _MINDI(KU) - 1
+      DO
+         idUd = idUd + 1
+         if (idUd.ge._MINDI(KU) + _MEMDI(KU)) then
+            idUd = -999
+            return
+         endif
+         if (_KDEC(KU, _DATTR_BASE,idUd).ne. _ID_UNDEF) return
+      ENDDO
+      RETURN
+      END
+CCC_ & UXAitc  ## Unit/Attribute: iteration (compound)
+      subroutine UXAitc(idUc, KU)
+      implicit none
+      _INTENT(INOUT,integer)   idUc
+      _INTENT(IN,   integer)   KU(*)
+      if (idUc.le.0) idUc = _MINCI(KU) - 1
+      DO
+         idUc = idUc + 1
+         if (idUc.ge._MINCI(KU) + _MEMCI(KU)) then
+            idUc = -999
+            return
+         endif
+         if (_KCOM(KU,_CATTR_POS,idUc).ne. _ID_UNDEF) return
+      ENDDO
+      RETURN
+      END
 CCC_ & UXAqun  ## Unit/Attribute: query unit/compound string by id
       subroutine UXAqun
      O    (iErr, U,
@@ -2738,8 +3519,10 @@ CCC_  - Declaration
       _INTENT(IN, integer)   KU(*)
       _INTENT(IN, _REALSTD)  SU(*)
       _REALSTD PW
+      _REALSTD BM
 CCC_  - Body
       NcpT = 0
+      BM = _FDM_BASE
 CC    single
       if (idU.ge. _MINUI(KU)
      $     .and.idU.lt. _MINUI(KU) + _MEMUI(KU)) then
@@ -2755,7 +3538,7 @@ CC    single
          endif
          if (iErr.eq.0) then
             PW = _CFTS(SU,_COEFF_M, idU)
-            call UXPstc (iErr, cpT, NcpT, LcpT, 10.d0, PW)
+            call UXPstc (iErr, cpT, NcpT, LcpT, BM, PW)
          endif
       else if (idU.ge. _MINDI(KU)
      $        .and.idU.lt. _MINDI(KU) + _MEMDI(KU)) then
@@ -2771,7 +3554,7 @@ CC    single
          endif
          if (iErr.eq.0) then
             PW = _CFTD(SU,_COEFF_M, idU)
-            call UXPstc (iErr, cpT, NcpT, LcpT, 10.d0, PW)
+            call UXPstc (iErr, cpT, NcpT, LcpT, BM, PW)
          endif
       else
          iErr = ERR_UNIT_INVALID_SINGLE
@@ -2798,8 +3581,10 @@ CCC_  - Declaration
       integer    LimXp
       parameter (LimXp  = OPT_UNIT_EXPANSION_LOOP)
       _REALSTD   PW
+      _REALSTD   BM
 CCC_  - Body
       iErr = 0
+      BM = _FDM_BASE
       jt   = 1
       jstg = 0
       DO
@@ -2824,7 +3609,7 @@ c
             if (iErr.eq.0) then
                PW = _CFTS(SU,_COEFF_M, ju) * PW
                call UXPstc
-     $              (iErr, cpT, NcpT, LcpT, 10.d0, PW)
+     $              (iErr, cpT, NcpT, LcpT, BM, PW)
             endif
          else
             jb = ju
@@ -2858,7 +3643,6 @@ c
                goto 500
             endif
          endif
-c$$$ 510     continue
          jstg = jstg + 1
       ENDDO
  500  continue
@@ -2866,6 +3650,222 @@ c$$$ 510     continue
          call UXPnml (iErr, ipT, NipT)
       endif
 c
+      RETURN
+      END
+CCC_* [UXT] FDM manimulation
+CCC_ & UXTcpy  ## Unit/Primitive: copy FDM table
+      subroutine UXTcpy(FDMo, FDMi)
+      implicit none
+      _INTENT(OUT,_REALSTD)  FDMo(*)
+      _INTENT(IN, _REALSTD)  FDMi(*)
+      FDMo(UXC_F) = FDMi(UXC_F)
+      FDMo(UXC_D) = FDMi(UXC_D)
+      FDMo(UXC_M) = FDMi(UXC_M)
+      RETURN
+      END
+CCC_ & UXTopr  ## Unit/Primitive: FDM table operation
+      subroutine UXTopr(FDMo, FDMi, KOP)
+      implicit none
+      _INTENT(INOUT,_REALSTD)  FDMo(*)
+      _INTENT(IN,   _REALSTD)  FDMi(*)
+      _INTENT(IN,   integer)   KOP
+      _REALSTD TT(UXC_MAX)
+      if      (KOP.eq. _OPR_MUL) then
+         call UXTopm(FDMo, FDMi)
+      else if (KOP.eq. _OPR_DIV) then
+         TT(UXC_F) = FDMi(UXC_D)
+         TT(UXC_D) = FDMi(UXC_F)
+         TT(UXC_M) = - FDMi(UXC_M)
+         call UXTopm(FDMo, TT)
+      else if (KOP.eq. _OPR_IDIV) then
+         TT(UXC_F) = FDMo(UXC_D)
+         TT(UXC_D) = FDMo(UXC_F)
+         TT(UXC_M) = - FDMo(UXC_M)
+         call UXTcpy(FDMo, FDMi)
+         call UXTopm(FDMo, TT)
+      endif
+      RETURN
+      END
+CCC_ & UXTopm  ## Unit/Primitive: FDM table operation (multiplication)
+      subroutine UXTopm(FDMo, FDMi)
+      implicit none
+      _INTENT(INOUT,_REALSTD)  FDMo(*)
+      _INTENT(IN,   _REALSTD)  FDMi(*)
+      call UXTmul(FDMo, FDMi(UXC_F))
+      call UXTdiv(FDMo, FDMi(UXC_D))
+      FDMo(UXC_M) = FDMo(UXC_M) + FDMi(UXC_M)
+      RETURN
+      END
+CCC_ & UXTcku  ## Unit/Primitive: FDM table check unity
+      subroutine UXTcku(iErr, FDM)
+      implicit none
+      _INTENT(OUT,integer)  iErr
+      _INTENT(IN, _REALSTD) FDM(*)
+      iErr = 0
+      if (FDM(UXC_F).ne.1.0d0) iErr = iErr + 1
+      if (FDM(UXC_D).ne.1.0d0) iErr = iErr + 2
+      if (FDM(UXC_M).ne.0.0d0) iErr = iErr + 4
+      return
+      end
+CCC_ & UXTech  ## Unit/Primitive: FDM table check if equal
+      subroutine UXTech(iErr, FDMa, FDMb)
+      implicit none
+      _INTENT(OUT,integer)  iErr
+      _INTENT(IN, _REALSTD) FDMa(*)
+      _INTENT(IN, _REALSTD) FDMb(*)
+      integer jx
+      do jx = 1, UXC_MAX
+         if (FDMa(jx).ne.FDMb(jx)) then
+            iErr = jx
+            return
+         endif
+      enddo
+      iErr = 0
+      return
+      end
+CCC_ & UXTrst  ## Unit/Primitive: FDM table reset
+      subroutine UXTrst(FDMo)
+      implicit none
+      _INTENT(OUT,_REALSTD)  FDMo(*)
+      FDMo(UXC_F) = 1.0d0
+      FDMo(UXC_D) = 1.0d0
+      FDMo(UXC_M) = 0.0d0
+      RETURN
+      END
+CCC_ & UXTset  ## Unit/Primitive: FDM table set
+      subroutine UXTset(FDMo, F, D, E)
+      implicit none
+      _INTENT(OUT,_REALSTD)  FDMo(*)
+      _INTENT(IN, _REALSTD)  F, D, E
+      _REALSTD BM
+      integer M
+#if HAVE_F77_FLOOR == 0
+      integer floorS
+#     define FLOOR(V) FLOORS(V)
+#endif
+      if (E.ge.0.0d0) then
+         M = FLOOR(E)
+      else
+         M = - FLOOR(-E)
+      endif
+      if (E.eq. _XREALS(M)) then
+         FDMo(UXC_M) = E
+         FDMo(UXC_F) = 1.0d0
+         call UXTmul(FDMo, F)
+         FDMo(UXC_D) = 1.0d0
+         call UXTdiv(FDMo, D)
+      else
+         FDMo(UXC_M) = _XREALS(M)
+         BM = _FDM_BASE
+         FDMo(UXC_F) = 1.0d0
+         call UXTmul(FDMo, F)
+         if (E.ge.0.0d0) then
+            FDMo(UXC_F) = FDMo(UXC_F)  * (BM ** (E - _XREALS(M)))
+         endif
+         FDMo(UXC_D) = 1.0d0
+         call UXTdiv(FDMo, D)
+         if (E.lt.0.0d0) then
+            FDMo(UXC_D) = FDMo(UXC_D) * (BM ** (- (E - _XREALS(M))))
+         endif
+      endif
+      RETURN
+      END
+CCC_ & UXTfmg  ## Unit/Primitive: FDM table factor with mag
+      subroutine UXTfmg(FDMo, FD, M)
+      implicit none
+      _INTENT(INOUT,_REALSTD)  FDMo(*)
+      _INTENT(IN,   _REALSTD)  FD
+      _INTENT(IN,   integer)   M
+      _REALSTD T0, T1, BS
+      integer jp
+      if (M.eq.0) RETURN
+      BS = _FDM_BASE
+      T0 = ABS(FD)
+      do jp = 1, OPT_UNIT_EXPANSION_LOOP
+         if (T0.lt.BS) goto 100
+         T1 = T0 / BS
+c     for safety
+         if (MOD(T0, BS).eq.0.0d0 .and. (T1 * BS).eq.T0) then
+            T0 = T1
+            FDMo(UXC_M) = FDMo(UXC_M) + _XREALS(M)
+         else
+            goto 100
+         endif
+      enddo
+ 100  continue
+      if (M.gt.0) then
+         T0 = (SIGN(T0, FD)) ** M
+         FDMo(UXC_F) = FDMo(UXC_F) * T0
+      else
+         T0 = (SIGN(T0, FD)) ** (-M)
+         FDMo(UXC_D) = FDMo(UXC_D) * ABS(T0)
+         FDMo(UXC_F) = FDMo(UXC_F) * SIGN(1.0d0, T0)
+      endif
+      RETURN
+      END
+CCC_ & UXTcnt  ## Unit/Primitive: FDM table contraction
+      subroutine UXTcnt(F, FDMi)
+      implicit none
+      _INTENT(OUT,_REALSTD) F
+      _INTENT(IN, _REALSTD) FDMi(*)
+      _REALSTD BS, EP, EN
+      BS = _FDM_BASE
+      EP = + MAX(0.0d0, FDMi(UXC_M))
+      EN = - MIN(0.0d0, FDMi(UXC_M))
+      if (FDMi(UXC_D).eq.0.0d0) then
+         F = 0.0d0
+      else
+         F = (FDMi(UXC_F) * (BS ** EP)) / (FDMi(UXC_D) * (BS ** EN))
+      endif
+      RETURN
+      END
+CCC_ & UXTmul  ## Unit/Primitive: FDM table factor
+      subroutine UXTmul(FDMo, F)
+      implicit none
+      _INTENT(INOUT,_REALSTD)  FDMo(*)
+      _INTENT(IN,   _REALSTD)  F
+      _REALSTD T0, T1, BS
+      integer jp
+      BS = _FDM_BASE
+      T0 = ABS(F)
+      do jp = 1, OPT_UNIT_EXPANSION_LOOP
+         if (T0.lt.BS) goto 100
+         T1 = T0 / BS
+c        for safety
+         if (MOD(T0, BS).eq.0.0d0 .and. (T1 * BS).eq.T0) then
+            T0 = T1
+            FDMo(UXC_M) = FDMo(UXC_M) + 1.0d0
+         else
+            goto 100
+         endif
+      enddo
+ 100  continue
+      FDMo(UXC_F) = FDMo(UXC_F) * SIGN(T0, F)
+      RETURN
+      END
+CCC_ & UXTdiv  ## Unit/Primitive: FDM table denominator
+      subroutine UXTdiv(FDMo, D)
+      implicit none
+      _INTENT(INOUT,_REALSTD)  FDMo(*)
+      _INTENT(IN,   _REALSTD)  D
+      _REALSTD T0, T1, BS
+      integer jp
+      BS = _FDM_BASE
+      T0 = ABS(D)
+      do jp = 1, OPT_UNIT_EXPANSION_LOOP
+         if (T0.lt.BS) goto 100
+         T1 = T0 / BS
+c        for safety
+         if (MOD(T0, BS).eq.0.0d0 .and. (T1 * BS).eq.T0) then
+            T0 = T1
+            FDMo(UXC_M) = FDMo(UXC_M) - 1.0d0
+         else
+            goto 100
+         endif
+      enddo
+ 100  continue
+      FDMo(UXC_F) = FDMo(UXC_F) * SIGN(1.0d0, D)
+      FDMo(UXC_D) = FDMo(UXC_D) * T0
       RETURN
       END
 CCC_* [UXP] primitive utilities
@@ -2903,6 +3903,9 @@ CCC_  - Declaration
       integer jt
       integer ji, jp, js
       integer jh
+#if HAVE_F77_MODULO == 0
+      integer imodul
+#endif
 CCC_  - Body
       jh = 0
       do jt = 1, NipT
@@ -2911,7 +3914,7 @@ CCC_  - Body
          jp = IABS(ipTbl(_IPTBL_POW, jt))
          jh = jh + MOD(js * (ji * jp), nMem)
       enddo
-      UXPhdt = Mod((jh + nMem), nMem)
+      UXPhdt = _MODULO(jh, nMem)
       RETURN
       END
 CCC_ & UXPteq  ## Unit/Primitive: check if equal ip table
@@ -3097,8 +4100,10 @@ CCC_  - Declaration
       parameter (LcpT = 3)
       _REALSTD cpT(_CPTBL_MAX, LcpT)
       _REALSTD S
+      _REALSTD BM
 CCC_  - Body
       iErr = 0
+      BM = _FDM_BASE
       NcpT = 0
       cpT(_CPTBL_CF,  1) = 1.d0
       cpT(_CPTBL_POW, 1) = 0.d0
@@ -3117,7 +4122,7 @@ CCC_  - Body
       if (iErr.eq.0) then
          PW = S * FDM(UXC_M)
          call UXPstc
-     $        (iErr, cpT, NcpT, LcpT, 10.d0, PW)
+     $        (iErr, cpT, NcpT, LcpT, BM, PW)
       endif
       if (iErr.eq.0) then
          call UXPgcs (iErr, CF, cpT, NcpT, Sep)
@@ -3144,7 +4149,7 @@ CCC_  - Declaration
 CCC_  - Body
       iErr = 0
 c
-      T10 = 10.d0
+      T10 = _FDM_BASE
       T0  = 0.d0
       F   = 1.d0
       D   = 1.d0
@@ -3199,9 +4204,11 @@ CCC_  - Declaration
       _INTENT(IN, _REALSTD) FDM(*)
       _INTENT(IN, integer)  KLV
       _REALSTD   PW
+      _REALSTD   BM
       logical    OF, OD, OM
 CCC_  - Body
       iErr = 0
+      BM = _FDM_BASE
       NcpT = 0
       if (KLV.eq. UXLEV_FDM) then
          OF = .TRUE.
@@ -3231,7 +4238,7 @@ CCC_  - Body
       endif
       if (iErr.eq.0.and.OM) then
          PW = FDM(UXC_M)
-         call UXPstc (iErr, cpTbl, NcpT, LcpT, 10.d0, PW)
+         call UXPstc (iErr, cpTbl, NcpT, LcpT, BM, PW)
       endif
 
       RETURN
@@ -3339,6 +4346,29 @@ CCC_  - Body
       endif
       RETURN
       END
+CCC_ & UXPcif  ## Unit/Primitive: check if entry is in compound.
+      subroutine UXPcif
+     O    (iErr,
+     I     ipT,   NipT,
+     I     idUt)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, integer)   ipT(_IPTBL_MAX,*)
+      _INTENT(IN, integer)   NipT
+      _INTENT(IN, integer)   idUt
+      integer jt, ju
+CCC_  - Body
+      iErr = 0
+      do jt = 1, NipT
+         ju = ipT(_IPTBL_ID, jt)
+         if (ju.eq.idUt) then
+            iErr = 1
+            return
+         endif
+      enddo
+      RETURN
+      END
 CCC_ & UXPnew  ## Unit/Primitive: parser wrapper (new)
       subroutine UXPnew
      O    (iErr,
@@ -3381,6 +4411,8 @@ CCC_  - Declaration
       integer   ipN0, ipN1
       integer   ipC0, ipC1
       integer   nExp
+      integer   js
+      integer   jPfx
       character C * (2)
       character CST
 #if HAVE_F77_LEN_TRIM == 0
@@ -3390,7 +4422,6 @@ CCC_  - Declaration
       integer   jSW
 CCC_  - Body
       iErr = 0
-c$$$      nSeq = 0
 c
       ll   = len_trim (DefS)
       lp   = 1
@@ -3400,6 +4431,7 @@ c
       ipC0 = -1
       ipC1 = -1
       jSW  = 1
+      jPfx = -1
 CC status 'P' (waiting for unit/dimension start)
 CC status 'U' (waiting for unit/dimension end)
 CC status '^' (waiting for '^')
@@ -3408,9 +4440,10 @@ CC status 'N' (waiting for exponent end)
 CC status '.' (need parse)
 CCC_  - infinite loop
       lE = 0
-#     ifdef _DBG_UNIT_PARSER
-      write (*, *) 'INPUT: ', DefS
-#     endif
+#     if OPT_UNIT_DBG_PARSER
+ 501  format('uxpprc:i ', A)
+      write (*, 501) TRIM(DefS)
+#     endif /* OPT_UNIT_DBG_PARSER */
       DO
 CCC_   . Prevent unintentional loop
          if (lE.gt.ll + 100) then
@@ -3424,14 +4457,17 @@ CCC_   . Break
             C = '$$'
          else
             C = DefS (lp:lp)
-        endif
-#        ifdef _DBG_UNIT_PARSER
-         write (*, *) '  STEP', lp, CST, ' <', C, '>'
-#        endif
+         endif
+#        if OPT_UNIT_DBG_PARSER
+ 502     format('uxpprc:s ', I0, 1x, A, ' <', A1, '>')
+         write (*, 502) lp, CST, C
+#        endif /* OPT_UNIT_DBG_PARSER */
 CCC_   . waiting for unit/dimension start
          if (CST.eq.'P') then
             if (C.eq. _CHAR_DIV) then
                jSW = -1
+            else if (C.eq. _CHAR_MUL) then
+               jSW = +1
             else if (C.eq. _CHAR_IGNORE) then
                continue
             else if (C.ne.' ') then
@@ -3448,10 +4484,18 @@ CCC_   . waiting for unit/dimension end
             else if (C.eq. _CHAR_IGNORE) then
                ipC1 = lp - 1
                CST = '.'
+            else if (C.eq. _CHAR_FINAL) then
+               ipC1 = lp
+               jpfx = 0
+               CST = '.'
             else if (C.eq. _CHAR_POW) then
                ipC1 = lp - 1
                CST = 'E'
             else if (C.eq. _CHAR_DIV) then
+               lp   = lp - 1
+               ipC1 = lp
+               CST = '.'
+            else if (C.eq. _CHAR_MUL) then
                lp   = lp - 1
                ipC1 = lp
                CST = '.'
@@ -3499,17 +4543,27 @@ CCC_   . waiting for exponent end
          endif
 CCC_   . final parse
          if (CST.eq.'.') then
-#           ifdef _DBG_UNIT_PARSER
-            write (*, *) '  FIN ', nExp, JSW, nSeq, DefS (ipC0:ipC1)
-#           endif
+#           if OPT_UNIT_DBG_PARSER
+ 509        format('uxpprc:f ', I0, 1x, I0, 1x, I0, 1x, I0, 1x, A)
+            write (*, 509) nExp, JSW, nSeq, jPfx, DefS (ipC0:ipC1)
+#           endif /* OPT_UNIT_DBG_PARSER */
             nSeq = nSeq + 1
             if (nSeq.le.lSeq) then
+               if (jPfx.ge.1) then
+                  if (nExp.ne.1) then
+                     do js = 1, jPfx
+                        ixSeq (js) = ixSeq (js) * nExp
+                     enddo
+                  endif
+                  jPfx = -1
+               endif
                ixSeq (nSeq) = nExp * jSW
                uSeq  (nSeq) = DefS (ipC0:ipC1)
             else
                iErr = ERR_UNIT_OVERFLOW_SEQUENCE
                goto 900
             endif
+            if (jPfx.eq.0) jPfx = nSeq
             CST = 'P'
          endif
 CCC_   . next
@@ -3530,15 +4584,15 @@ CCC_  - Declaration
       _INTENT(IN, integer) Itbl (MinT:MaxT)
       _INTENT(IN, integer) IBS, IBF
       integer i
+#if HAVE_F77_MODULO == 0
+      integer imodul
+#endif
 CCC_  - Body
       UXFghs = 0
       do i = MinT, MaxT - 1
          UXFghs = MOD (IBS * UXFghs + Itbl (i), nmem)
       enddo
-      UXFghs = MOD (IBS * UXFghs + IBF * Itbl (MaxT), nmem)
-
-      UXFghs = MAX (UXFghs, (nmem + UXFghs))
-      UXFghs = MOD (UXFghs,  nmem)
+      UXFghs = _MODULO(IBS * UXFghs + IBF * Itbl (MaxT), nmem)
       RETURN
       END
 #define _UXF_STRING_SEQUENCE '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ.#:@_'
@@ -3573,115 +4627,12 @@ c
 #     endif /* not HAVE_F77_ICHAR */
       RETURN
       END
-CCC_& UXiniS  ## Unison/Unit initialization default system
-      subroutine UXiniS
-     O    (iErr,
-     M     KU,  SU, AU, KSW)
-CCC_ + Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-      _INTENT(IN,   integer)   KSW
-      _REALSTD qpi
-CCC_ + Body
-      iErr = 0 * KSW
-CCC_  - Registration primitives
-      if (iErr.eq.0)
-     $     call UXSdpc (iErr, 'm',      'LENGTH',      KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdpc (iErr, 'kg',     'MASS',        KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdpc (iErr, 's',      'TIME',        KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdpc (iErr, 'K',      'TEMPERATURE', KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdpc (iErr, 'radian', 'ANGLE',       KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdpc (iErr, 'mol',    'AMOUNT',      KU,SU,AU)
-CCC_  - Registration dimensionless
-      if (iErr.eq.0) call UXSdco (iErr, '1', 1.d0,    KU,SU,AU)
-CCC_  - Registration compounds
-      if (iErr.eq.0)
-     $     call UXSdal (iErr, 'AREA',   'LENGTH^2',    KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal (iErr, 'VOLUME', 'LENGTH^3',    KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'FORCE',    'MASS LENGTH TIME^-2',   KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'DENSITY',  'MASS VOLUME^-1',        KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'STRESS',   'FORCE AREA^-1',         KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'ENERGY',   'FORCE LENGTH',          KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'POWER',    'ENERGY TIME^-1',        KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'VELOCITY', 'LENGTH TIME^-1',        KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'ACCELERATION', 'VELOCITY TIME^-1',  KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'SP.H.CAP', 'ENERGY MASS^-1 TEMPERATURE^-1',KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal
-     $     (iErr, 'TH.COND', 'POWER LENGTH^-1 TEMPERATURE^-1',KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal (iErr, 'STR.RATE', 'TIME^-1',          KU,SU,AU)
-c
-      if (iErr.eq.0) call UXSdal (iErr, 'N',  'kg m s^-2',   KU,SU,AU)
-      if (iErr.eq.0) call UXSdal (iErr, 'Pa', 'N m^-2',      KU,SU,AU)
-      if (iErr.eq.0) call UXSdal (iErr, 'J',  'N m',         KU,SU,AU)
-      if (iErr.eq.0) call UXSdal (iErr, 'W',  'J s^-1',      KU,SU,AU)
-CCC_  - Registration (scaled) units
-CCC_   . Length
-      if (iErr.eq.0) call UXSdmi(iErr, 'km', +3, 'm',        KU,SU,AU)
-      if (iErr.eq.0) call UXSdmi(iErr, 'cm', -2, 'm',        KU,SU,AU)
-      if (iErr.eq.0) call UXSdmi(iErr, 'mm', -3, 'm',        KU,SU,AU)
-CCC_   . Time standard
-      if (iErr.eq.0) call UXSdfi (iErr, 'min', 60, 's',      KU,SU,AU)
-      if (iErr.eq.0) call UXSdfi (iErr, 'hr',  60, 'min',    KU,SU,AU)
-      if (iErr.eq.0) call UXSdfi (iErr, 'day', 24, 'hr',     KU,SU,AU)
-      if (iErr.eq.0) call UXSdfi (iErr, 'yr',  31556926, 's',KU,SU,AU)
-      if (iErr.eq.0) call UXSddi (iErr, 'mon', 12, 'yr',     KU,SU,AU)
-      if (iErr.eq.0) call UXSdmi (iErr, 'kyr', +3, 'yr',     KU,SU,AU)
-CCC_   . Time ideal
-      if (iErr.eq.0) call UXSdfi (iErr, 'yr#i',  360, 'day', KU,SU,AU)
-      if (iErr.eq.0) call UXSdfi (iErr, 'mon#i', 30,  'day', KU,SU,AU)
-      if (iErr.eq.0) call UXSdmi (iErr, 'kyr#i', +3, 'yr#i', KU,SU,AU)
-CCC_   . Power
-      if (iErr.eq.0) call UXSdmi (iErr, 'mW', -3, 'W',    KU,SU,AU)
-CCC_   . Mass
-      if (iErr.eq.0) call UXSdmi (iErr, 'g', -3, 'kg',    KU,SU,AU)
-CCC_   . Temperature
-      if (iErr.eq.0) call UXSdnl (iErr, 'degC', 'K',      KU,SU,AU)
-CCC_   . Angle
-      qpi = ATAN2 (1.d0, 1.d0)
-      if (iErr.eq.0) call UXSdco (iErr, 'qpi', qpi,       KU,SU,AU)
-      if (iErr.eq.0) call UXSdfi (iErr, 'pi',  4, 'qpi',  KU,SU,AU)
-      if (iErr.eq.0) call UXSdec (iErr, 'pi',             KU,SU,AU)
-c
-      if (iErr.eq.0)
-     $     call UXSddi (iErr, 'degree', 45, 'qpi radian', KU,SU,AU)
-      if (iErr.eq.0) call UXSdal (iErr, 'deg', 'degree',  KU,SU,AU)
-      if (iErr.eq.0) call UXSdal (iErr, 'rad', 'radian',  KU,SU,AU)
-
-      RETURN
-      END
 CCC_& UXinit  ## Unison/Unit initialization (default allocation)
       subroutine UXinit
      O    (iErr,
      O     KU,  SU,  AU,
      I     LKU, LSU, LAU,
-     I     MSI, MDI, MCI, KTYPE,  IFPL)
+     I     MSI, MDI, MCI, KTYPE, IFPL)
 CCC_ + Declaration
       implicit none
       _INTENT(OUT,integer)   iErr
@@ -3701,11 +4652,13 @@ CCC_  - Call sub-managers
      $        KU,  SU,  AU,  LKU, LSU, LAU,
      $        MSI, MDI, MCI, 0,   0,   0,   0,   KTYPE, IFPL)
       endif
-      if (iErr.eq.0) then
-         call UXiniS(iErr, KU, SU, AU, 0)
-      endif
       if (iErr.ne.0) then
-         write (*, *) 'UXINIT FATAL', iErr
+ 101     format('UXINIT: FAIL = ', I3)
+         if (COND_N(IFPL)) then
+            write(IFPL, 101) iErr
+         else if (COND_S(IFPL)) then
+            write(*,    101) iErr
+         endif
       endif
 c
       RETURN
@@ -3741,6 +4694,12 @@ CCC_ + Body
       else if (IOP.eq.7) then
          STRA = 'OPT_UNIT_HASH_BASE_FINAL'
          write (STRB, *) OPT_UNIT_HASH_BASE_FINAL
+      else if (IOP.eq.8) then
+         STRA = 'OPT_UNIT_AUTO_LIMIT'
+         write (STRB, *) OPT_UNIT_AUTO_LIMIT
+      else if (IOP.eq.9) then
+         STRA = 'OPT_UNIT_DBG_PARSER'
+         write (STRB, *) OPT_UNIT_DBG_PARSER
       else
          STRA = ' '
          STRB = ' '
@@ -3748,12 +4707,8 @@ CCC_ + Body
       RETURN
       END
 CCC_* Test
-#if       WITH_TEST_UXUNIT || TEST_UXUNIT
+#if WITH_TEST_UXUNIT
 CCC_ + Macros
-#define UXILIM(U,D,C,T) (U)*_UATTR_MAX+(D)*_DATTR_MAX+(C)*_CATTR_MAX+(T)*_IPTBL_MAX+_OFF_IATTR
-#define UXALIM(U)       (U)
-#define UXSLIM(U,D)     (U+D)*_COEFF_MAX
-c
 #ifndef    TEST_UNIT_SINGLE_MAX     /* number of single units */
 #  define  TEST_UNIT_SINGLE_MAX     512
 #endif
@@ -3761,584 +4716,57 @@ c
 #  define  TEST_UNIT_COMPOUND_MAX   512
 #endif
 #ifndef    TEST_UNIT_DECOMPOSITION_MAX   /* number of compound units */
-#  define  TEST_UNIT_DECOMPOSITION_MAX   128
+#  define  TEST_UNIT_DECOMPOSITION_MAX   256
 #endif
 #ifndef    TEST_UNIT_CTABLE_MAX     /* elements of compound table */
 #  define  TEST_UNIT_CTABLE_MAX     1024
 #endif
-CCC_ & UXTEST_nsg_do  ## suggestion test execution
-      subroutine UXTEST_nsg_do
-     $     (iErr, LKU, LSU, LAU, MSh, MDh, MCh, KD, AD)
+#endif /* WITH_TEST_UXUNIT */
+CCC_ @ UXtest  ## Test program
+#if TEST_UXUNIT
+CCC_  - Test suites
+CC::   SOURCES udbgst.F ustrmn.F
+      program UXtest
 CCC_  - Declaration
       implicit none
-      _INTENT(OUT,  integer) iErr
-      _INTENT(IN,   integer) LKU, LSU, LAU
-      _INTENT(IN,   integer) MSh, MDh, MCh
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      integer    MSs, MDs, MCs
-      integer    NKU, NSU, NAU
-      integer    NAS, NAD, NAC, NAT
-      integer    KTYPE
-      integer    IFP
+      integer iErr
+      integer iplog
+CCC_   . debug section
+      integer    LDK, LDA
+      parameter (LDK = 32, LDA = 24)
+      integer    KD(LDK)
+      character  AD(LDA)*(128)
+#if HAVE_F77_LEN_TRIM == 0
+      integer len_trim
+#endif
+#include "orevan.F" /* 0 */
 CCC_  - Body
-      iErr = 0
+#define _ANNOUNCE UXUNIT
+#define _LEXT     9999
+#include "orevan.F" /* 1 */
 c
-      if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'KSU = [')
-      if (iErr.eq.0) call UDSmai(iErr, KD, AD, 0, -1, ' ', LKU)
-      if (iErr.eq.0) call UDSmai(iErr, KD, AD, 0, -1, ',', LSU)
-      if (iErr.eq.0) call UDSmai(iErr, KD, AD, 0, -1, ',', LAU)
-      if (iErr.eq.0) call UDSmsg(iErr, KD, AD, 0, 0,  ']')
+      iErr  = 0
+      iplog = -1
 c
-      call UDSquo(IFP, KD)
+      call UDSbnm ('UXUNIT TESTS', '#', 0, iplog)
+      call UDSini (iErr, KD, AD, LDK, LDA, iplog)
 c
-      NAS   = 0
-      NAD   = 0
-      NAC   = 0
-      NAT   = 0
-      KTYPE = 0
+      if (iErr.eq.0) call UXTEST_ctrl(iErr, KD, AD, iplog)
 c
-      call UXAnsg
+      call UDSbnm ('UXUNIT TESTS FINE', '#', 0, iplog)
+c
+      STOP
+      END
+CCC_ & UXTEST_ctrl ##
+      subroutine UXTEST_ctrl
      O    (iErr,
-     O     MSs, MDs, MCs,
-     I     MSh, MDh, MCh,
-     I     LKU, LSU, LAU,   NAS, NAD, NAC, NAT, KTYPE)
-c
-      call UXAnrq
-     O    (NKU, NSU,  NAU,
-     I     MSs, MDs,  MCs,  NAS, NAD, NAC, NAT, KTYPE)
-c
- 101  format ('NSG:', I2,
-     $     ' L(',   I5, I5, I5, ')',
-     $     ' H(',   I5, I5, I5, ')',
-     $     ' S[',   I5, I5, I5, ']',
-     $     ' R[',   I5, I5, I5, ']')
-      if      (COND_N(IFP)) then
-         write (IFP, 101) iErr,
-     $        LKU, LSU, LAU, MSh, MDh, MCh,
-     $        MSs, MDs, MCs, NKU, NSU, NAU
-      else if (COND_S(IFP)) then
-         write (*,   101) iErr,
-     $        LKU, LSU, LAU, MSh, MDh, MCh,
-     $        MSs, MDs, MCs, NKU, NSU, NAU
-      endif
-      RETURN
-      END
-CCC_ & UXTEST_nsg_ctrl  ## suggestion tests control
-      subroutine UXTEST_nsg_ctrl (iErr, KLVL,  KD,AD)
-CCC_  - Declaration
+     I     KD, AD, iplog)
       implicit none
       _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   KLVL
+      _INTENT(IN,   integer)   iplog
       _INTENT(INOUT,integer)   KD(*)
       _INTENT(INOUT,character) AD(*)*(*)
-      integer LKU, LSU, LAU
-      integer MSh, MDh, MCh
 c
-      integer    LU,  LD,  LC,  LT
-      parameter (LU = TEST_UNIT_SINGLE_MAX)
-      parameter (LD = TEST_UNIT_DECOMPOSITION_MAX)
-      parameter (LC = TEST_UNIT_COMPOUND_MAX)
-      parameter (LT = TEST_UNIT_CTABLE_MAX)
-      integer    LKUp, LSUp, LAUp
-      parameter (LKUp = UXILIM(LU,LD,LC,LT))
-      parameter (LSUp = UXSLIM(LU,LD))
-      parameter (LAUp = UXALIM(LU))
-CCC_  - Body
-      iErr = 0
-c
-      LKU  = 256
-      LSU  = 512
-      LAU  = 128
-      MSh  = 0
-      MDh  = 0
-      MCh  = 0
-c
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'SUGGESTION')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-c
-      call UXTEST_nsg_do(iErr, LKU,      LSU,LAU, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKU / 3,  LSU,LAU, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKU / 5,  LSU,LAU, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKU / 7,  LSU,LAU, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKU / 11, LSU,LAU, MSh,MDh,MCh, KD,AD)
-c
-      call UXTEST_nsg_do(iErr, LKUp,      LSUp,LAUp, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKUp / 3,  LSUp,LAUp, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKUp / 5,  LSUp,LAUp, MSh,MDh,MCh, KD,AD)
-      call UXTEST_nsg_do(iErr, LKUp / 10, LSUp,LAUp, MSh,MDh,MCh, KD,AD)
-c
-      call UXTEST_nsg_do(iErr, LKUp / 10, LSUp,LAUp, MSh,MDh,100, KD,AD)
-      call UXTEST_nsg_do(iErr, LKUp / 10, LSUp,LAUp, MSh,MDh,40,  KD,AD)
-c
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
-c
-      RETURN
-      END
-CCC_ & UXTEST_decl_do  ## declaration test execution
-      subroutine UXTEST_decl_do
-     $     (iErr, UB, SW, iXerr,  KU,SU,AU, KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   iXerr
-      _INTENT(IN,   character) UB*(*)
-      _INTENT(IN,   character) SW*(*)
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-#if HAVE_F77_LEN_TRIM == 0
-      integer len_trim
-#endif
-c
-      integer   NCO
-      data      NCO /0/
-      save      NCO
-      character U*(32), C
-      integer   ja, j0, j1
-      integer   NSTP
-      _REALSTD  F
-CCC_  - Body
-      iErr = 0
-      j0   = NCO / 26
-      NSTP = 1
-      if (j0.ge.26) then
-         iErr = -1
-      else
-         call UFwc2i(ja, 'a')
-         j0 = j0 + ja
-         j1 = MOD(NCO, 26) + ja
-         U  = 'U??'
-         call UFwi2c(C, j0)
-         U(2:2) = C
-         call UFwi2c(C, j1)
-         U(3:3) = C
-         if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'DECL')
-         if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, -1, '/', SW)
-         if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0,  ':', U)
-      endif
-      if (iErr.eq.0) then
-         if (SW.eq.'F') then
-            F = 123.d4
-            call UXSdfs (iErr, U, F, UB, KU,SU,AU)
-         else if (SW.eq.'D') then
-            F = 234.d5
-            call UXSdds (iErr, U, F, UB, KU,SU,AU)
-         else if (SW.eq.'M') then
-            F = 4.0d0
-            call UXSdms (iErr, U, F, UB, KU,SU,AU)
-         else if (SW.eq.'A') then
-            call UXSdal (iErr, U,    UB, KU,SU,AU)
-         else if (SW.eq.'N') then
-            call UXSdnl (iErr, U,    UB, KU,SU,AU)
-         else if (SW.eq.'R0') then
-            F = 3.0d0
-            call UXSdms (iErr, UB, F, U, KU,SU,AU)
-         else if (SW(1:1).eq.'R') then
-            ja = len_trim(SW)
-            F = 3.0d0
- 101        format (A, '^', A)
-            write (U, 101) _TRIM(U), SW(2:ja)
-            call USJntz(U, ' yr')
-            call UXSdms (iErr, UB, F, U, KU,SU,AU)
-         else
-            call UXSdal (iErr, SW,    UB, KU,SU,AU)
-         endif
-         if (iErr.eq.iXerr) then
-            iErr = 0
-         else
-            iErr = -2
-         endif
-      endif
-      NCO = NCO + NSTP
-c
-      RETURN
-      END
-CCC_ & UXTEST_decl_ctrl  ## declaration tests control
-      subroutine UXTEST_decl_ctrl
-     $     (iErr,  KLVL,  KU,SU,AU,  KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   KLVL
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-CCC_  - Body
-      iErr = 0
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'SIMPLE DECL')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-c
-      if (iErr.eq.0)
-     $     call UXTEST_decl_do(iErr, 'm', 'F', 0, KU,SU,AU, KD,AD)
-      if (iErr.eq.0)
-     $     call UXTEST_decl_do(iErr, 'm', 'D', 0, KU,SU,AU, KD,AD)
-      if (iErr.eq.0)
-     $     call UXTEST_decl_do(iErr, 'm', 'M', 0, KU,SU,AU, KD,AD)
-      if (iErr.eq.0)
-     $     call UXTEST_decl_do(iErr, 'm', 'A', 0, KU,SU,AU, KD,AD)
-      if (iErr.eq.0)
-     $     call UXTEST_decl_do(iErr, 'm', 'N', 0, KU,SU,AU, KD,AD)
-CCC_  - ignored character
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, -1, 'IGNORED CHAR')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $        (iErr, 'cm;/;;mon', 'A', 0, KU,SU,AU, KD,AD)
-      endif
-CCC_  - reversal registration
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, -1, 'REVERSAL')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-      if (iErr.eq.0) then
-         call UXTEST_decl_do (iErr, 'mm', 'R0', 0, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do (iErr, 'mm', 'R+1',0, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do (iErr, 'mm', 'R-1',0, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $       (iErr, 'mm', 'R+2', ERR_UNIT_INVALID_COMPOUND,
-     $        KU,SU,AU, KD,AD)
-      endif
-CCC_  - unknown
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, -1, 'UNKNOWN')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $       (iErr, 'u0', 'A', 1, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $       (iErr, 'u1 u2 u3', 'A', 3, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $       (iErr, 'u4^2', 'A', 1, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $       (iErr, 'mm u5', 'A', 1, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_decl_do
-     $       (iErr, 'm', 'u0', 0, KU,SU,AU, KD,AD)
-      endif
-c
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
-      RETURN
-      END
-CCC_ & UXTEST_ddup_do  ## duplicated test execution
-      subroutine UXTEST_ddup_do
-     $     (iErr, T, F, UB, iXerr,  KU,SU,AU, KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   iXerr
-      _INTENT(IN,   character) T*(*)
-      _INTENT(IN,   character) UB*(*)
-      _INTENT(IN,   _REALSTD)  F
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-CCC_  - Body
-      iErr = 0
-      if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'DUP DECL')
-      if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0, '/', T)
-      if (iErr.eq.0) then
-         call UXSdfs (iErr, 'velo', F, UB, KU,SU,AU)
-         if (iErr.eq.iXerr) then
-            iErr = 0
-         else
-            iErr = -2
-         endif
-      endif
-      RETURN
-      END
-CCC_ & UXTEST_ddup_ctrl  ## duplicated declaration tests control
-      subroutine UXTEST_ddup_ctrl
-     $     (iErr,  KLVL,  KU,SU,AU,  KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   KLVL
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-CCC_  - Body
-      iErr = 0
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'DUPLICATED')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-c
-      if (iErr.eq.0) then
-         call UXTEST_ddup_do
-     $        (iErr, 'ORIG', 1.d3, 'm/yr', 0, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_ddup_do
-     $        (iErr, 'IDENT', 1.d3, 'm/yr', 0, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_ddup_do
-     $        (iErr, 'DIFF-U', 1.d0, 'km/yr', 0, KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_ddup_do
-     $       (iErr, 'WRONG-C', 1.d0, 'm/yr', ERR_UNIT_DUP_SINGLE,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_ddup_do
-     $       (iErr, 'WRONG-U', 1.d0, 'cm/yr', ERR_UNIT_DUP_SINGLE,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_ddup_do
-     $       (iErr, 'WRONG-D', 1.d0, 'km', ERR_UNIT_DUP_SINGLE,
-     $        KU,SU,AU, KD,AD)
-      endif
-c
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
-      RETURN
-      END
-CCC_ & UXTEST_rel_check  ## relation check
-      subroutine UXTEST_rel_check
-     $     (iErr, T, US, UD, iXd, iXc, KU,SU,AU, KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   iXd, iXc
-      _INTENT(IN,   character) T*(*)
-      _INTENT(IN,   character) US*(*)
-      _INTENT(IN,   character) UD*(*)
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-      integer iDstt, iCstt
-      integer IFP
-CCC_  - Body
-      iErr = 0
-      call UDSquo(IFP, KD)
-c
-      if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'CHECK')
-      if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0, '/', T)
-c
-      if (iErr.eq.0) then
-         call UXSqxr (iDstt, iCstt, US, UD, KU,SU,AU)
- 201     format ('RCH ', A, 1x, A, ' == ', 2I5)
-         if (COND_N(IFP)) then
-            write (IFP, 201) _TRIM(US),_TRIM(UD),iDstt, iCstt
-         else if (COND_S(IFP)) then
-            write (*,   201) _TRIM(US),_TRIM(UD),iDstt, iCstt
-         endif
-         if (iXd.eq.0) then
-            if (iCstt.eq.iXc .and. iDstt.eq.iXd) then
-               iErr = 0
-            else
-               iErr = -2
-            endif
-         else
-            if (iCstt.eq.iXc .and. iDstt.ne.0) then
-               iErr = 0
-            else
-               iErr = -2
-            endif
-         endif
-      endif
-c
-      RETURN
-      END
-CCC_ & UXTEST_conv_check  ## conversion check
-      subroutine UXTEST_conv_check
-     $     (iErr, SW, US, UD, iXerr, KU,SU,AU, KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   iXerr
-      _INTENT(IN,   character) SW*(*)
-      _INTENT(IN,   character) US*(*)
-      _INTENT(IN,   character) UD*(*)
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-      integer IFP
-      integer jp, lsw
-      _REALSTD VT(16)
-      _REALSTD VXS, VXD, VXR
-      integer  nvt
-      integer  jt
-      integer  jeP, jeN
-      character UST*(128), UDT*(128)
-      integer   iuSt,      iuDt,    ixSD
-#if HAVE_F77_LEN_TRIM == 0
-      integer len_trim
-#endif
-CCC_  - Body
-      iErr = 0
-      call UDSquo(IFP, KD)
-c
-      if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'CONV')
-      if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, -1, ':',  US)
-      if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0,  '>>', UD)
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-c
-      nvt = 2
-      VT(1) = 1.23d23
-      VT(2) = 1.23d-23
-c
-      lsw = len_trim(SW)
- 101  format ('RESULT: ', 3E24.16, 1x, L1)
-      do jp = 1, lsw
-         if (SW(jp:jp).eq.'d') then
-            nvt   = 1
-            VT(1) = 180.0d0
-         else if (SW(jp:jp).eq.'U'.or.SW(jp:jp).eq.'u') then
-
-            if (SW(jp:jp).eq.'U') then
-               UST = US
-               UDT = UD
-            else
-               UST = UD
-               UDT = US
-            endif
-            if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'STR')
-            if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, -1, ':',  UST)
-            if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0,  '>>', UDT)
-            do jt = 1, nvt
-               VXS = VT(jt)
-               VXD = VXS
-               call UXSxss (jeP, VXD, UST, UDT, +1, KU,SU,AU)
-               VXR = VXD
-               call UXSxss (jeN, VXR, UST, UDT, -1, KU,SU,AU)
-               if (COND_N(IFP)) then
-                  write  (IFP, 101) VXS, VXD, VXR, (VXS.eq.VXR)
-               else if (COND_S(IFP)) then
-                  write  (*,   101) VXS, VXD, VXR, (VXS.eq.VXR)
-               endif
-            enddo
-         else if (SW(jp:jp).eq.'I'.or.SW(jp:jp).eq.'i') then
-            if (SW(jp:jp).eq.'I') then
-               UST = US
-               UDT = UD
-            else
-               UST = UD
-               UDT = US
-            endif
-            if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'ID')
-            if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, -1, ':',  UST)
-            if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0,  '>>', UDT)
-            if (iErr.eq.0) call UXCinq(iErr, iuSt, UST, KU,AU)
-            if (iErr.eq.0) call UXCinq(iErr, iuDt, UDT, KU,AU)
-            if (iErr.eq.0) then
-               call UXCxrg (iErr, ixSD, iuSt, iuDt, KU,SU,AU)
-            endif
-            if (iErr.eq.0) then
-               do jt = 1, nvt
-                  VXS = VT(jt)
-                  VXD = VXS
-                  call UXCcnv (jeP, VXD, ixSD, KU,SU)
-                  VXR = VXD
-                  call UXCrvc (jeP, VXR, ixSD, KU,SU)
-                  write  (*, 101) VXS, VXD, VXR, (VXS.eq.VXR)
-               enddo
-            endif
-         endif
-      enddo
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
-c
-      RETURN
-      END
-CCC_ & UXTEST_opr_ctrl  ## operation tests control
-      subroutine UXTEST_opr_ctrl
-     $     (iErr,  KLVL,  KU,SU,AU,  KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   KLVL
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-      _INTENT(INOUT,integer)   KU(*)
-      _INTENT(INOUT,_REALSTD)  SU(*)
-      _INTENT(INOUT,character) AU(*)*(*)
-CCC_  - Body
-      iErr = 0
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'OPERATION')
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
-CCC_   . Definition
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'DEFINITION')
-      if (iErr.eq.0) call UXSdal(iErr, 'topo', 'm',       KU,SU,AU)
-      if (iErr.eq.0) call UXSdal(iErr, 'dx',   'km',      KU,SU,AU)
-      if (iErr.eq.0) call UXSdal(iErr, 'grav', 'm/s^2',   KU,SU,AU)
-      if (iErr.eq.0) call UXSdal(iErr, 'dens', 'kg/m^3',  KU,SU,AU)
-      if (iErr.eq.0) call UXSdal(iErr, 'dsdx', 'topo/dx', KU,SU,AU)
-      if (iErr.eq.0)
-     $     call UXSdal(iErr, 'bdrg@i', 'dens grav topo dsdx', KU,SU,AU)
-      if (iErr.eq.0) call UXSdal(iErr, 'bdrg@u', 'Pa',  KU,SU,AU)
-CCC_   . Relation check
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'RELATION CHECK')
-      if (iErr.eq.0) then
-         call UXTEST_rel_check
-     $       (iErr, 'IDENTICAL', 'Pa', 'bdrg@u', 0, 1,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_rel_check
-     $       (iErr, 'DIFF-COEFF', 'Pa', 'bdrg@i', 0, 2,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_rel_check
-     $       (iErr, 'DIFF-BOTH', 'Pa', 'km/s', 1, 2,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_rel_check
-     $       (iErr, 'DIFF-DIM', 'Pa', 'm/s', 1, 1,
-     $        KU,SU,AU, KD,AD)
-      endif
-CCC_   . Conversion check
-      if (iErr.eq.0) then
-         call UXTEST_conv_check
-     $       (iErr, 'UuIi', 'bdrg@i', 'bdrg@u', 0,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_conv_check
-     $       (iErr, 'Uu', 'm', 'km', 0,
-     $        KU,SU,AU, KD,AD)
-      endif
-      if (iErr.eq.0) then
-         call UXTEST_conv_check
-     $       (iErr, 'dU', 'deg', 'rad', 0,
-     $        KU,SU,AU, KD,AD)
-      endif
-CCC_   . End
-      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
-      RETURN
-      END
-CCC_ & UXTEST_unit_ctrl ## unit tests control
-      subroutine UXTEST_unit_ctrl (iErr, KLVL,  KD,AD)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)   iErr
-      _INTENT(IN,   integer)   KLVL
-      _INTENT(INOUT,integer)   KD(*)
-      _INTENT(INOUT,character) AD(*)*(*)
-CCC_  - unit attribute cluster
       integer    LU,  LD,  LC,  LT
       parameter (LU = TEST_UNIT_SINGLE_MAX)
       parameter (LD = TEST_UNIT_DECOMPOSITION_MAX)
@@ -4352,95 +4780,590 @@ CCC_  - unit attribute cluster
       character  AU(LAU)*(OPT_UNIT_LEN)
       _REALSTD   SU(LSU)
       integer    MSI, MCI, MDI
-      integer    iplog
-CCC_  - Body
+c
       iErr = 0
-      call UDSquo(iplog, KD)
-c
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'UNITS BASICS')
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, +1, 'INITIALIZATION')
-c
+CCC_  - Health check
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'Health check')
+      if (iErr.eq.0) call UXShch(iErr, iplog)
+CCC_  - Initialization
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'Initialization')
       MSI = LU
       MCI = LC
       MDI = LD
-      call UXinit
-     $    (iErr,
-     $     KU, SU, AU, LKU, LSU, LAU, MSI, MDI, MCI, 0,
-     $     iplog)
-CCC_   . Declaration tests
-      call UXTEST_decl_ctrl(iErr,  KLVL,  KU,SU,AU,  KD,AD)
-CCC_   . Duplicated declaration tests
-      call UXTEST_ddup_ctrl(iErr,  KLVL,  KU,SU,AU,  KD,AD)
-CCC_   . Operation tests
-      call UXTEST_opr_ctrl(iErr,  KLVL,  KU,SU,AU,  KD,AD)
-CCC_   . Report
-      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0, 'REPORT')
-      call UXSrep (iErr, KU,SU,AU)
-CCC_   . Final
+      if (iErr.eq.0) then
+         call UXinit
+     $       (iErr,
+     $        KU,SU,AU,  LKU,LSU,LAU,  MSI,MDI,MCI, 0,
+     $        iplog)
+      endif
+CCC_  - Declaration (single)
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'Parser:single')
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
+      if (iErr.eq.0)
+     $     call UXTEST_decl_single(iErr, KU,SU,AU,  KD,AD,iplog)
       if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
+CCC_  - Declaration (compounds)
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'Parser:compounds')
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
+      if (iErr.eq.0)
+     $     call UXTEST_decl_comp(iErr, KU,SU,AU,  KD,AD,iplog)
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
+CCC_  - Decomposition
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0, 'Decomposition')
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
+      if (iErr.eq.0)
+     $     call UXTEST_decomposition(iErr, KU,SU,AU, KD,AD,iplog)
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
+CCC_  - Operation
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0, 'Operation')
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
+      if (iErr.eq.0)
+     $     call UXTEST_operation(iErr, KU,SU,AU, KD,AD,iplog)
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
+CCC_  - Report
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0, 'Report')
+      if (iErr.eq.0) call UXSrep(iErr, KU,SU,AU)
       RETURN
       END
-#endif /* WITH_TEST_UXUNIT || TEST_UXUNIT */
-CCC_ @ UXtest  ## Test program
-#if TEST_UXUNIT
-CCC_  - Test suites
-CC::   SOURCES udbgst.F
-      program UXtest
+CCC_ & UXTEST_decl_single ## Declaration
+      subroutine UXTEST_decl_single
+     $     (iErr,  KU,SU,AU,  KD,AD,iplog)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _INTENT(INOUT,integer)   KD(*)
+      _INTENT(INOUT,character) AD(*)*(*)
+      _INTENT(IN,   integer)   iplog
+c
+      _REALSTD qpi
+c
+      iErr = 0
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Primitive:dimensionless')
+      if (iErr.eq.0) call UXSdco(iErr, '1', 1.d0,    KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Primitive:alias')
+      if (iErr.eq.0) call UXSdpc(iErr, 'm',      'LENGTH', KU,SU,AU)
+      if (iErr.eq.0) call UXSdpc(iErr, 'kg',     'MASS',   KU,SU,AU)
+      if (iErr.eq.0) call UXSdpc(iErr, 's',      'TIME',   KU,SU,AU)
+      if (iErr.eq.0) call UXSdpc(iErr, 'radian', 'ANGLE',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdpc(iErr, 'K', 'TEMPERATURE', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Primitive:no alias')
+      if (iErr.eq.0) call UXSdpc(iErr, '!U', ' ', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Constant')
+      qpi = ATAN2 (1.d0, 1.d0)
+      if (iErr.eq.0) call UXSdco(iErr, 'qpi', qpi, KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Factors')
+      if (iErr.eq.0) call UXSdfi(iErr, 'pi',  4, 'qpi', KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'min', 60,      's',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'yr',  31556926,'s',  KU,SU,AU)
+c     define by non-primitive units
+      if (iErr.eq.0) call UXSdfi(iErr, 'hr',  60,  'min', KU,SU,AU)
+      if (iErr.eq.0) then
+         call UXSdfi(iErr, 'week',7,   'day', KU,SU,AU)
+         call UDTech(iErr, 1, 'number of unknown items', iplog)
+      endif
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Denominators')
+      if (iErr.eq.0) call UXSddi(iErr, 'mon', 12,   'yr', KU,SU,AU)
+      if (iErr.eq.0) call UXSddi(iErr, 'g',   1000, 'kg', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Reversal')
+      if (iErr.eq.0) call UXSdfi(iErr, 'g',   1000, 'mg', KU,SU,AU)
+      if (iErr.eq.0) call UXSddi(iErr, 'hr',  24,  'day',  KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Magnitudes:good')
+c     by string
+      if (iErr.eq.0) call UXSdal(iErr, 'Mm', '1000000 m',   KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'km', '10^3 m',      KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'cm', '10^-2 m',     KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'Pm', '1e15 m',      KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'mm', 'm / 1000',    KU,SU,AU)
+c     need to insert asterisk before m.
+c     'a / b c' is parsed as 'a b^-1 c^-1'
+      if (iErr.eq.0) call UXSdal(iErr, 'Tm', '1/10^-12*m',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'um', '1/10^6  *m',  KU,SU,AU)
+c     by magnitude  (UXSdm[is])
+      if (iErr.eq.0) call UXSdmi(iErr, 'Gm',  +9,     'm',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'nm',  -9,     'm',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdms(iErr, 'Ym',  +24.0d0,'m',  KU,SU,AU)
+c     by non-integer magnitude.  Any uses?
+      if (iErr.eq.0)
+     $     call UXSdms(iErr, 'sqrt.10#m',   0.5d0, 'm',  KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdms(iErr, 'sqrt.1000#m', 1.5d0, 'm',  KU,SU,AU)
+c     by factor  (UXSdf[is])
+      if (iErr.eq.0) call UXSdfs(iErr, 'hm',  1.0d2,  'm',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'dam', 10,     'm',  KU,SU,AU)
+c     by denominator  (UXSdd[is])
+      if (iErr.eq.0) call UXSdds(iErr, 'pm',  1.0d12, 'm',  KU,SU,AU)
+      if (iErr.eq.0) call UXSddi(iErr, 'dm',  10,     'm',  KU,SU,AU)
+c     define by non-primitive units
+      if (iErr.eq.0) call UXSdal(iErr, 'Zm',  '10^6  Pm',    KU,SU,AU)
+      if (iErr.eq.0) call UXSddi(iErr, 'fm',  1000, 'pm',    KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'am',  -9,   'nm',    KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'Em',  1000, 'Pm',    KU,SU,AU)
+c     reverse definition can be handled
+c     iErr as number of unknowns
+c     unknown item is suspended
+      if (iErr.eq.0) then
+         call UXSdal(iErr, 'ym',  '10^-3 zm',    KU,SU,AU)
+         call UDTech(iErr, 1, 'number of unknown items', iplog)
+      endif
+c     actual definition of suspended item may be later
+      if (iErr.eq.0) call UXSdal(iErr, 'zm',  '10^-3 am',    KU,SU,AU)
+c     [CAUTION] infinite loop should be avoided by user.
+c     These combination can be declared, but to raise an error at CONVERSION
+      if (iErr.eq.0) then
+         call UXSdal(iErr, '!X#1',  '!X#0',    KU,SU,AU)
+         call UDTech(iErr, 1, 'number of unknown items', iplog)
+      endif
+      if (iErr.eq.0) then
+         call UXSdal(iErr, '!X#0',  '!X#1',    KU,SU,AU)
+         call UDTech(iErr, 0, 'number of unknown items', iplog)
+      endif
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Magnitudes:not.good')
+c     integer overflow
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!M.Ym', '1.0e24 m',   KU,SU,AU)
+c     truncation
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!M.cm', '1.0d-2 m',   KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!M.km', 'm / 1.0d-3', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Non-linear')
+      if (iErr.eq.0) call UXSdnl(iErr, 'degC', 'K', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Negative')
+      if (iErr.eq.0) call UXSdal(iErr, '!N#2', '-1 m',    KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, '!N#3', '1/-1*m',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, '!N#4', '-1/-1*m', KU,SU,AU)
+cc    Cannot parse the following
+c$$$      if (iErr.eq.0) call UXSdal(iErr, '!X.n#0', '-m',    KU,SU,AU)
+c$$$      if (iErr.eq.0) call UXSdal(iErr, '!X.n#1', '- m',    KU,SU,AU)
+      RETURN
+      END
+CCC_ & UXTEST_decl_comp ## Declaration
+      subroutine UXTEST_decl_comp
+     $     (iErr,  KU,SU,AU,  KD,AD,iplog)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _INTENT(INOUT,integer)   KD(*)
+      _INTENT(INOUT,character) AD(*)*(*)
+      _INTENT(IN,   integer)   iplog
+c
+      iErr = 0
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Compounds')
+      if (iErr.eq.0) call UXSdal(iErr, 'N',  'kg m s^-2', KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'Pa', 'N m^-2',    KU,SU,AU)
+c
+      if (iErr.eq.0) then
+         call UXSdal(iErr, 'W',  'J s^-1',    KU,SU,AU)
+         call UDTech(iErr, 1, 'number of unknown items', iplog)
+      endif
+      if (iErr.eq.0) call UXSdal(iErr, 'J',  'N m',       KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, 'dens#i', '910 kg m^-3',  KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, 'dens#w', '1028 kg m^-3',  KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, 'm#w', 'dens#w/dens#i*m#i', KU,SU,AU)
+      call UDTech(iErr, 1, 'number of unknown items', iplog)
+      if (iErr.eq.0) call UXSdal(iErr, 'cm#w', 'm#w/100',KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'm#i', 'm', KU,SU,AU)
+
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, 'mass.flux#i', 'dens#i m#i', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Compounds:various')
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!C#0', '2^3 3^4 4^-2 m', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!C#1', '2^3 5^2 m', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!C#2', '2^-3 20^3 m', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Compounds:non-integer.power')
+      if (iErr.eq.0)
+     $     call UXSdpw(iErr, '!E#0', +2.5d0, '30 7^-1 1', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpw(iErr, '!E#1', -2.5d0, '30 7^-1 1', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpw(iErr, '!E#2', +3.0d0, '30 7^-1 1', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpw(iErr, '!E#3', -3.0d0, '30 7^-1 1', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Prefixes')
+      if (iErr.eq.0) call UXSdmi(iErr, 'Y:', +24, '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'Z', +21, KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'E:', +18, '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'P', +15, KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'T:', +12, '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'G', +9,  KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'M:', +6,  '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'k', +3,  KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'h:', +2,  '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'da:',+1,  '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'd', -1,  KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'c:', -2,  '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'm', -3,  KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'u:', -6,  '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'n', -9,  KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'p:', -12, '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'f', -15, KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'a:', -18, '1', KU,SU,AU)
+      if (iErr.eq.0) call UXSpmi(iErr, 'z', -21, KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'y:', -24, '1', KU,SU,AU)
+c
+      if (iErr.eq.0) call UXSdpu(iErr, 'a', 'g', KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Compounds:prefixes')
+      if (iErr.eq.0) call UXSdal(iErr, '!P.km', 'k:m',    KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, '!P.fm', 'f:m',    KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, '!P.um', 'm:m:m',  KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Compounds:prefixes:power')
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!P#0', 'k:m^-1',  KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!P#1', '/k:m',    KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!P#2', '/k:m*cm^-2', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!P#3', '/k:m^-2', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!P#4', 'c:k:m^-2',KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, '!P#5', 'k:m cm^-3',KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UDSnew(iErr, KD, AD, 0,  'Compounds:duplication')
+c     identical
+      if (iErr.eq.0) call UXSdal(iErr, 'N', 'kg m s^-2', KU,SU,AU)
+      call UDTech(iErr, 0, 'duplication: identical', iplog)
+      if (iErr.eq.0) call UXSdal(iErr, 'N', 'Pa m^2', KU,SU,AU)
+      call UDTech(iErr, 0, 'duplication: identical', iplog)
+      if (iErr.eq.0) call UXSdal(iErr, 'N', 'M:Pa mm^2', KU,SU,AU)
+      call UDTech(iErr, 0, 'duplication: identical', iplog)
+      if (iErr.eq.0) call UXSdal(iErr, 'N', '!R0 !R1 !R2', KU,SU,AU)
+      call UDTech
+     $     (iErr, 2, 'duplication: unknown', iplog)
+
+c     fault
+      if (iErr.eq.0) call UXSdal(iErr, 'N', 'Pa cm^2', KU,SU,AU)
+      call UDTech
+     $     (iErr, ERR_UNIT_DUP_SINGLE,'duplication: fault', iplog)
+      if (iErr.eq.0) call UXSdal(iErr, 'N', 'Pa', KU,SU,AU)
+      call UDTech
+     $     (iErr, ERR_UNIT_DUP_SINGLE,'duplication: fault', iplog)
+c
+      RETURN
+      END
+CCC_ & UXTEST_decomposition ## Decomposition
+      subroutine UXTEST_decomposition
+     $     (iErr,  KU,SU,AU,  KD,AD,iplog)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _INTENT(INOUT,integer)   KD(*)
+      _INTENT(INOUT,character) AD(*)*(*)
+      _INTENT(IN,   integer)   iplog
+c
+      character U*(OPT_UNIT_LEN)
+      _REALSTD  F
+      integer jlp,  jstt
+      integer idU
+      integer idX
+      integer jco, nskp
+c
+      iErr = 0
+c
+ 101  format('success:', I0, 1x, I0, 1x, A, ' == ', E24.16)
+ 102  format('failed:',  I0, 1x, I0, 1x, A)
+      nskp = 1
+c
+      do jlp = 0, 1
+         jstt = 0
+         idU = -1
+         jco  = 0
+         if (iErr.eq.0)
+     $        call UDSnew(iErr, KD, AD, 0,  'Decomposition:loop')
+         DO
+            if (jstt.eq.0) then
+               call UXAits(idU, KU)
+               if (idU.le.0) then
+                  jstt = jstt + 1
+                  jco = 0
+                  cycle
+               endif
+            else
+               call UXAitc(idU, KU)
+               if (idU.le.0) exit
+            endif
+            if (mod(jco, nskp).eq.min(nskp-1, 1)) then
+               call UXAqun(iErr, U, idU, ' ', KU, AU)
+               call UXCdcm(iErr, idX, idU, KU,SU,AU)
+               if (iErr.ne.0) then
+                  if (U(1:2).eq.'!X') iErr = 0
+               endif
+               if (iErr.eq.0) then
+                  if (jlp.eq.1) then
+                     call UXCftb(iErr, F, idX, .TRUE., UXLEV_F, KU,SU)
+                     if (idX.gt.0) then
+                        write(*, 101) jco, idX, trim(U), F
+                     else
+                        write(*, 102) jco, idX, trim(U)
+                     endif
+                     iErr = 0
+                  endif
+               endif
+            endif
+            if (iErr.ne.0) goto 1000
+            jco = jco + 1
+         ENDDO
+      enddo
+ 1000 continue
+
+      RETURN
+      END
+CCC_ & UXTEST_operation ## Operation
+      subroutine UXTEST_operation
+     $     (iErr,  KU,SU,AU,  KD,AD,iplog)
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _INTENT(INOUT,integer)   KD(*)
+      _INTENT(INOUT,character) AD(*)*(*)
+      _INTENT(IN,   integer)   iplog
+c
+      iErr = 0
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'Relation')
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
+      if (iErr.eq.0) then
+         call UXTEST_relation
+     $       (iErr,
+     $        0, 1, 'identical', 'Pa', 'N m^-2',
+     $        KU, SU,AU,     KD,AD)
+      endif
+      if (iErr.eq.0) then
+         call UXTEST_relation
+     $       (iErr,
+     $        0, 2, 'factor', 'Pa', 'N cm^-2',
+     $        KU, SU,AU,     KD,AD)
+      endif
+      if (iErr.eq.0) then
+         call UXTEST_relation
+     $       (iErr,
+     $        -1, 1, 'diff.dim', 'Pa', 'N m',
+     $        KU, SU,AU,     KD,AD)
+      endif
+      if (iErr.eq.0) then
+         call UXTEST_relation
+     $       (iErr,
+     $        -1, 2, 'diff', 'Pa', 'N cm',
+     $        KU, SU,AU,     KD,AD)
+      endif
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
+c
+      if (iErr.eq.0) call UDSnew(iErr, KD, AD, 0,  'Conversion')
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, +1)
+      if (iErr.eq.0) call UDSset(iErr, KD, AD, -1)
+c
+      RETURN
+      END
+CCC_ & UXTEST_relation  ## relation check
+      subroutine UXTEST_relation
+     $     (iErr, iDref, iCref, T, US,UD, KU,SU,AU, KD,AD)
 CCC_  - Declaration
       implicit none
-      integer iErr
-      integer iplog
-CCC_   . debug section
-      integer    LDK, LDA
-      parameter (LDK = 32, LDA = 24)
-      integer    KD(LDK)
-      character  AD(LDA)*(128)
-c
-#if HAVE_F77_LEN_TRIM == 0
-      integer len_trim
-#endif
-#include "orevan.h" /* 0 */
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(IN,   integer)   iDref, iCref
+      _INTENT(IN,   character) T*(*)
+      _INTENT(IN,   character) US*(*)
+      _INTENT(IN,   character) UD*(*)
+      _INTENT(INOUT,integer)   KD(*)
+      _INTENT(INOUT,character) AD(*)*(*)
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      integer idStt, icStt
+      integer IFP
 CCC_  - Body
-#define _ANNOUNCE UXUNIT
-#define _LEXT     9999
-#include "orevan.h" /* 1 */
+      iErr = 0
+      call UDSquo(IFP, KD)
 c
-      iErr  = 0
-      iplog = -1
+      if (iErr.eq.0) call UDSopn(iErr, KD, AD, 0,  'check')
+      if (iErr.eq.0) call UDSmaa(iErr, KD, AD, 0, 0, '/', T)
 c
-      call UDSbnm ('UXUNIT TESTS', '#', 0, iplog)
+      if (iErr.eq.0) then
+         call UXSqxr (iDstt, iCstt, US, UD, KU,SU,AU)
+ 201     format ('check:', A, ' & ', A, ' == ', 2I5)
+         if (COND_N(IFP)) then
+            write (IFP, 201) _TRIM(US),_TRIM(UD),iDstt, iCstt
+         else if (COND_S(IFP)) then
+            write (*,   201) _TRIM(US),_TRIM(UD),iDstt, iCstt
+         endif
+         if (iDstt.ne.0) iDstt = -1
+      endif
+      if (iErr.eq.0) then
+         call UDTich
+     $        (iErr, iDstt, iDref, 'relation/d: ', IFP)
+      endif
+      if (iErr.eq.0) then
+         call UDTich
+     $        (iErr, iCstt, iCref, 'relation/c: ', IFP)
+      endif
 c
-      call UDSini (iErr, KD, AD, LDK, LDA, iplog)
-CCC_   . uxansg test
-      call UXTEST_nsg_ctrl(iErr, 0,  KD, AD)
-CCC_   . unit test
-      call UXTEST_unit_ctrl(iErr, 0,  KD, AD)
-#if 0 /* obsolete */
-CCC_   . number in string
-      call UXtest_dec
-     O    (iErr, itest,
-     $     '5:DEC/NUMBER', 'week', '7 day', 1.d0, 'A', 0,
-     $     KU,SU,AU, iplog)
-CCC_   . non linear
-      call UXSdnl (iErr, 'mon#g', 'day', KU,SU,AU)
-      call UXtest_dec
-     O    (iErr, itest,
-     $     '6:DEC/NONL/0', 'mon#g', 'day', 0.d0, 'X', 0,
-     $     KU,SU,AU, iplog)
-      call UXtest_dec
-     O    (iErr, itest,
-     $     '6:DEC/NONL/1', 'week#g', 'day', 0.d0, 'N', 0,
-     $     KU,SU,AU, iplog)
-CCC_   . fine
-      call UDMfi1 (iplog, '(''## FINAL: '', I4)', iErr)
-      call UDTbni (itest, 'FINE', ' ', iplog)
-#endif
-c
-      call UDSbnm ('UXUNIT TESTS FINE', '#', 0, iplog)
-c
-      STOP
+      RETURN
       END
 #endif /* TEST_UXUNIT */
+CCC_* Obsolete
+#if 0 /* obsolete meta-comment */
+CCC_ & UXiniS  ## Unison/Unit initialization default system
+      subroutine UXiniS
+     O    (iErr,
+     M     KU,  SU, AU, KSW)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)   iErr
+      _INTENT(INOUT,integer)   KU(*)
+      _INTENT(INOUT,_REALSTD)  SU(*)
+      _INTENT(INOUT,character) AU(*)*(*)
+      _INTENT(IN,   integer)   KSW
+      _REALSTD qpi
+CCC_  - Body
+      iErr = 0 * KSW
+CCC_   . Registration primitives
+      if (iErr.eq.0)
+     $     call UXSdpc(iErr, 'm',      'LENGTH',      KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpc(iErr, 'kg',     'MASS',        KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpc(iErr, 's',      'TIME',        KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpc(iErr, 'K',      'TEMPERATURE', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpc(iErr, 'radian', 'ANGLE',       KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdpc(iErr, 'mol',    'AMOUNT',      KU,SU,AU)
+CCC_   . Registration dimensionless
+      if (iErr.eq.0) call UXSdco(iErr, '1', 1.d0,    KU,SU,AU)
+CCC_   . Registration compounds
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, 'AREA',   'LENGTH^2',    KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal(iErr, 'VOLUME', 'LENGTH^3',    KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'FORCE',    'MASS LENGTH TIME^-2',   KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'DENSITY',  'MASS VOLUME^-1',        KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'STRESS',   'FORCE AREA^-1',         KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'ENERGY',   'FORCE LENGTH',          KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'POWER',    'ENERGY TIME^-1',        KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'VELOCITY', 'LENGTH TIME^-1',        KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'STRAIN.RATE', 'VELOCITY LENGTH^-1', KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'ACCELERATION', 'VELOCITY TIME^-1',  KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'SP.HEAT.CAPACITY',
+     $            'ENERGY MASS^-1 TEMPERATURE^-1',KU,SU,AU)
+      if (iErr.eq.0)
+     $     call UXSdal
+     $     (iErr, 'THERMAL.CONDUCTIVITY',
+     $            'POWER LENGTH^-1 TEMPERATURE^-1',KU,SU,AU)
+c
+      if (iErr.eq.0) call UXSdal(iErr, 'N',  'kg m s^-2',   KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'Pa', 'N m^-2',      KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'J',  'N m',         KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'W',  'J s^-1',      KU,SU,AU)
+CCC_   . Registration (scaled) units
+CCC_    * Length
+      if (iErr.eq.0) call UXSdmi(iErr, 'km', +3, 'm',        KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'cm', -2, 'm',        KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'mm', -3, 'm',        KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'um', -6, 'm',        KU,SU,AU)
+CCC_    * Time standard
+      if (iErr.eq.0) call UXSdfi(iErr, 'min', 60,      's',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'hr',  60,      'min',KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'day', 24,      'hr', KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'yr',  31556926,'s',  KU,SU,AU)
+      if (iErr.eq.0) call UXSddi(iErr, 'mon', 12,      'yr', KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'kyr', +3,      'yr', KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'Myr', +6,      'yr', KU,SU,AU)
+CCC_    * Time ideal
+      if (iErr.eq.0) call UXSdfi(iErr, 'yr#i',  360, 'day', KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'mon#i', 30,  'day', KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'kyr#i', +3, 'yr#i', KU,SU,AU)
+      if (iErr.eq.0) call UXSdmi(iErr, 'Myr#i', +6, 'yr#i', KU,SU,AU)
+CCC_    * Power
+      if (iErr.eq.0) call UXSdmi(iErr, 'mW', -3, 'W',    KU,SU,AU)
+CCC_    * Stress
+      if (iErr.eq.0) call UXSdmi(iErr, 'kPa',+3, 'Pa',   KU,SU,AU)
+CCC_    * Mass
+      if (iErr.eq.0) call UXSdmi(iErr, 'g',  -3, 'kg',   KU,SU,AU)
+CCC_    * Temperature
+      if (iErr.eq.0) call UXSdnl(iErr, 'degC', 'K',      KU,SU,AU)
+CCC_    * Angle
+      qpi = ATAN2 (1.d0, 1.d0)
+      if (iErr.eq.0) call UXSdco(iErr, 'qpi', qpi,       KU,SU,AU)
+      if (iErr.eq.0) call UXSdfi(iErr, 'pi',  4, 'qpi',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdec(iErr, 'pi',             KU,SU,AU)
+c
+      if (iErr.eq.0)
+     $     call UXSddi(iErr, 'degree', 45, 'qpi radian', KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'deg', 'degree',  KU,SU,AU)
+      if (iErr.eq.0) call UXSdal(iErr, 'rad', 'radian',  KU,SU,AU)
+
+      RETURN
+      END
+#endif /* obsolete meta-comment */
 CCC_! FOOTER
 C Local Variables:
 C fff-style: "iciesShermy"

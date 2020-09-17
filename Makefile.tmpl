@@ -1,8 +1,8 @@
 # Makefile.tmpl --- IcIES root Makefile.am template
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 2 2011
-# Revision:  Snoopy0.9
-# Time-stamp: <2020/09/16 15:44:12 fuyuki Makefile.tmpl>
+# Revision:  Snoopy0.97
+# Time-stamp: <2020/09/17 06:47:51 fuyuki Makefile.tmpl>
 
 # Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -12,10 +12,10 @@ ACLOCAL_AMFLAGS = -I build-aux/m4
 
 BUILD_AUX	  = build-aux
 SUBDIRS       = src ##%% t
-DIST_SUBDIRS  = $(SUBDIRS) etc doc run
+DIST_SUBDIRS  = $(SUBDIRS) etc doc
 TREEID		  = TreeID
-DOC_DIST      = INSTALL-icies2 NOTICE LICENSE HOWTORUN
-EXTRA_DIST    = $(TREEID) $(BUILD_AUX) $(DOC_DIST) ##%% a
+PACKAGEID	  = PackageID
+EXTRA_DIST    = $(TREEID) $(PACKAGEID) run/sp $(BUILD_AUX)  ##%% a
 
 GIT			=	@GIT@
 COMMIT		=	HEAD
@@ -35,9 +35,6 @@ LCLCNDH	= ##%% t
 
 install-etc:
 	@cd etc; $(MAKE) $(AM_MAKEFLAGS) install
-
-install-run:
-	@cd run; $(MAKE) $(AM_MAKEFLAGS) install
 
 install-cadenza: install-etc
 	@cd src; $(MAKE) $(AM_MAKEFLAGS) $@

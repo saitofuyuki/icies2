@@ -1,6 +1,6 @@
 #!/usr/bin/zsh -f
 # Maintainer:  SAITO Fuyuki
-tst='Time-stamp: <2020/09/15 12:13:29 fuyuki oarpea.sh>'
+tst='Time-stamp: <2020/09/17 08:28:33 fuyuki oarpea.sh>'
 # oarpea.h generation helper
 
 # usage
@@ -10,23 +10,20 @@ put_header ()
 {
   local count=$1 rev=$2
   cat <<EOF
-C ostinato/oarpkw.h --- Ostinato/Arpeggio/Elements(A) definitions
-C Maintainer:  SAITO Fuyuki
-C Created: Dec 29 2011
+/* ostinato/oarpkw.h --- Ostinato/Arpeggio/Elements(A) definitions */
+/* Maintainer: SAITO Fuyuki */
+/* Created: Dec 29 2011 */
 #ifdef HEADER_PROPERTY
 #define _TSTAMP '$tst'
 #define _FNAME 'ostinato/oarpea.h'
 #define _REV   'Arpeggio 1.0'
 #endif /* HEADER_PROPERTY */
-CCC_! MANIFESTO
-C
-C Copyright (C) 2011--2020
-C           Japan Agency for Marine-Earth Science and Technology
-C
-C Licensed under the Apache License, Version 2.0
-C   (https://www.apache.org/licenses/LICENSE-2.0)
-C
-CCC_* Definitions
+/***_! MANIFESTO */
+/* Copyright (C) 2011--2020 */
+/*           Japan Agency for Marine-Earth Science and Technology */
+/* Licensed under the Apache License, Version 2.0  */
+/*   (https://www.apache.org/licenses/LICENSE-2.0) */
+/***_* Definitions */
 #ifndef    _OARPEA_H
 #  define  _OARPEA_H
 
@@ -41,7 +38,7 @@ put_footer ()
   local rev=$1
   let lastnum++
   cat <<EOF
-CCC_ + Key (LS: List MP)
+/***_ + Key (LS: List MP) */
 #define EA_list0(T)     $lastnum
 #define EA_idxMU(T,j)   EA_list0(T)+j
 #define EA_idxCU(T,j)   EA_list0(T)+EA_size0(T)*1+j
@@ -83,12 +80,12 @@ EOF
 #define EA_listYW(T,j)  T(EA_idxYW(T,j))
 EOF
   cat <<EOF
-CCC_ + Key (LN: List NR)
+/***_ + Key (LN: List NR) */
 #define EA_list1(T)   EA_list0(T)+EA_size0(T)*EA_memL+1
 #define EA_listGSS(T,j) T(EA_list1(T)+j)
 #define EA_listGSR(T,j) T(EA_list1(T)+EA_size1(T),j)
 
-CCC_ + misc helper
+/***_ + misc helper */
 #define EA_IRn(T,dir) T(EA_IRXP()+dir)
 #define EA_ISn(T,dir) T(EA_ISXP()+dir)
 #define EA_IIn(T,dir) T(EA_IIXP()+dir)
@@ -98,16 +95,12 @@ CCC_ + misc helper
 #define EA_JEn(T,dir) T(EA_JEXP()+dir)
 #define EA_JSn(T,dir) T(EA_JSXP()+dir)
 
-CCC_ + maximum
+/***_ + maximum */
 #define EA_MAX(T)     EA_list1(T)+EA_size1(T)*2
 
-CCC_* End definitions
-#endif  /* _OARPEA_H */
-CCC_! FOOTER
-C Local Variables:
-C mode: fortran
-C fff-style: "iciesShermy"
-C End:
+/***_* End definitions */
+#endif  /* not _OARPEA_H */
+/***_! FOOTER */
 EOF
 }
 
@@ -116,7 +109,7 @@ putdef ()
    local comment="$1"; shift
    if [[ -n $comment ]];then
      print
-     print "CCC_ + Key ($comment)"
+     print "/***_ + Key ($comment) */"
    else
      print
    fi
@@ -194,13 +187,13 @@ putdef ''                  IS${^neighbor}
 putdef ''                  II${^neighbor}
 putdef ''                  NH${^neighbor}
 
-print 'CC          IR: rank  IS: offset (clone)  II: offset (interior)'
+print '/*          IR: rank  IS: offset (clone)  II: offset (interior) */'
 
 putdef 'LP: Loop' JI${^neighbor}
 putdef ''         JE${^neighbor}
 putdef ''         JS${^neighbor}
 
-print 'CC          do l = JI, JE, JS    for clone'
+print '/*          do l = JI, JE, JS    for clone */'
 
 putdef 'OX: Overlap/X' LCXo LCXi
 

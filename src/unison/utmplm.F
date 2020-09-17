@@ -4,9 +4,9 @@ C Created: Feb 23 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2013/09/30 09:36:35 fuyuki utmplm.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:50:27 fuyuki utmplm.F>'
 #define _FNAME 'unison/utmplm.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -1743,13 +1743,13 @@ CCC_  - Declaration
 #if HAVE_F77_LEN_TRIM == 0
       integer len_trim
 #endif
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_  - Body
       iplog = -1
       call UDTbnr ('announcement', iplog)
 #define _ANNOUNCE UTMPLM
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
       do j = 1, 2
          call UDTbnj (j, 'HEAD', ' ', iplog)
          if (TEST_KEEP_TRUE.eq.1.and.j.eq.1) then

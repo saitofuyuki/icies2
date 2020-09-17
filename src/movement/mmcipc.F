@@ -4,14 +4,13 @@ C Created: Nov 21 2016
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 12:17:16 fuyuki mmcipc.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:45:29 fuyuki mmcipc.F>'
 #define _FNAME 'movement/mmcipc.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2016--2020
-C           Japan Agency for Marine-Earth Science and Technology,
-C           Ayako ABE-OUCHI
+C           Japan Agency for Marine-Earth Science and Technology
 C
 C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)

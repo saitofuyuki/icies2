@@ -4,13 +4,13 @@ C Created: Oct  5 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:46:13 fuyuki uxhcal.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:24:56 fuyuki uxhcal.F>'
 #define _FNAME 'unison/uxhcal.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
-C           Japan Agency for Marine-Earth Science and Technology,
+C           Japan Agency for Marine-Earth Science and Technology
 C
 C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)
@@ -209,7 +209,7 @@ CCC_   . modulo check
       if (iErr.eq.0.and.uMDL.ne.' ') then
          call UXCinq (iErr, iuMDL, uMDL, KU,AU)
          if (iErr.eq.0) then
-            call UXCrch (iDstt, iCstt, iuSeq, iuMDL,  KU,SU,AU)
+            call UXCrcw (iDstt, iCstt, iuSeq, iuMDL,  KU,SU,AU)
          endif
 c        sign exhanging must fail
          if (iDstt.ne.0.or.iCstt.le.0) iErr = -1
@@ -397,7 +397,7 @@ c
       KAC(_CATTR_UID  + kmem) = iuP
       KAC(_CATTR_XID  + kmem) = ixP
       if (iErr.eq.0) then
-         call UXCdch (iDstt, iCstt, ixP, KU,SU)
+         call UXCdcw (iDstt, iCstt, ixP, KU,SU)
          if (iDstt.eq.0) then
             if (iCstt.ge.0) then
                KAC(_CATTR_XNL + kmem) = iCstt
@@ -677,7 +677,7 @@ CCC_  - Declaration
       _INTENT(IN, integer)   KAC (*)
       _INTENT(IN, integer)   KU(*)
       _INTENT(IN, _REALSTD)  SU(*)
-      _REALSTD Torg, DT
+      _REALSTD Torg
       _REALSTD TU,   TL
       _REALSTD DTU,  DTL, DTC
       _REALSTD FTU,  FTL, FTC
@@ -760,7 +760,7 @@ CCC_  - Declaration
       _INTENT(IN, integer)   KAC (*)
       _INTENT(IN, integer)   KU(*)
       _INTENT(IN, _REALSTD)  SU(*)
-      _REALSTD Torg, DT
+      _REALSTD Torg
       _REALSTD TU,   TL
       _REALSTD DTU,  DTL, DTC
       _REALSTD FTU,  FTL, FTC
@@ -1030,7 +1030,7 @@ CCC_   = Arguments
       _INTENT(IN, _REALSTD) SU(*)
 CCC_   = Interior
       integer  JulD
-      _REALSTD THD, ResS
+      _REALSTD THD
       integer  KY, KMO, KD, KH, KMI, KS
       integer  NC, NK,  NE
 c$$$      integer  NS
@@ -1695,7 +1695,7 @@ c
 c
       JulD = JulDi
       ResJ = _XREALS(ResJi)
-      call UXCxps (iErr, ixD2t, 'day', Ures, KU,SU,AU)
+      call UXSxps (iErr, ixD2t, 'day', Ures, KU,SU,AU)
       call UHPjnm (JulD, ResJ,  ixD2t, KU,SU)
 c
       call USGlni (CJD, JulD)
@@ -2569,11 +2569,11 @@ c
 #if HAVE_F77_LEN_TRIM == 0
       integer len_trim
 #endif
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_  - Body
 #define _ANNOUNCE UXHCAL
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 c
       iErr  = 0
       iplog = -1

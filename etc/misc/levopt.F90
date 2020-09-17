@@ -1,7 +1,7 @@
 !!!_! levopt.F90 --- level optimization for age integral
 ! Maintainer:  SAITO Fuyuki
 ! Created: Jan 9 2019
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:47:59 fuyuki levopt.F90>'
+#define TIME_STAMP 'Time-stamp: <2020/09/17 09:03:59 fuyuki levopt.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif

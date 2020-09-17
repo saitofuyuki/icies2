@@ -1,0 +1,184 @@
+## CAUTION
+##
+## REMOVE all the parts from `#' to the end of line before execution,
+## otherwise some strange things may happen.
+
+## You should change @...@ part according to the instruction.
+## Do not touch other parts before you understand the meaning.
+
+## Typical invocation
+##
+## % mkdir mismip001/V
+## % mkdir mismip001/L
+## % mkdir mismip001/O
+## % mkdir test
+## % cp ../../run/sp/mismip/sysin.template test/sysin
+## % (..... edit test/sysin)
+## % ./mdrvrm2 < test/sysin
+
+ &NIDMBS
+    KCHECK = 1,
+    FILE = '@FILE@',   ## MUST specify path to this `sysin' file.
+                       ## e.g., FILE = './test/sysin' 
+ &END
+
+ &NIDPTV
+   TAG = 'RUN',
+   VALUE='@SUB@',      ## sub-directory name where logs/results are stored.
+                       ## e.g., VALUE = 'mismip001'
+                       ## You must create three directories before the execution.
+                       ## mismip001/V for outputs,
+                       ## mismip001/L for outputs meta-information,
+                       ## mismip001/O for logs (modify `mismip001' according to VALUE)
+ &END
+
+ &NIDPCL CLS = ' ', TOP = '%[T0]', SUB   = '%[S0]', &END
+ &NIDPTV CLS = ' ', TAG='SUB', VALUE='%[S0]', &END
+ &NIDPTV CLS = ' ', TAG='TOP', VALUE='%[T0]', &END
+ &NILOGC CH = 'V', ROOT = 'vrep', &END
+
+ &NIMSWD
+   MSW=4,
+   MINI=0,
+   KRF = 0,
+   KRFI = 2,
+   KWI = 0,
+   KTBDZ = 1,
+   KUSG = 0,
+   KVB = 3,
+   KVBSW = 3,
+   KFGSW = 1,
+ &END
+
+ &NIPRMD
+   GRAV = 9.8d0,
+   DENS = 900.d0,
+   DENSW = 1000.d0,
+   CLV = 0.0d0,
+   Etol=1d-10,
+ &END
+
+ &NIPRMS
+   GRAV = 9.8d0,
+   DENS = 900.d0,
+   DENSW = 1000.d0,
+ &END
+
+ &NISSAL
+    ItrMax=4096,   ## maximum iteration for SSA/linear
+    Etol=1e-4,     ## tolerance
+ &END
+ &NISSAN
+    ItrMax=1024,   ## maximum iteration for SSA/non-linear
+    Etol=1e-2,     ## tolerance
+    Prlx=0.5,      ## relaxation factor
+    ItrGL=1,       ## grounding-line parameterization iteration
+    MaxTry=8,      ## maximum try for automatic relaxation adjustment
+    KswL=1,        ## initial solution switch for SSA/linear
+    KswN=1,        ## initial solution switch for SSA/non-linear
+    KswBT=1,       ## buttressing effect switch
+ &END
+
+ &NITPMS
+   KTEST = 0,
+   WLX = 1800.d3,           ## Width of target domain (km), MUST be same as &NIGEOM.
+   WLY=0.d0,
+   DGL = 0d0,
+   RF = 1.46474627722e-16,  ## Uniform rate factor (Pa^-3 yr^-1)
+                            ## This value corresponds to MISMIP step 1,
+                            ## 4.6416e-24 (Pa^-2 s^-1)
+                            ## Conversion factor is 31556926.
+ &END
+
+ &NITPMI
+   CROOT = 'ID',
+   KSW = 3,
+   ACC = 0.3d0,             ## Uniform accumulation (m/yr)
+   HINI = 0.0d0,
+   RF = 1.46474627722e-16,  ## Uniform rate factor, MUST be same as above.
+ &END
+
+ &NITMMD
+   CROOT = 'ID',
+   TINI = 0.0d0,       ## initial time (year)
+   TEND = 30000.0d0,   ## final time (year)
+   DT   = 1.0d0,       ## time step (year)
+   TSSA = 0.0d0,       ## initial time when start to compute SSA velocity (year)
+   DTRC = 100.0d0,     ## dummy
+ &END
+
+ &NIAFWR
+   CROOT = 'ID',
+   GROUP = ' ',
+   DT = 100,           ## Output recording interval in year
+   KSW = 0,
+ &END
+
+
+## &NITFMI
+##   CROOT = 'ID',
+##   GROUP = 'VMI',            ## Restart configuration
+##   NV = 96,                  ## Paste the output of restart generator here
+##   LB = 768,
+##   NR = 1,
+##   MV = 22,
+##   FNM = 'O/mdrvrm2/ym11a_60/u/r/VMI.bin',
+##   IRSKP = 15,16,17,18,19,20,   ## DO NOT MODIFY THIS LINE
+##  &END
+## &NITFMI
+##   CROOT = 'ID',
+##   GROUP = 'VMTI',
+##   NV = 1728,
+##   LB = 13824,
+##   NR = 1,
+##   MV = 12,
+##   FNM = 'O/mdrvrm2/ym11a_60/u/r/VMTI.bin',
+## &END
+
+ &NIGEOM
+   CROOT = 'ID',
+   CKIND = 'X',
+   O = 2,
+   T = 'L',
+   W = 1800.d3,     ## Width of target domain (km). MUST be same as &NITPMS.
+   WN = -5,
+   ZDL = 0,
+   RXL = 0,
+ &END
+
+ &NIGEOM
+   CROOT = 'ID',
+   CKIND = 'Y',
+   O = 0.5,
+   T = 'R',
+   W = 0.d0,
+   WN = -1,
+   ZDU = 0,
+   ZDL = 0,
+ &END
+
+ &NICOOR
+   CROOT = 'ID',
+   NZ = 17,          ## number of Z levels
+ &END
+
+ &NIEDLA
+   KDL=3,
+   NXG=35,           ## Number of elements in the flow-line coordinate.
+                     ## Grid distance is computed automatically with this value and 
+                     ## the domain width as
+                     ##    dx = WIDTH / (NXG - 5)
+                     ## 60km resolution if 1800km width and 35 elements.
+                     ## 30km resolution if 1800km width and 65 elements.
+                     ## 12km resolution if 1800km width and 125 elements.
+                     ## Please add this magic number 5 to your intention.
+   NYG=3,
+   LXB=1,
+   LYB=1,
+   LXO=0,
+   LYO=0,
+   ISH=1,
+   CROOT='ID',
+   NR=1,
+ &END
+

@@ -4,9 +4,9 @@ C Created: Nov 7 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/07 10:10:17 fuyuki mumcol.F>'
+#define _TSTAMP 'Time-stamp: <2020/01/08 14:56:23 fuyuki mumcol.F>'
 #define _FNAME 'movement/mumcol.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2018--2020
@@ -18,13 +18,140 @@ C   (https://www.apache.org/licenses/LICENSE-2.0)
 C
 CCC_* Common macros
 #include "ofdlct.h"   /* fortran dialect */
-#include "ologfm.h"   /* log common format */
-#include "oarpkw.h"   /* operation id in arpeggio/kiwi */
-#include "movement.h" /* movement definitions */
+c$$$#include "ologfm.h"   /* log common format */
+c$$$#include "oarpkw.h"   /* operation id in arpeggio/kiwi */
+c$$$#include "movement.h" /* movement definitions */
+CCC_ + Table index
+#define TBL_FWD 1
+#define TBL_BWD 2
 CCC_ + Debug
 #ifndef    DEBUG_MUMTDS
 #  define  DEBUG_MUMTDS 0
 #endif
+CCC_* Target/skip index table
+CCC_ & MUMidv  ## build index vector (inherit MTFidv)
+      subroutine MUMidv
+     O    (KTB, NH,
+     I     VH,  KHH,
+     I     HC,  MH,  LH)
+CCC_  - Declaration
+      implicit none
+      _INTENT(IN, integer)  MH,  LH
+      _INTENT(OUT,integer)  KTB (LH, *)
+      _INTENT(OUT,integer)  NH
+      _INTENT(IN, _REALSTD) VH  (LH, *)
+      _INTENT(IN, _REALSTD) HC
+      _INTENT(IN, integer)  KHH
+      integer  jh
+      integer  nh0
+      integer  kfw, kbw
+CCC_  - Body
+      NH  = 0
+      NH0 = MH
+      kfw = TBL_FWD
+      kbw = TBL_BWD
+      do jh = 1, MH
+         if (VH (jh, KHH).le.HC) then
+            KTB (NH0, kfw) = jh
+            KTB (jh,  kbw) = NH0
+            NH0 = NH0 - 1
+         else
+            NH = 1 + NH
+            KTB (NH, kfw) = jh
+            KTB (jh, kbw) = NH
+         endif
+      enddo
+      RETURN
+      END
+CCC_ & MUMbwz  ## backward conversion via index table (inherit MTFbwz)
+      subroutine MUMbwz
+     O    (VZ,  KVZ,
+     I     VX,  KVX,
+     I     KTB, NH, MH, LH, NZ, LZ, KZ0)
+CCC_  - Declaration
+      implicit none
+      _INTENT(IN, integer)  MH, LH
+      _INTENT(IN, integer)  NZ, LZ, KZ0
+      _INTENT(IN, integer)  NH, KTB (LH, *)
+      _INTENT(IN, integer)  KVX, KVZ
+      _INTENT(OUT,_REALSTD) VZ (LH, LZ, *)
+      _INTENT(IN, _REALSTD) VX (LH, LZ, *)
+      integer  jz,  jz0, jz9
+      integer  jh,  jht
+      integer  kbw
+CCC_  - Body
+      kbw = TBL_BWD
+      jz0 = max(1, KZ0 - 1)
+      jz9 = KZ0 + NZ - 1
+      do jz = jz0, jz9
+         do jh = 1, MH
+            jht = KTB (jh, kbw)
+c$$$            write (*, *) jht, jz, VX (jht, jz, KVX)
+            VZ (jh, jz, KVZ) = VX (jht, jz, KVX)
+         enddo
+      enddo
+      RETURN
+      END
+CCC_ & MUMzsc  ## set skipped grids as constant (inherit MACzst)
+      subroutine MUMzsc
+     M    (VX,  KX,
+     I     C0,
+     I     KTB, NHt, MH, LH, NZ, LZ, KZ0)
+CCC_  - Declaration
+      implicit none
+c
+      _INTENT(IN, integer)  MH, LH
+      _INTENT(IN, integer)  NZ, LZ, KZ0
+
+      _INTENT(INOUT,_REALSTD) VX (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) C0
+      _INTENT(IN,   integer)  KX
+      _INTENT(IN,   integer)  KTB(LH, *)
+      _INTENT(IN,   integer)  NHt
+      integer  jh, jht
+      integer  jz, jzz
+      integer  kfw
+CCC_  - Body
+      kfw  = TBL_FWD
+      do jzz = 1, NZ
+         jz = KZ0 + jzz - 1
+         do jht = NHt + 1, MH
+            jh = KTB (jht, kfw)
+            VX (jht, jz, KX) = C0
+         enddo
+      enddo
+      RETURN
+      END
+CCC_ & MUMzsf  ## set skipped 3d grids as input 2d array (inherit MTTzst)
+      subroutine MUMzsf
+     M    (VX,  KX,
+     I     VI,  KI,
+     I     KTB, NHt, MH, LH, NZ, LZ, KZ0)
+CCC_  - Declaration
+      implicit none
+c
+      _INTENT(IN,   integer)  MH, LH
+      _INTENT(IN,   integer)  NZ, LZ, KZ0
+      _INTENT(INOUT,_REALSTD) VX (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VI (LH, *)
+      _INTENT(IN,   integer)  KX, KI
+      _INTENT(IN,   integer)  KTB(LH, *)
+      _INTENT(IN,   integer)  NHt
+      integer  jh, jht
+      integer  jz, jzz
+      integer  kfw
+CCC_  - Body
+      kfw = TBL_FWD
+      do jzz = 1, NZ
+         jz = KZ0 + jzz - 1
+         do jht = NHt + 1, MH
+            jh = KTB (jht, kfw)
+            VX(jht, jz, KX) = VI(jh, KI)
+         enddo
+      enddo
+      RETURN
+      END
+CCC_* Tridiagonal solver
 CCC_ & MUMtds  ## tridiagonal matrix solver (z outer)
       subroutine MUMtds
      O    (iErr,
@@ -55,7 +182,7 @@ CCC_  - Body
       iErr  = 0
 c
 #if DEBUG_MUMTDS
-      kfw   = 1
+      kfw   = TBL_FWD
       do jht = 1, NH
          jh = KTB (jht, kfw)
          W  (jh) = VX (jh, KZ0, KD)
@@ -141,7 +268,7 @@ CCC_  - Body
       iErr  = 0
 c
 #if DEBUG_MUMTDS
-      kfw   = 1
+      kfw   = TBL_FWD
       do jht = 1, NH
          jh = KTB (jht, kfw)
          W  (jh) = VX (jh, KZ0, KD)

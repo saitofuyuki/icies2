@@ -2,8 +2,8 @@
 #
 # Maintainer: SAITO Fuyuki
 # Created: Nov 2 2011
-# Revision: Snoopy 0.9
-# Time-stamp: <2020/09/17 13:47:45 fuyuki configure.ac>
+# Revision: Snoopy0.97
+# Time-stamp: <2020/09/17 13:23:29 fuyuki configure.ac>
 
 dnl _. health check
 m4_ifndef([ABT_INIT],
@@ -11,6 +11,7 @@ m4_ifndef([ABT_INIT],
 ABT_INIT()
 
 dnl _. icies setup for autoconf
+
 AI_INIT()
 
 dnl _. autoconf
@@ -21,7 +22,7 @@ AC_INIT(AI_PACKAGE, AI_VERSION, [saitofuyuki@jamstec.go.jp], AI_TARNAME)
 
 dnl _ , notice
 AC_COPYRIGHT([dnl
-Copyright (C) 2011--2020 Japan Agency for Marine-Earth Science and Technology
+Copyright (C) 2011--2020 Japan Agency for Marine-Earth Science and Technology,
                          Ayako ABE-OUCHI
 
 Ice sheet model for Integrated Earth system Studies-II (IcIES-2) is developed by
@@ -65,16 +66,16 @@ dnl AC_PROG_F77
 dnl _ , mpi
 
 dnl _  . option
-AC_ARG_WITH(mpi,
+AC_ARG_WITH([mpi],
 [AS_HELP_STRING([--with-mpi],
 [compile with MPI (parallelization) support. If none is found,
 MPI is not used. Default: auto])
 ],,
 [with_mpi=auto])
 
-AC_ARG_WITH(petsc,
+AC_ARG_WITH([petsc],
 [AS_HELP_STRING([--with-petsc],
-[compile with PETSc support. Default: none])],,
+[(reserved) compile with PETSc support. Default: none])],,
 [with_petsc=no])
 
 AS_IF([test "x$with_petsc" = xyes],
@@ -84,11 +85,9 @@ dnl _  . result
 AX_PROG_F77_MPI([test x"$with_mpi" != xno],
 [use_mpi=yes],
 [use_mpi=no
-if test x"$with_mpi" = xyes; then
-  AC_MSG_FAILURE([MPI compiler requested, but couldn't use MPI.])
-else
-  AC_MSG_WARN([No MPI compiler found, won't use MPI.])
-fi
+AS_IF([test x"$with_mpi" = xyes],
+      [AC_MSG_FAILURE([MPI compiler requested, but couldn't use MPI.])],
+      [AC_MSG_WARN([No MPI compiler found, won't use MPI.])])
 ])
 AS_IF([test "x$use_mpi" = xyes],
       [AC_DEFINE([OPT_USE_MPI], [1], [Define if you use mpi])])
@@ -103,7 +102,7 @@ dnl _ , cpp concatenation on fortran source
 dnl     not easy to write the test
 dnl     need use gcc -x c -E to activate ## on fortran files
 
-AC_ARG_ENABLE(cpp-concatenation,
+AC_ARG_ENABLE([cpp-concatenation],
 [AS_HELP_STRING([--enable-cpp-concatenation],
 [use @%:@@%:@ @<:@default=no@:>@])],
 [],
@@ -111,9 +110,8 @@ AC_ARG_ENABLE(cpp-concatenation,
 AS_IF([test "x$enable_cpp_concatenation" = xyes],
       [AC_DEFINE([HAVE_CPP_F_CONCATENATION], [1], [Define if @%:@@%:@ is accepted])])
 
-
 dnl _ , clock
-AC_ARG_ENABLE(clock,
+AC_ARG_ENABLE([clock],
 [AS_HELP_STRING([--enable-clock],
 [clock information (need explicit kind)@<:@default=no@:>@])],
 [],
@@ -127,7 +125,7 @@ AC_DEFINE_UNQUOTED([OPT_USE_CLOCK], [_CLOCK_$clock_kind], [clock information])
 dnl _ , fortran check
 
 dnl _  . standards
-AC_ARG_ENABLE(fortran-standard,
+AC_ARG_ENABLE([fortran-standard],
 [AS_HELP_STRING([--enable-fortran-standard],
 [which fortran features are used@<:@default=95@:>@])],
 [],
@@ -136,7 +134,7 @@ AS_IF([test "x$enable_fortran_standard" = xyes],
       [enable_fortran_standard=95])
 
 dnl _  . standards
-AC_ARG_ENABLE(gnu-extension,
+AC_ARG_ENABLE([gnu-extension],
 [AS_HELP_STRING([--enable-gnu-extension],
 [force enable/disable fortran gnu-extension])],
 [],
@@ -148,7 +146,7 @@ AS_IF([test "x$enable_gnu_extension" = xno],
       [AC_DEFINE([_FORTRAN_GNU_EXTENSION], [0], [whether use GNU extesion])])
 
 dnl _  . whether or not check
-AC_ARG_ENABLE(fortran-check,
+AC_ARG_ENABLE([fortran-check],
 [AS_HELP_STRING([--enable-fortran-check],
 [check fortran functions and subroutines@<:@default=yes@:>@])],
 [],
@@ -184,6 +182,7 @@ ABT_FORTRAN_CHECK_FUNCTION([trim],     [' '],     [])
 ABT_FORTRAN_CHECK_FUNCTION([verify],   [' ',' '], [])
 ABT_FORTRAN_CHECK_FUNCTION([scan],     [' ',' '], [])
 ABT_FORTRAN_CHECK_FUNCTION([isnan],    [1.0d0],   [])
+ABT_FORTRAN_CHECK_FUNCTION([modulo],   [3, 1],    [])
 
 dnl 2003
 ABT_FORTRAN_CHECK_FUNCTION([is_iostat_end], [1],  [])
@@ -280,15 +279,18 @@ AC_CONFIG_FILES([Makefile
                  doc/Makefile
                  doc/r/Makefile
                  etc/Makefile
+                 etc/bm/Makefile
                  etc/helper/Makefile
-                 run/Makefile
+                 etc/helper/bin/Makefile
                  src/Makefile
                  src/ostinato/Makefile
                  src/unison/Makefile
                  src/development/Makefile
                  src/arpeggio/Makefile
+                 src/fugue/Makefile
                  src/movement/Makefile
                  src/begleitung/Makefile
+                 src/rhythm/Makefile
                  src/cadenza/Makefile])
 
 dnl _. libraries
@@ -296,6 +298,24 @@ AX_CHECK_LIBRARY([NETCDF], [netcdf.h], [netcdf])
 
 AC_ARG_VAR([NETCDFINC], [directory where nedcdf.inc exists])
 AS_IF([test "x$NETCDFINC" = x], [NETCDFINC=/usr/include])
+
+dnl AC_LANG_PUSH(ABT_FORTRAN_DIALECT())dnl
+dnl AS_IF([test "x$with_petsc" = xyes],
+dnl [dnl
+dnl AX_CHECK_LIBRARY([PETSC], [petsc/finclude/petsc.h], [petsc])
+dnl AC_ARG_VAR([PETSCINC], [directory where petsc include files exist])
+dnl AS_VAR_APPEND([XPKG_CPPFLAGS], [$(PETSC_CPPFLAGS)])
+dnl AS_VAR_APPEND([XPKG_LDFLAGS], [$(PETSC_LDFLAGS)])
+dnl AS_IF([test "x$PETSCINC" = x], [PETSCINC=/usr/include])
+dnl ])
+dnl AC_LANG_POP(ABT_FORTRAN_DIALECT())dnl
+AS_IF([test "x$with_petsc" = xyes],
+[dnl
+AC_ARG_VAR([PETSC_CPPFLAGS], [C preprocessor flags for PETSC headers])
+AC_ARG_VAR([PETSC_LDFLAGS], [linker flags for PETSC libraries])
+XPKG_CPPFLAGS="$XPKG_CPPFLAGS "'$(PETSC_CPPFLAGS)'
+XPKG_LDFLAGS="$XPKG_LDFLAGS "'$(PETSC_LDFLAGS)'
+])
 
 AC_SUBST([XPKG_CPPFLAGS])
 AC_SUBST([XPKG_LDFLAGS])
@@ -323,16 +343,33 @@ AC_DEFUN([AC_CONFIG_FILES_HELPER],
           [_$0([$1],             [$etc_helper/$1], [$1])])])
 
 dnl _ , zui
-AC_CONFIG_FILES_HELPER([zui_insert.sh], [KEEP])
-AC_CONFIG_FILES_HELPER([dev_insert.sh], [KEEP])
+AC_CONFIG_FILES_HELPER([bin/zui_insert.sh], [KEEP])
+AC_CONFIG_FILES_HELPER([bin/dev_insert.sh], [KEEP])
+AC_CONFIG_FILES_HELPER([bin/arp_insert.sh], [KEEP])
+AC_CONFIG_FILES_HELPER([bin/mov_insert.sh], [KEEP])
+AC_CONFIG_FILES_HELPER([bin/bgl_insert.sh], [KEEP])
+AC_CONFIG_FILES_HELPER([bin/mxi.sh],        [KEEP])
+AC_CONFIG_FILES_HELPER([bin/ax.sh],         [KEEP])
 
-ZUI_INSERT=$etc_helper/zui_insert.sh
+ZUI_INSERT=$etc_helper/bin/zui_insert.sh
 AC_SUBST_FILE([ZUI_INSERT])
-DEV_INSERT=$etc_helper/dev_insert.sh
+DEV_INSERT=$etc_helper/bin/dev_insert.sh
 AC_SUBST_FILE([DEV_INSERT])
+ARP_INSERT=$etc_helper/bin/arp_insert.sh
+AC_SUBST_FILE([ARP_INSERT])
+MOV_INSERT=$etc_helper/bin/mov_insert.sh
+AC_SUBST_FILE([MOV_INSERT])
+BGL_INSERT=$etc_helper/bin/bgl_insert.sh
+AC_SUBST_FILE([BGL_INSERT])
 
 AC_CONFIG_FILES([src/cadenza/cnx.sh])
-AC_CONFIG_FILES([run/xicies_jp.sh])
+
+dnl AC_SUBST([CONFIG_STATUS_DEPENDENCIES], ['_HELPER_ALL'])
+
+dnl _ , symbolick link
+AC_DEFUN([AC_CONFIG_LINKS_HELPER],
+[AC_CONFIG_LINKS([$1:$etc_helper/$1])dnl
+])
 
 dnl _. Fine
 AC_OUTPUT

@@ -4,9 +4,9 @@ C Created: Apr 8 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:52:46 fuyuki caechk.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 06:53:17 fuyuki caechk.F>'
 #define _FNAME 'cadenza/caechk.F'
-#define _REV   'Snoopy0.8'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2013--2020
@@ -66,13 +66,3 @@ CCC_! FOOTER
 C Local Variables:
 C fff-style: "iciesShermy"
 C End:
-C This file is a part of IcIES (Ice sheet model for Integrated
-C Earth system Studies).
-C
-C You cannot redistribute it without the permission of
-C the IcIES author group (see IcIES document).
-C This file is a part of IcIES (Ice sheet model for Integrated
-C Earth system Studies).
-C
-C You cannot redistribute it without the permission of
-C the IcIES author group (see IcIES document).

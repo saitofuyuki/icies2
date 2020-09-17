@@ -4,9 +4,9 @@ C Created: Mar  4 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:47:56 fuyuki denvms.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:42:43 fuyuki denvms.F>'
 #define _FNAME 'development/denvms.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -733,14 +733,14 @@ CCC_  = Interior
       integer len_trim
 #endif
 #define _U *
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_ + Body
 #define _ANNOUNCE DENVMS
 #define _LEXT 9991
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 #define _ANNOUNCE UEAOMS
 #define _LEXT 9992
-#include "orevan.h" /* 2 */
+#include "orevan.F" /* 2 */
 c
  101  format ('[', 2I3, ':', A, '] in /', A,     '/ out /', A,     '/')
  102  format ('[', 2I3, ':', A, '] in /', I12,   '/ out /', A,     '/')

@@ -4,9 +4,9 @@ C Created: Mar 27 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/14 17:08:58 fuyuki mmwcol.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:46:02 fuyuki mmwcol.F>'
 #define _FNAME 'movement/mmwcol.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2013--2020
@@ -76,7 +76,7 @@ CCC_* Vertical velocity computation
 CCC_ & MMWcmp  ## Vertical velocity computation
       subroutine MMWcmp
      O    (iErr,
-     M     VMHI,  VMTI,  VMTW,
+     M     VMHW,  VMTI,  VMTW,
      W     WH,    CW,
      I     VMI,   VMC,   VMHB, QM,   F0,  WZV,  T,   DT,
      I     IMM,   WW,
@@ -95,7 +95,7 @@ c
       _INTENT(OUT,  _REALSTD) WH   (LH, *)
       _INTENT(OUT,  _REALSTD) CW   (*)
 c
-      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
+      _INTENT(INOUT,_REALSTD) VMHW (LH, *)
       _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
       _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
 c
@@ -128,7 +128,7 @@ CCC_  * DVB sally compatible, just call MMWsst and return
          if (iErr.eq.0) then
             call MMWsst
      O          (iErr,
-     M           VMHI,  VMTI,  VMTW,
+     M           VMHW,  VMTI,  VMTW,
      W           WH,    CW,
      I           VMI,   VMC,   VMHB, WZV,  T, DT,
      I           WW,
@@ -142,7 +142,7 @@ CCC_   + preparation common
       if (iErr.eq.0) then
          call MMWprc
      O       (iErr,
-     O        VMHI,  VMTI,  VMTW,  CW,
+     O        VMHW,  VMTI,  VMTW,  CW,
      I        WW,
      I        MH,    LH,    NZ,    LZ,   KZ0,
      I        ipCG,  LCG,   ipKW,  iMA,  MSW)
@@ -275,7 +275,7 @@ CCC_* scheme/A - numerically consistent as much as possible
 CCC_ & MMWprc  ## A/preparation (DVB/ZEV common)
       subroutine MMWprc
      O    (iErr,
-     O     VMHI,  VMTI,  VMTW,  CW,
+     O     VMHW,  VMTI,  VMTW,  CW,
      I     WW,
      I     MH,    LH,    NZ,    LZ,   KZ0,
      I     ipCG,  LCG,   ipKW,  iMA,  MSW)
@@ -293,7 +293,7 @@ c
       _INTENT(IN,   integer)  NZ, LZ, KZ0
       _INTENT(IN,   integer)  LCG
 c
-      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
+      _INTENT(INOUT,_REALSTD) VMHW (LH, *)
       _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
       _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
       _INTENT(OUT,  _REALSTD) CW   (LH, LZ, *)
@@ -329,10 +329,9 @@ CCC_   + ua
 CCC_   + uadv/switch
       call MMTsva
      O    (iErr,
-     M     VMTI,  VMHI,
-     W     VMTW,  CW,
-     I     VMTI_Uadv,    VMTI_UHb,
-     I     VMHI_ADVXe,   VMHI_ADVXw,
+     M     VMTI,  VMTI_Uadv,  VMTI_UHb,
+     M     VMHW,  VMHW_ADVXe, VMHW_ADVXw,
+     W     VMTW,  VMTW_W1,    CW,
      I     MH,    LH,    NZ,  LZ,    KZ0,
      I     ipKW,  CGV_Ub_FCba, ipCG (1, CGV_Ub))
 CCC_   + clone
@@ -359,10 +358,9 @@ CCC_   + va
 CCC_   + vadv/switch
       call MMTsva
      O    (iErr,
-     M     VMTI,  VMHI,
-     W     VMTW,  CW,
-     I     VMTI_Vadv,    VMTI_VHc,
-     I     VMHI_ADVYn,   VMHI_ADVYs,
+     M     VMTI,  VMTI_Vadv,  VMTI_VHc,
+     M     VMHW,  VMHW_ADVYn, VMHW_ADVYs,
+     W     VMTW,  VMTW_W1,    CW,
      I     MH,    LH,    NZ,  LZ,    KZ0,
      I     ipKW,  CGV_Vc_FCca, ipCG (1, CGV_Vc))
 CCC_   + P0 final
@@ -2013,7 +2011,7 @@ CCC_* scheme/S - variation Sally (just for test)
 CCC_ & MMWsst  ## S/suite
       subroutine MMWsst
      O    (iErr,
-     M     VMHI,  VMTI,  VMTW,
+     M     VMHW,  VMTI,  VMTW,
      W     WH,    CW,
      I     VMI,   VMC,   VMHB, WZV,  T,   DT,
      I     WW,
@@ -2041,7 +2039,7 @@ c
       _INTENT(OUT,  _REALSTD) WH   (LH, *)
       _INTENT(OUT,  _REALSTD) CW   (*)
 c
-      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
+      _INTENT(INOUT,_REALSTD) VMHW (LH, *)
       _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
       _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
 c
@@ -2075,7 +2073,7 @@ CCC_   + preparation
       if (iErr.eq.0) then
          call MMWspr
      O       (iErr,
-     O        VMHI,  VMTI,  VMTW,  CW,
+     O        VMHW,  VMTI,  VMTW,  CW,
      I        WW,
      I        MH,    LH,    NZ,    LZ,   KZ0,
      I        ipCG,  LCG,   ipKW,  iMA)
@@ -2297,7 +2295,7 @@ CCC_  - Body
 CCC_ & MMWspr  ## S/preparation
       subroutine MMWspr
      O    (iErr,
-     O     VMHI,  VMTI,  VMTW,  CW,
+     O     VMHW,  VMTI,  VMTW,  CW,
      I     WW,
      I     MH,    LH,    NZ,    LZ,   KZ0,
      I     ipCG,  LCG,   ipKW,  iMA)
@@ -2310,7 +2308,7 @@ c
       _INTENT(IN,   integer)  NZ, LZ, KZ0
       _INTENT(IN,   integer)  LCG
 c
-      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
+      _INTENT(INOUT,_REALSTD) VMHW (LH, *)
       _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
       _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
       _INTENT(OUT,  _REALSTD) CW   (LH, LZ, *)
@@ -2340,10 +2338,9 @@ CCC_    * ua
 CCC_    * uadv/switch
       call MMTsva
      O    (iErr,
-     M     VMTI,  VMHI,
-     W     VMTW,  CW,
-     I     VMTI_Uadv,    VMTI_UHb,
-     I     VMHI_ADVXe,   VMHI_ADVXw,
+     M     VMTI,  VMTI_Uadv,  VMTI_UHb,
+     M     VMHW,  VMHW_ADVXe, VMHW_ADVXw,
+     W     VMTW,  VMTW_W1,    CW,
      I     MH,    LH,    NZ,  LZ,    KZ0,
      I     ipKW,  CGV_Ub_FCba, ipCG (1, CGV_Ub))
 CCC_   . v
@@ -2366,10 +2363,9 @@ CCC_    * va
 CCC_    * vadv/switch
       call MMTsva
      O    (iErr,
-     M     VMTI,  VMHI,
-     W     VMTW,  CW,
-     I     VMTI_Vadv,    VMTI_VHc,
-     I     VMHI_ADVYn,   VMHI_ADVYs,
+     M     VMTI,  VMTI_Vadv,  VMTI_VHc,
+     M     VMHW,  VMHW_ADVYn, VMHW_ADVYs,
+     W     VMTW,  VMTW_W1,    CW,
      I     MH,    LH,    NZ,  LZ,    KZ0,
      I     ipKW,  CGV_Vc_FCca, ipCG (1, CGV_Vc))
 CCC_   . div uh
@@ -2451,10 +2447,9 @@ CCC_* [MMT]  ## velocity for advection
 CCC_ & MMTsva  ## uv variation/S (Sally/NH2 inheritance)
       subroutine MMTsva
      O    (iErr,
-     M     VMTI,  VMHI,
-     W     VMTW,  CW,
-     I     KVA,   KVI,
-     I     KHU,   KHL,
+     M     VT,    KTA,   KTI,
+     M     VH,    KHU,   KHL,
+     W     VW,    KW,    CW,
      I     MH,    LH,    NZ,  LZ,  KZ0,
      I     ipKW,  jOpr,  ipCG)
 CCC_  - Declaration
@@ -2464,14 +2459,16 @@ c
       _INTENT(IN,   integer)  MH,   LH
       _INTENT(IN,   integer)  NZ,   LZ, KZ0
 c
-      _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
-      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
+      _INTENT(INOUT,_REALSTD) VT(LH, LZ, *)
+      _INTENT(IN,   integer)  KTI, KTA
 c
-      _INTENT(OUT,  _REALSTD) CW   (LH, LZ, *)
-      _INTENT(OUT,  _REALSTD) VMTW (LH, LZ, *)
-c
+      _INTENT(INOUT,_REALSTD) VH(LH, *)
       _INTENT(IN,   integer)  KHU, KHL
-      _INTENT(IN,   integer)  KVI, KVA
+c
+      _INTENT(OUT,  _REALSTD) VW(LH, LZ, *)
+      _INTENT(IN,   integer)  KW
+c
+      _INTENT(OUT,  _REALSTD) CW(LH, LZ, *)
 c
       _INTENT(IN,   integer)  ipKW (*)
       _INTENT(IN,   integer)  jOpr, ipCG (*)
@@ -2487,15 +2484,15 @@ c
       kzs = KZ0 + NZ - 1
 CCC_   . clone
       call AKGmey
-     O    (VMTW (1, 1, VMTW_W1),
-     I     CW,   VMTI (1, 1, KVI),
+     O    (VW(1, 1, KW),
+     I     CW,   VT(1, 1, KTI),
      I     MH,   LH,   NZ, LZ, KZ0,
      I     ipKW, jOpr, ipCG)
 CCC_   . compute switch
 CC       todo: OPT_THERMO_ADV_STAGGERED
       do jh = 1, MH
-         tu = VMTI (jh, kzs, KVI)     + VMTI (jh, KZ0, KVI)
-         tl = VMTW (jh, kzs, VMTW_W1) + VMTW (jh, KZ0, VMTW_W1)
+         tu = VT(jh, kzs, KTI) + VT(jh, KZ0, KTI)
+         tl = VW(jh, kzs, KW)  + VW(jh, KZ0, KW)
          if       (tu.gt.0.0d0 .and. tl.gt.0.0d0) then
             fu = 0.0d0
             fl = 1.0d0
@@ -2506,28 +2503,26 @@ CC       todo: OPT_THERMO_ADV_STAGGERED
             fu = 0.0d0
             fl = 0.0d0
          endif
-         VMHI (jh, KHU) = fu
-         VMHI (jh, KHL) = fl
+         VH(jh, KHU) = fu
+         VH(jh, KHL) = fl
       enddo
 CCC_   . compute velocity used for advection
       do    jzz = 2, NZ
          jz = KZ0 + jzz - 1
          do jh = 1,  MH
-            tu = VMTI (jh, jz, KVI)     + VMTI (jh, KZ0, KVI)
-            tl = VMTW (jh, jz, VMTW_W1) + VMTW (jh, KZ0, VMTW_W1)
-            VMTI (jh, jz, KVA) =
-     $           +VMHI (jh, KHU) * tu
-     $           +VMHI (jh, KHL) * tl
+            tu = VT(jh, jz, KTI) + VT(jh, KZ0, KTI)
+            tl = VW(jh, jz, KW)  + VW(jh, KZ0, KW)
+            VT (jh, jz, KTA) =
+     $           +VH(jh, KHU) * tu + VH(jh, KHL) * tl
          enddo
       enddo
       do    jzz = 1, 1
          jz = KZ0 + jzz - 1
          do jh = 1,  MH
-            tu = VMTI (jh, jz, KVI)
-            tl = VMTW (jh, jz, VMTW_W1)
-            VMTI (jh, jz, KVA) =
-     $           +VMHI (jh, KHU) * tu
-     $           +VMHI (jh, KHL) * tl
+            tu = VT(jh, jz, KTI)
+            tl = VW(jh, jz, KW)
+            VT(jh, jz, KTA) =
+     $           +VH(jh, KHU) * tu + VH(jh, KHL) * tl
          enddo
       enddo
       RETURN

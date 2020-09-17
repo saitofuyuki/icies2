@@ -1,0 +1,192 @@
+## CAUTION
+##
+## REMOVE all the parts from `#' to the end of line before execution,
+## otherwise some strange things may happen.
+
+## You should change @...@ part according to the instruction.
+## Do not touch other parts before you understand the meaning.
+
+## Typical invocation
+##
+## % mkdir aa001/V
+## % mkdir aa001/L
+## % mkdir aa001/O
+## % mkdir test
+## % cp ../../run/sp/ssadiag/sysin.template test/sysin
+## % (..... edit test/sysin)
+## % mkdir -p aabc/40km
+## % cp SOMEWHERE/H.gsq aabc/40km
+## % cp SOMEWHERE/r.gsq aabc/40km
+## % ./mdrvrm6 < test/sysin
+
+ &NIDMBS
+    KCHECK = 1,
+    FILE = '@FILE@',   ## MUST specify path to this `sysin' file.
+                       ## e.g., FILE = './test/sysin' 
+ &END
+
+ &NIDPTV
+   TAG = 'RUN',
+   VALUE='@SUB@',      ## sub-directory name where logs/results are stored.
+                       ## e.g., VALUE = 'aa001'
+                       ## You must create three directories before the execution.
+                       ## aa001/V for outputs,
+                       ## aa001/L for outputs meta-information,
+                       ## aa001/O for logs (modify `aa001' according to VALUE)
+ &END
+
+ &NIDPCL CLS = ' ', TOP = '%[T0]', SUB   = '%[S0]', &END
+ &NIDPTV CLS = ' ', TAG='SUB', VALUE='%[S0]', &END
+ &NIDPTV CLS = ' ', TAG='TOP', VALUE='%[T0]', &END
+ &NILOGC CH = 'V', ROOT = 'vrep', &END
+
+ &NIMSWD
+   MSW   = 4,
+   MINI  = 0,
+   KRF   = 0,
+   KRFI  = 2,
+   KWI   = 0,
+   KTBDZ = 1,
+   KUSG  = 0,
+   KVB   = 0,
+   KVBSW = 3,  ## basal sliding switch
+               ##  3 for sliding everywhere
+   KSHSW = 0,
+   KFGSW = 1,
+   KEGSW = 1,
+   KTZLP = 0,
+   KDHDT = 0,
+ &END
+
+ &NIPRMD
+   CLV    = 10.0d0,
+   ItrMax = 4096,
+   Etol   = 1d-6,
+   VBLIM  = -1.0d0,
+ &END
+ &NIPRMS &END
+
+ &NISSAL
+    ItrMin = 64     ## minimum iteration for SSA/linear
+    ItrMax = 256,   ## maximum iteration for SSA/linear
+    Etol   = 1.d-5,  ## tolerance
+ &END
+ &NISSAN
+    ItrMax = 64,   ## maximum iteration for SSA/non-linear
+    Etol   = 1.d-2, ## tolerance
+    Prlx   = 0.9,  ## relaxation factor
+    ItrGL  = 1,    ## grounding-line parameterization iteration
+    MaxTry = 0,    ## maximum try for automatic relaxation adjustment
+    KswL   = 1,    ## initial solution switch for SSA/linear
+    KswN   = 1,    ## initial solution switch for SSA/non-linear
+    KswBT  = 1,    ## buttressing effect switch
+    VXLIML =  1.d-12, ## du/dx lower limit
+    VXLIMU = -1.d0,   ## du/dx upper limit
+    VBLIML =  1.d-2,  ## u[st] lower limit
+    VSHLIM =  1.d+20, ## u[sh] upper limit
+    VGLLIM =  1.d+20, ## u[gl] upper limit
+    HGLIML =  1.d0,   ## H[gl] lower limit
+    VDNML  =  1.d-3,  ## u[sh] residual denominator limit
+    PDNML  =  1000.d0,
+    DSXLIM =  0.d0,
+  &END
+
+
+ &NITPMI
+   CROOT = 'ID',
+   KSW = 3,
+   ACC = 0.3d0,             ## Uniform accumulation (m/yr)
+   HINI = 0.0d0,            ## Dummy
+   RF = 1.0d-16,            ## Uniform rate factor
+ &END
+
+ &NITMMD
+   CROOT = 'ID',
+   TINI = 0.0d0,       ## initial time (year)
+   TEND = 1.0d0,       ## final time (year)
+   DT   = 1.0d0,       ## time step (year)
+   TSSA = 0.0d0,       ## initial time when start to compute SSA velocity (year)
+   DTRC = 100.0d0,     ## dummy
+ &END
+
+ &NIAFWR
+   CROOT = 'ID',
+   GROUP = ' ',
+   DT = 100,           ## Output recording interval in year
+   KSW = 0,
+ &END
+
+ &NIAFWR
+   CROOT = 'ID',
+   GROUP = 'VMSXI',
+   ISTEP = 0,        ## output interval during one-time step (0: final output only)
+   KSW = 0,
+ &END
+ &NIAFWR
+   CROOT = 'ID',
+   GROUP = 'VMSXT',
+   ISTEP = 0,        ## output interval during one-time step
+   KSW = 0,
+ &END
+
+ &NITAMI
+    CROOT = 'ID',
+    GROUP = 'VMI',
+    IDX = 2,            ## check movement.m4 or movement.h for index value
+    FNM = '@INI_H@',    ## ascii file for initial H
+    VUNDEF = 0.0d0,
+    IX = 141,
+    IY = 141,
+ &END
+
+ &NITAMI
+    CROOT = 'ID',
+    GROUP = 'VMHB',
+    IDX = 7,
+    FNM = '@INI_R@',    ## ascii file for initial r
+    VUNDEF = 0.0d0,
+    IX = 141,
+    IY = 141,
+  &END
+
+ &NIGEOM
+   CROOT = 'ID',
+   CKIND = 'X',
+   O = 0.5,
+   T = 'R',
+   W = 5600.d3,     ## Width of target domain (km). MUST be same as &NITPMS.
+   WN = -1,
+ &END
+
+ &NIGEOM
+   CROOT = 'ID',
+   CKIND = 'Y',
+   O = 0.5,
+   T = 'R',
+   W = 5600.d3,     ## Width of target domain (km). MUST be same as &NITPMS.
+   WN = -1,
+ &END
+
+ &NICOOR
+   CROOT = 'ID',
+   NZ = 17,          ## number of Z levels
+ &END
+
+ &NIEDLA
+   KDL=3,
+   NXG=141,          ## Number of elements in the flow-line coordinate.
+                     ## Grid distance is computed automatically with this value and 
+                     ## the domain width as
+                     ##    dx = WIDTH / (NXG - 1)
+                     ## 40km resolution if 5600km width and 141 elements.
+                     ## 20km resolution if 5600km width and 281 elements.
+   NYG=141,
+   LXB=1,
+   LYB=1,
+   LXO=0,
+   LYO=0,
+   ISH=1,
+   CROOT='ID',
+   NR=4,             ## number of PE.  Must be manually corrected
+ &END
+

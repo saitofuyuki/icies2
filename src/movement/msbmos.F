@@ -4,9 +4,9 @@ C Created: Apr 17 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/10/24 13:29:50 fuyuki msbmos.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:46:54 fuyuki msbmos.F>'
 #define _FNAME 'movement/msbmos.F'
-#define _REV   'Snoopy0.9/Three0.1'
+#define _REV   'Snoopy0.97/Three0.1'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -22,6 +22,7 @@ CCC_* Common macros
 #include "oarpkw.h"   /* operation id in arpeggio/kiwi */
 #include "oarpgc.h"   /* geometry category */
 #include "ologfm.h"   /* logging */
+#include "odopts.h"   /* option/parameter configuration */
 #ifndef   MSBMOS_VARIATION
 #  define MSBMOS_VARIATION 4
 #endif
@@ -4396,6 +4397,152 @@ CCC_  - Arguments
       _INTENT(IN, character) CR*(*)
       _INTENT(IN, integer)   ipP, ipC, ipL
 CCC_  - Configuration
+      character Tag*(*)
+      parameter(Tag='PRMS')
+      integer   KDOFLG
+      _REALSTD   DENS, DENSW,  GRAV, PF
+      _REALSTD   SCU,  SCL,    SCH,  SCA
+      _REALSTD   SCN,  SCD,    SCV,  XSC, SCXFSR
+CCC_  - interior
+      _REALSTD TVX, C
+CCC_ + Body
+      iErr = 0
+      KDOFLG = DOPTS_LEVEL_ALLOW_NULL + DOPTS_LEVEL_MATCH_TAG
+
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, DENS, 'density', 910.0d0, 'kg m^-3',
+     $        'DENS', 'Ice density',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, DENSW, 'density', 1028.0d0, 'kg m^-3',
+     $        'DENSW', 'Water density',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, GRAV, 'gravity', 9.81d0, 'm s^-2',
+     $        'GRAV', 'Gravity accel.',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, PF, ' ', 3.0d0, '1',
+     $        'PF', 'Flow law exponent',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+c
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCL, 'topography', 100.0d3, 'm',
+     $        'SCL', 'Scale L',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCH, 'hspace', 100.0d0, 'm',
+     $        'SCH', 'Scale H',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCA, 'rf', 1.d-25 * 1.0d8, ' ',
+     $        'SCA', 'Scale A',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCV, 'velocity', 1.0d3, 'm yr^-1',
+     $        'SCV', 'Scale V',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCU, 'velocity', 1.0d0, 'm yr^-1',
+     $        'SCU', 'Scale U',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCN, ' ', -1.0d0, ' ',
+     $        'SCN', 'Scale N',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCD, ' ', 1.0d0, ' ',
+     $        'SCD', 'Scale D',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, XSC, ' ', 1.0d0, ' ',
+     $        'XSC', 'external v scale',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, SCXFSR, ' ', 0.0d0, ' ',
+     $        'SCXFSR', 'eff str rate powered scale',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+CCC_  - Packing
+      PMS (PMS_DENS)   = DENS
+      PMS (PMS_DENSW)  = DENSW
+      PMS (PMS_GRAV)   = GRAV
+      PMS (PMS_PF)     = PF
+c
+      PMS (PMS_SCU)    = SCU
+      PMS (PMS_SCL)    = SCL
+      PMS (PMS_SCH)    = SCH
+      PMS (PMS_SCA)    = SCA
+      PMS (PMS_SCN)    = SCN
+      PMS (PMS_SCD)    = SCD
+      PMS (PMS_SCV)    = SCV
+      PMS (PMS_XSC)    = XSC
+c
+      PMS (PMS_SCV)    = PMS (PMS_SCV) * XSC
+      if (SCXFSR.le.0.0d0) then
+         C      = - (1.0d0 - 1.0d0 / PF) / 2.0d0
+         TVX    = (SCV / SCL) ** 2.0d0
+         SCXFSR = (TVX ** C) * 0.5d0
+      endif
+      PMS (PMS_SCXFSR) = SCXFSR
+      if (COND_N(ipL)) then
+         write (ipL, 101) SCXFSR
+      else if (COND_S(ipL)) then
+         write (*,   101) SCXFSR
+      endif
+ 101  format ('Eff. strain rate sc: ', E16.9)
+CC    TODO: BDC scaling
+c$$$      PMS (PMS_BDRGC) = BDC
+c$$$      PMS (PMS_BDRGP) = BDP
+c
+      call MSUscl
+     O    (iErr,
+     M     PMS,
+     I     SCH,  SCL,   SCU,  SCD, SCN,
+     I     DENS, DENSW, GRAV,
+     I     ipL)
+c
+      call DAtrcU (ipL, iErr, 'R', 'MSBPMS')
+      RETURN
+      END
+CCC_& MSBpms  ## (obsolete) Parameters initialization (by local namelist)
+      subroutine obs_MSBpms
+     O    (iErr,
+     O     PMS,
+     I     CR,    ipP, ipC, ipL)
+CCC_ + Declaration
+      implicit none
+CCC_  - Arguments
+      _INTENT(OUT,integer)   iErr
+      _INTENT(OUT,_REALSTD)  PMS (*)
+      _INTENT(IN, character) CR*(*)
+      _INTENT(IN, integer)   ipP, ipC, ipL
+CCC_  - Configuration
       character  CROOT * (8)
       _REALSTD   DENS, DENSW,  GRAV, PF
       _REALSTD   SCU,  SCL,    SCH,  SCA
@@ -4441,7 +4588,7 @@ c
       SCN    = -1.0d0
       SCD    = 1.0d0
 c
-      READ  (ipP, NIPRMS, IOSTAT = iErr)
+      READ  (ipP, NIPRMS, IOSTAT=iErr)
 c
       if (iErr.eq.0) then
          if (CROOT.eq.CR) goto 300
@@ -4459,7 +4606,7 @@ c
  300  continue
       if (iErr.eq.0) then
          CROOT = CR
-         write (ipC, NIPRMS, IOSTAT = iErr)
+         write (ipC, NIPRMS, IOSTAT=iErr)
       endif
 CCC_  - Packing
       PMS (PMS_DENS)   = DENS

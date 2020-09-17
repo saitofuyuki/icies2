@@ -5,7 +5,7 @@
 :Source: IcIES/doc/r/coding.rst
 :Maintainer: SAITO Fuyuki
 :Created:    Nov 8 2013
-:Time-stamp: <2020/09/15 12:45:47 fuyuki coding.rst>
+:Time-stamp: <2020/09/17 13:06:47 fuyuki coding.rst>
 :Target: Snoopy0.9 or later
 
 Copyright 2016--2020 Japan Agency for Marine-Earth Science and Technology,

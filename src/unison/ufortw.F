@@ -4,9 +4,9 @@ C Created: Aug 26 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/12/18 09:08:40 fuyuki ufortw.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:49:49 fuyuki ufortw.F>'
 #define _FNAME 'unison/ufortw.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -626,6 +626,102 @@ CCC_  & sfloor (implementation in standard-real)
       if (SFLOOR.gt.A) SFLOOR = SFLOOR - _XREALS(1.0d0)
       RETURN
       END
+CCC_ + bitwise logical
+CCC_  & UFBand() - bitwise logical and
+      integer function UFBand(K0, K1)
+      implicit none
+      _INTENT(IN,integer) K0, K1
+      integer  N0, N1
+      integer  m
+      UFBand = 0
+      N0 = K0
+      N1 = K1
+      m  = 1
+      DO
+         if (N0.eq.0.and.N1.eq.0) goto 100
+         UFBand = UFBand + m * (MOD(N0,2) * MOD(N1,2))
+         m = m * 2
+         N0 = N0 / 2
+         N1 = N1 / 2
+      ENDDO
+ 100  continue
+      return
+      end
+CCC_ & modulo
+      integer FUNCTION imodul (K, L)
+      implicit none
+      _INTENT(IN,integer) K, L
+#if       HAVE_F77_MODULO
+      imodul = MODULO(K,L)
+#else /* not HAVE_F77_MODULO */
+      imodul = MOD(K, L)
+      if (L.gt.0) then
+         if (imodul.lt.0) imodul = imodul + L
+      else if (L.lt.0) then
+         if (imodul.gt.0) imodul = imodul + L
+      endif
+#endif
+      RETURN
+      END
+CCC_* Health check
+CCC_ & UFHmds ## MOD behaviour
+      subroutine UFHmds(iErr, IFP, X, Y, Z)
+      implicit none
+      _INTENT(OUT,integer)  iErr
+      _INTENT(IN, integer)  IFP
+      _INTENT(IN, _REALSTD) X, Y, Z
+      _REALSTD A
+      iErr = 0
+ 101  format('HEALTH CHECK MOD:', 3F8.2, 1x, ' :: ', F8.2)
+      A = MOD(X,Y)
+      if (COND_N(IFP)) then
+         write(IFP, 101) X, Y, Z, A
+      else if (COND_S(IFP)) then
+         write(*,   101) X, Y, Z, A
+      endif
+      if (A.ne.Z) iErr = -1
+      RETURN
+      END
+CCC_ & UFHmdi ## MOD behaviour
+      subroutine UFHmdi(iErr, IFP, K, L, M)
+      implicit none
+      _INTENT(OUT,integer)  iErr
+      _INTENT(IN, integer)  IFP
+      _INTENT(IN, integer)  K, L, M
+      integer N
+      iErr = 0
+CC    MOD(A) = A - (INT(A/P) * P)
+CC    INT(A) = SIGN(A) * (FLOOR(A))
+ 101  format('HEALTH CHECK MOD:', L1, 3(1x, I0), ' :: ', I0)
+      N = MOD(K,L)
+      if (COND_N(IFP)) then
+         write(IFP, 101) M.eq.N, K, L, M, N
+      else if (COND_S(IFP)) then
+         write(*,   101) M.eq.N, K, L, M, N
+      endif
+      if (N.ne.M) iErr = -1
+      RETURN
+      END
+CCC_ & UFHmli ## MODULO behaviour
+      subroutine UFHmli(iErr, IFP, K, L, M)
+      implicit none
+      _INTENT(OUT,integer)  iErr
+      _INTENT(IN, integer)  IFP
+      _INTENT(IN, integer)  K, L, M
+      integer N
+      integer imodul
+      iErr = 0
+CC    Q = MODULO(A,P), A=Q*P+R, 0<=Q<P or P<Q<=0
+ 101  format('HEALTH CHECK MODULO:', L1, 3(1x, I0), ' :: ', I0)
+      N = IMODUL(K,L)
+      if (COND_N(IFP)) then
+         write(IFP, 101) M.eq.N, K, L, M, N
+      else if (COND_S(IFP)) then
+         write(*,   101) M.eq.N, K, L, M, N
+      endif
+      if (N.ne.M) iErr = -1
+      RETURN
+      END
 CCC_& UFORTW  ## Unison/Fortran function wrappers Announcement
       SUBROUTINE UFORTW (STRA, STRB, IOP)
 CCC_ + Declaration
@@ -736,7 +832,7 @@ c
 #endif
 c
       _REALD dfloor
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_  - Body
       iplog = -1
       itest = 0
@@ -744,7 +840,7 @@ CCC_   . announcement
       call UFTEST_banner (itest, iplog, 'Announcement')
 #define _ANNOUNCE UFORTW
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 CCC_   . variation
       call UFTEST_banner (itest, iplog, TEST_UFORTW_MESSAGE)
       write (*, *) 'TEST_UFORTW', TEST_UFORTW
@@ -818,6 +914,9 @@ CCC_   . ichar
 CCC_   . integer functions
       call UFTEST_banner (itest, iplog, 'integer functions')
       call UFTEST_int ()
+CCC_   . bitwise functions
+      call UFTEST_banner (itest, iplog, 'bitwise functions')
+      call UFTEST_bitwise ()
 CCC_   . end
       call UFTEST_banner (itest, iplog, 'fine')
 c
@@ -883,6 +982,55 @@ c
       enddo
 c
       write (*, *) '## INT-family test done'
+      RETURN
+      END
+CCC_ & UFTEST_bitwise  ## various bitwise function tests
+      subroutine UFTEST_bitwise ()
+      implicit none
+c
+      write (*, *) '## BITWISE-family test'
+      call UFTEST_bitwise_sub(1)
+      call UFTEST_bitwise_sub(2)
+      call UFTEST_bitwise_sub(4)
+      call UFTEST_bitwise_sub(8+2)
+      call UFTEST_bitwise_sub(32+8+1)
+c
+      write (*, *) '## BITWISE-family test done'
+      RETURN
+      END
+CCC_ & UFTEST_bitwise_sub  ## various bitwise function tests
+      subroutine UFTEST_bitwise_sub (K1)
+      implicit none
+      _INTENT(IN,integer) K1
+      character B0*(32), B1*(32), B2*(32)
+      integer   K0, K2, KA
+      integer UFBand
+      call UFTEST_binstr(B1, K1)
+ 101  format(I3, 1x, A)
+ 102  format(I3, 1x, A, 3x, A, 1x, I3, 1x, I3, 1x, L1)
+      write (*, 101) K1, B1
+      do K0 = 7, 15
+         K2 = UFBand(K0, K1)
+         KA = IAND(K0, K1)
+         call UFTEST_binstr(B0, K0)
+         call UFTEST_binstr(B2, K2)
+         write(*, 102) K0, B0, B2, K2, KA, KA.eq.K2
+      enddo
+      RETURN
+      END
+CCC_ & UFTEST_binstr
+      subroutine UFTEST_binstr (B, N)
+      implicit none
+      _INTENT(OUT,;character) B*(*)
+      _INTENT(IN, integer)    N
+      integer M, L
+      integer j
+      L = 32
+      M = N
+      do j = 0, L - 1
+         write(B(L-j:L-j), '(I1)') MOD(M, 2)
+         M = M / 2
+      enddo
       RETURN
       END
 CCC_ & UFTEST_banner  ## Test banner (with index)

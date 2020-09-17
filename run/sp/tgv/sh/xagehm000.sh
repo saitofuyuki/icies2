@@ -1,6 +1,5 @@
-#!@ZSH@ -f
-# Time-stamp: <2020/09/16 13:46:20 fuyuki xicies_jp.sh.in>
-#
+#!/usr/bin/zsh -f
+# Time-stamp: <2020/09/17 09:08:42 fuyuki xagehm000.sh>
 # Copyright: 2019--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
@@ -10,8 +9,6 @@ typeset -A CFGH CFGM CFGA CFGE CFGW CFGC
 setopt nullglob
 
 thisd=$0:h
-thisx=$0:t
-thisp=$0
 
 ## H (thickness m)
 CFGH[a]='1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700 2800 2900 3000 3100 3200 3300 3400 3500'
@@ -45,6 +42,12 @@ CFGW=(const 0   vialov 1  power 2)
 ## Age
 CFGC=(up1 1:u   rcip 2:r  up2 4:s  modr 5:m   up1n 1:n:0)
 
+inidir=$PWD/xini
+mkdir -p $inidir
+
+xbase=icies_tgv
+xpath=(. $thisd/build/src)
+
 typeset -A RECG
 RECG=(VMTI  : VMTA : VMTD : VMHB 100
       VMHI  : VMHW :
@@ -57,78 +60,12 @@ GFILV=(VMHB Ms:Mb
        VMHW Hinv:dHdt:dBdt
        VMTI wadv:wh:dwdZ)
 
-bpath=($thisd)
-cbase=cnx.sh
-xbase=icies_tgv
+cnxpath=({$thisd,.}/build/local/bin)
+cnxbase=cnx.sh
 
 ADIR=()
-
-help ()
-{
-  local verbose=$1
-  cat << USAGE
-$thisx - IcIES-2(JP) run script
-
-Usage: $thisp [OPTION]... KEY=CONFIGURATION...
-
-Options:
-   -h          display this help and exit (longer help with multiple -v)
-   -v          increase verbose level
-   -n          dry-run
-   -f          force overwrite (default to preserve)
-   -t  [END][:[DT]][:[REC]]
-               set integration time (END), time step (DT),
-               and/or recording interval (REC)
-   -C  PATH    path to conversion script (cnx.sh)
-   -X  PATH    path to executable (icies_tgv)
-   -x  PREFIX  prefix to output directory
-USAGE
-
-  if [[ $verbose -gt 0 ]]; then
-    cat <<CONFIG
-
-Configuration keys
- Mandatory
-   A   surface mass balance condition  MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
-         MAX as id for maximum {${(k)CFGA}} or value
-         MIN as id for minimum {${(k)CFGM}}
-         EVOL as id for evolution phasing {${(k)CFGE}}
-         FUNC as id for evolution function {step cosine linear exponential var}
-   B   basal mass balance condition    MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
-   C   numerical scheme for advection solver {${(k)CFGC}}
-   H   thickness condition  REF[:MIN[:EVOL[:DUR[:FUNC]]]]
-         REF as id for reference {${(k)CFGH}}
-   Z   vertical levels  [LEVELS][:[PARAMETER]]
-
- Optional
-   W   vertical velocity condition (default=vialov) {${(k)CFGW}}
-
-Examples
-  $thisp -t 1000000:100:100000 Z=129 C=rcip A=3cm:k:c:100000:step B=0 H=m
-CONFIG
-  fi
-  if [[ $verbose -gt 1 ]]; then
-    help_config CFGM "id for minimum value (ratio to maximum value)"
-    help_config CFGE "id for evolution phasing (duration ratio to full cycle)"
-    help_config CFGH "id for reference thickness"
-  fi
-  return 0
-}
-
-help_config ()
-{
-  local __cfg=$1; shift
-  local -A cfg=()
-  set -A cfg "${(@Pkv)__cfg}"
-  print -
-  [[ $# -gt 0 ]] && print -l - "$@"
-  local k= v=
-  for k in ${(ok)cfg}
-  do
-    v="$cfg[$k]"
-    print - "   $k:   $v"
-  done
-}
+ALIST=
+archived=archived
 #---------------------------------------------------------------------- driver
 main ()
 {
@@ -139,55 +76,44 @@ main ()
   local force=
   local args=("$@")
   local dry=
-  local verbose=0 help=
   while [[ $# -gt 0 ]]
   do
     case $1 in
-    (-v)   let verbose++;;
-    (-vv)  verbose=2;;
-    (-vvv) verbose=3;;
     (-n)  dry=$1;;
-    (-h)  help=T;;
-    (-f)  force=T;;
     (-t)  tcfg=$2; shift;;
     (-t*) tcfg=${1: 2};;
     (-G)  GRPS=$2; shift;;
     (-G*) GRPS=${1: 2};;
     (-C)  xcnx=$2; shift;;
     (-C*) xcnx=${1: 2};;
-    (-X)  xicies=$2; shift;;
-    (-X*) xicies=${1: 2};;
     (-x)  xpfx=$2; shift;;
     (-x*) xpfx=${1: 2};;
     (-A)  ADIR+=($2); shift;;
     (-A*) ADIR+=(${1: 2});;
+    (+A)  ALIST=$2; shift;;
+    (+A*) ALIST=${1: 2};;
+    (-f)  force=T;;
     (*) break;;
     esac
     shift
   done
-  [[ $# -eq 0 || -n $help ]] && help $verbose && return 0
-
   local p=
-  if [[ -z $xicies ]]; then
-    local grp= ncf=
-    for p in $bpath
-    do
-      xicies=$p/$xbase
-      [[ -e $xicies ]] && break
-    done
-  fi
-  xicies=${xicies:a}
-  [[ ! -x $xicies ]] && print -u2 - "$thisx: not found $xicies." && return 1
-
   if [[ -z $xcnx ]]; then
-    for p in $bpath
+    for p in $cnxpath
     do
-      xcnx=$p/$cbase
+      xcnx=$p/$cnxbase
       [[ -e $xcnx ]] && break
     done
   fi
   xcnx=${xcnx:a}
-  [[ ! -x $xcnx ]] && print -u2 - "$thisx: netcdf conversion disabled." && xcnx=
+  [[ ! -x $xcnx ]] && print -u2 - "Cannot find $xcnx." && return 1
+  local xicies=
+  for p in $xpath
+  do
+    xicies=$p/$xbase
+    [[ -e $xicies ]] && break
+  done
+  [[ ! -x $xicies ]] && print -u2 - "Cannot find $xicies." && return 1
 
   ########## parse times  -t [END][:[DT][:[REC]]]
   tcfg=("${(@s/:/)tcfg}" '' '')
@@ -233,7 +159,7 @@ main ()
       (B) cfgb=$v;;
       (C) cfgc=$v;;
       (W) cfgw=$v;;
-      (*) print -u2 - "$thisx: unknown config key $k"; return 1;;
+      (*) print -u2 - "Unknown config key $k"; return 1;;
       esac
       ;;
     (*) break;;
@@ -244,7 +170,7 @@ main ()
   local idw=
   v=("${(@s/:/)cfgw}"); k=$v[1]; shift v
   if [[ -z $CFGW[$k] ]];then
-    print -u2 "$thisx: unknown configuration (W) $cfgw"
+    print -u2 "Unknown configuration (W) $cfgw"
     return 1
   fi
   idw=$k[1]${(j:_:)v[1]}
@@ -252,7 +178,7 @@ main ()
 
   # parse Z   [NLEV][:][PARAMETER]
   local idz=
-  [[ -z $cfgz ]] && print -u2 "$thisx: need Z configuration." && return 1
+  [[ -z $cfgz ]] && print -u2 "Need Z configuration." && return 1
   v=("${(@s/:/)cfgz}"); k=$v[1]; shift v
   if [[ $k[1] =~ [0-9] ]];then
     cfgz=${k}:${v[1]:--}
@@ -264,10 +190,10 @@ main ()
 
   # parse H  REFid[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
   local idh= iddur= cfgdur=
-  [[ -z $cfgh ]] && print -u2 "$thisx: need H configuration." && return 1
+  [[ -z $cfgh ]] && print -u2 "Need H configuration." && return 1
   v=("${(@s/:/)cfgh}"); k=$v[1]; shift v
   if [[ -z $CFGH[$k] ]];then
-    print -u2 "$thisx: unknown configuration (H) $cfgh"
+    print -u2 "Unknown configuration (H) $cfgh"
     return 1
   fi
   idh=${k}${v[1]}
@@ -278,7 +204,7 @@ main ()
   # parse A  MAX[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
   #          MAXid[:file[:EFUNC[:id]]]]
   local ida= maxm=
-  [[ -z $cfga ]] && print -u2 "$thisx: need A configuration." && return 1
+  [[ -z $cfga ]] && print -u2 "Need A configuration." && return 1
   v=("${(@s/:/)cfga}" '' '' '' ''); k=$v[1]; shift v
   ida=$k
   if [[ -n $CFGA[$k] ]]; then
@@ -297,7 +223,7 @@ main ()
     iddur= cfgdur=
     case $efunc in
     (s*) iddur=s cfgdur=5;;
-    (*) print -u2 - "$thisx: unknown efunc $efunc"; exit 1;;
+    (*) print -u2 - "Unknown efunc $efunc"; exit 1;;
     esac
     ida=$ida$iddur
     cfga=$cfga:${afile:a}:0:0:$cfgdur
@@ -306,7 +232,7 @@ main ()
     if [[ -z $k ]];then
       cfga=${cfga}:$maxm
     elif [[ -z $CFGM[$k] ]];then
-      print -u2 "$thisx: unknown configuration (A) $cfga"
+      print -u2 "Unknown configuration (A) $cfga"
       return 1
     else
       cfga=${cfga}:$k
@@ -333,7 +259,7 @@ main ()
   if [[ -z $k ]]; then
     cfgb=${cfgb}:${maxm}
   elif [[ -z $CFGM[$k] ]];then
-    print -u2 "$thisx: unknown configuration (B) $cfgb"
+    print -u2 "Unknown configuration (B) $cfgb"
     return 1
   else
     cfgb=$cfgb:${k}
@@ -343,10 +269,10 @@ main ()
   cfgb=$cfgb:${cfgdur}
 
   # parse C
-  [[ -z $cfgc ]] && print -u2 "$thisx: need C configuration." && return 1
+  [[ -z $cfgc ]] && print -u2 "Need C configuration." && return 1
   v=("${(@s/:/)cfgc}"); k=$v[1]; shift v
   if [[ -z $CFGC[$k] ]];then
-    print -u2 "$thisx: unknown configuration (C) $cfgc"
+    print -u2 "Unknown configuration (C) $cfgc"
     return 1
   fi
   cfgc=(${(s/:/)CFGC[$k]})
@@ -365,6 +291,11 @@ main ()
   local xdir=${xpfx:-ox}.W${idw}_H${idh}_A${ida}_B${idb}_Z${idz}_C${idc}.${xsfx:-00}
   print -u2 - "output: $xdir"
 
+  if [[ -n $ALIST ]]; then
+    if a=$(grep -F -e $xdir $ALIST); then
+      print -u2 "Archived in list ($a)." && return 0
+    fi
+  fi
   for a in $ADIR
   do
     if [[ ${a: -2} == // ]]; then
@@ -372,11 +303,11 @@ main ()
     fi
     for a in $a
     do
-      [[ -e $a/$xdir ]] && print -u2 "$thisx: archived ($a/$xdir)." && return 0
+      [[ -e $a/$xdir ]] && print -u2 "Archived ($a/$xdir)." && return 0
     done
   done
-  [[ -e $xdir && -n $force ]] && print -u2 "$thisx: force overwrite $xdir." && rm -rf $xdir
-  [[ -e $xdir ]] && print -u2 "$thisx: already exists $xdir" && return 1
+  [[ -e $xdir && -n $force ]] && print -u2 "Force overwrite $xdir." && rm -rf $xdir
+  [[ -e $xdir ]] && print -u2 "Already exists $xdir" && return 1
 
   mkdir -p $xdir
   cp $xicies $xdir
@@ -386,7 +317,7 @@ main ()
   gen_sysin $sysin "$cfgw" "$cfgz" "$cfgh" "$cfga" "$cfgb" "$cfgc:$cadv" || return $?
 
   if [[ -n $dry ]]; then
-    print -u2 - "$thisx: dry-run: ${xdir}"
+    print -u2 - "Dry-run: ${xdir}"
     return 0
   fi
   local udir=u
@@ -394,14 +325,12 @@ main ()
   mkdir O V L
   ( time ./${xicies:t} < $sysin > $udir/output ) 2> $udir/error
 
-  if [[ -n $xcnx ]]; then
-    local grp= ncf=
-    for grp in $GRPS
-    do
-      ncf=${grp:l}.nc
-      $xcnx -f -G $grp -F $ncf L/vrep.000*
-    done > $udir/log.cnx 2>&1
-  fi
+  local grp= ncf=
+  for grp in $GRPS
+  do
+    ncf=${grp:l}.nc
+    $xcnx -f -G $grp -F $ncf L/vrep.000*
+  done > $udir/log.cnx 2>&1
 
   return 0
 }
@@ -416,10 +345,10 @@ gen_durid ()
     return 0
   fi
   if [[ $# -ne 3 ]];then
-    print -u2 "$thisx: invalid duration setting $@."; return 1
+    print -u2 "Invalid duration setting $@."; return 1
   fi
   local k=$1 d=$2 t=$3
-  [[ -z $CFGE[$k] ]] && print -u2 "$thisx: unknown evolution switch $k" && return 1
+  [[ -z $CFGE[$k] ]] && print -u2 "Unknown evolution switch $k" && return 1
   local __id=$k
   local __d=$d
   for yu yf in m 1000000  k 1000
@@ -436,7 +365,7 @@ gen_durid ()
   (l*) t=3;;
   (e*) t=4;;
   (v*) t=5;;
-  (*)    print -u2 - "$thisx: invalid evolution pattern $t"; return 1;;
+  (*)    print -u2 - "Invalid evolution pattern $t"; return 1;;
   esac
   : ${(P)__vi::=$__id}
   : ${(P)__vc::=$k:$d:$t}
@@ -452,7 +381,7 @@ gen_sysin ()
     v=$1
     local $k=
     set -A $k "${(@s/:/)v}"
-    print -u2 "$thisx: $k: ${(@q-P)k}"
+    print -u2 "$k: ${(@q-P)k}"
     shift || return $?
   done
 
@@ -498,7 +427,7 @@ gen_sysin ()
     A=(${=CFGM[$atag]})
     isfx=A$atag
   else
-    print -u2 "$thisx: either a($atag) or b($btag) can be set as transient."
+    print -u2 "Either a($atag) or b($btag) can be set as transient."
     return 1
   fi
 
@@ -653,13 +582,13 @@ nml_tgvb ()
       phs=$(gmt math -Q $dur ${evt[3]:-0} MUL $evt[1] $evt[2] ADD DIV =) || return $?
       hstd=0 lstd=0
     elif [[ -z $yd ]];then
-      print -u2 "$thisx: not implemented yet $evt"
+      print -u2 "Not implemented yet $evt"
       return 1
     elif [[ -z $yi ]];then
-      print -u2 "$thisx: not implemented yet $evt"
+      print -u2 "Not implemented yet $evt"
       return 1
     else
-      print -u2 "$thisx: not implemented yet $evt"
+      print -u2 "Not implemented yet $evt"
       return 1
     fi
   else
@@ -705,7 +634,7 @@ nml_input ()
     print -u3 - "         VAL=$val, FNM=' ', "
     print -u3 - "         FMT='CONST', LB=-1, IR=0, &END"
   elif [[ -z $dims ]];then
-    print -u2 - "$thisx: need dimension for namelist $croot/$grp/$var/$coor."
+    print -u2 - "Need dimension for namelist $croot/$grp/$var/$coor."
     return 1
   else
     print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='$var', COOR='$coor',"
@@ -940,7 +869,7 @@ set_weight ()
   (ix)   __r=511;;
   (x)    __r=1023;;
   (n*)   __r=${2: 1}; let __r--;;
-  (*)    print -u2 "$thisx: unknown weight id $wtyp ($ztyp)"; return 1;;
+  (*)    print -u2 "Unknown weight id $wtyp ($ztyp)"; return 1;;
   esac
   : ${(P)__v::=$__r}
   return 0

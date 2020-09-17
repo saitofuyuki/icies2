@@ -4,9 +4,9 @@ C Created: Oct 17 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 12:01:21 fuyuki mscpli.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:16:35 fuyuki mscpli.F>'
 #define _FNAME 'movement/mscpli.F'
-#define _REV   'Snoopy0.8/Three0.1/Four/Sally'
+#define _REV   'Snoopy0.97/Three0.1/Four/Sally'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020

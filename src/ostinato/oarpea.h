@@ -1,32 +1,29 @@
-C ostinato/oarpkw.h --- Ostinato/Arpeggio/Elements(A) definitions
-C Maintainer:  SAITO Fuyuki
-C Created: Dec 29 2011
+/* ostinato/oarpkw.h --- Ostinato/Arpeggio/Elements(A) definitions */
+/* Maintainer:  SAITO Fuyuki */
+/* Created: Dec 29 2011 */
 #ifdef HEADER_PROPERTY
-#define _TSTAMP 'Time-stamp: <2020/09/15 12:13:02 fuyuki oarpea.h>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:35:48 fuyuki oarpea.h>'
 #define _FNAME 'ostinato/oarpea.h'
 #define _REV   'Arpeggio 1.0'
 #endif /* HEADER_PROPERTY */
-CCC_! MANIFESTO
-C
-C Copyright (C) 2011--2020
-C           Japan Agency for Marine-Earth Science and Technology
-C
-C Licensed under the Apache License, Version 2.0
-C   (https://www.apache.org/licenses/LICENSE-2.0)
-C
-CCC_* Definitions
+/***_! MANIFESTO */
+/* Copyright (C) 2011--2020 */
+/*           Japan Agency for Marine-Earth Science and Technology */
+/* Licensed under the Apache License, Version 2.0 */
+/*   (https://www.apache.org/licenses/LICENSE-2.0) */
+/***_* Definitions */
 #ifndef    _OARPEA_H
 #  define  _OARPEA_H
 
 #  define  REVID_EA 258   /* revision id for arpeggio/elements */
 
 
-CCC_ + Key (Meta info)
+/***_ + Key (Meta info) */
 #define EA_VAR(T)    T(1)
 #define EA_LVDBG(T)  T(2)
 #define EA_ERR(T)    T(3)
 
-CCC_ + Key (PD: configuration)
+/***_ + Key (PD: configuration) */
 #define EA_size0(T)  T(4)
 #define EA_size1(T)  T(5)
 
@@ -60,7 +57,7 @@ CCC_ + Key (PD: configuration)
 #define EA_argNR(T)  T(32)
 #define EA_argISH(T) T(33)
 
-CCC_ + Key (NM: Sizes)
+/***_ + Key (NM: Sizes) */
 #define EA_NXD(T)    T(34)  /* total number of elements (wing dupl) */
 #define EA_NYD(T)    T(35)
 #define EA_NXU(T)    T(36)  /* total number of elements (wing unique) */
@@ -82,7 +79,7 @@ CCC_ + Key (NM: Sizes)
 #define EA_INBCX(T)  T(52)  /* null block corner (logical) */
 #define EA_INBCY(T)  T(53)
 
-CCC_ + Key (NH: Neighbourhood)
+/***_ + Key (NH: Neighbourhood) */
 #define EA_IRXP(T)   T(54)
 #define EA_IRXM(T)   T(55)
 #define EA_IRYP(T)   T(56)
@@ -118,9 +115,9 @@ CCC_ + Key (NH: Neighbourhood)
 #define EA_NHNW(T)   T(83)
 #define EA_NHSE(T)   T(84)
 #define EA_NHSW(T)   T(85)
-CC          IR: rank  IS: offset (clone)  II: offset (interior)
+/*          IR: rank  IS: offset (clone)  II: offset (interior) */
 
-CCC_ + Key (LP: Loop)
+/***_ + Key (LP: Loop) */
 #define EA_JIXP(T)   T(86)
 #define EA_JIXM(T)   T(87)
 #define EA_JIYP(T)   T(88)
@@ -147,9 +144,9 @@ CCC_ + Key (LP: Loop)
 #define EA_JSNW(T)   T(107)
 #define EA_JSSE(T)   T(108)
 #define EA_JSSW(T)   T(109)
-CC          do l = JI, JE, JS    for clone
+/*          do l = JI, JE, JS    for clone */
 
-CCC_ + Key (OX: Overlap/X)
+/***_ + Key (OX: Overlap/X) */
 #define EA_LCXo(T)   T(110)
 #define EA_LCXi(T)   T(111)
 
@@ -173,7 +170,7 @@ CCC_ + Key (OX: Overlap/X)
 #define EA_ITECi(T)  T(126)
 #define EA_ITECo(T)  T(127)
 
-CCC_ + Key (OY: Overlap/Y)
+/***_ + Key (OY: Overlap/Y) */
 #define EA_LCYo(T)   T(128)
 #define EA_LCYi(T)   T(129)
 
@@ -196,7 +193,7 @@ CCC_ + Key (OY: Overlap/Y)
 #define EA_ITSCi(T)  T(143)
 #define EA_ITNCi(T)  T(144)
 #define EA_ITNCo(T)  T(145)
-CCC_ + Key (LS: List MP)
+/***_ + Key (LS: List MP) */
 #define EA_list0(T)     146
 #define EA_idxMU(T,j)   EA_list0(T)+j
 #define EA_idxCU(T,j)   EA_list0(T)+EA_size0(T)*1+j
@@ -222,12 +219,12 @@ CCC_ + Key (LS: List MP)
 #define EA_listPY(T,j)  T(EA_idxPY(T,j))
 #define EA_listXW(T,j)  T(EA_idxXW(T,j))
 #define EA_listYW(T,j)  T(EA_idxYW(T,j))
-CCC_ + Key (LN: List NR)
+/***_ + Key (LN: List NR) */
 #define EA_list1(T)   EA_list0(T)+EA_size0(T)*EA_memL+1
 #define EA_listGSS(T,j) T(EA_list1(T)+j)
 #define EA_listGSR(T,j) T(EA_list1(T)+EA_size1(T),j)
 
-CCC_ + misc helper
+/***_ + misc helper */
 #define EA_IRn(T,dir) T(EA_IRXP()+dir)
 #define EA_ISn(T,dir) T(EA_ISXP()+dir)
 #define EA_IIn(T,dir) T(EA_IIXP()+dir)
@@ -237,13 +234,9 @@ CCC_ + misc helper
 #define EA_JEn(T,dir) T(EA_JEXP()+dir)
 #define EA_JSn(T,dir) T(EA_JSXP()+dir)
 
-CCC_ + maximum
+/***_ + maximum */
 #define EA_MAX(T)     EA_list1(T)+EA_size1(T)*2
 
-CCC_* End definitions
-#endif  /* _OARPEA_H */
-CCC_! FOOTER
-C Local Variables:
-C mode: fortran
-C fff-style: "iciesShermy"
-C End:
+/***_* End definitions */
+#endif  /* not _OARPEA_H */
+/***_! FOOTER */

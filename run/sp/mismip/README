@@ -1,0 +1,242 @@
+============================
+ IcIES/run/sp/mismip/README
+============================
+:Maintainer: SAITO Fuyuki
+:Created:    Nov 8 2013
+:Time-stamp: <2016/10/27 10:55:40 fuyuki README>
+:Revision: 08df85ce5bfdbe03f3b28fc33b8ae43479dbbd55 to f4a0276154ba769dddb5103855c6e816879f690d
+
+Caution
+=======
+
+This document is obsolete.
+See ``doc/cnx.rst`` to use ``cnx.sh``.
+
+Files
+=====
+
+``sysin.zx_m11a_p1_n65x3_b1x1_o0x0_s1``
+    Configuration file which is actually used for MISMIP experiment
+    (experiment 1a, step 1, with 30km resolution, serial).
+    This is just an example.  Adjust it by yourself.
+
+``sysin.template``
+    Configuration template including brief description.
+
+
+NetCDF conversion
+=================
+
+``PREFIX/local/bin/cnx.sh`` is the helper script for conversion from
+`IcIES` original output to NetCDF format.  It is a zsh script.
+
+Usage::
+
+  PATH-TO/cnx.sh [+q] [-f] -G <GROUP> -F <NETCDF> <REPORT>
+
+Typical usage::
+
+  % cd src/movement
+  % ../../local/bin/cnx.sh +q -f -G VMI \
+      -F VMI.nc \
+      O/mdrvrm2/mismip/L/vrep.000_001
+  % ls
+  VMI.nc
+
+``+q`` to disable verbose message;  ``-f`` to overwrite existing file.
+
+IcIES write various report about the output variables in
+``EXP-DIR/L/vrep.000_001`` when MPI mode or
+``EXP-DIR/L/vrep`` when non-MPI mode.
+You have to precisely set this file as ``<REPORT>``.
+
+Output file-name should be specified by ``-F <NETCDF>``.
+All the variables in IcIES belong to groups.  You must specify it by
+``-G <GROUP>``.  The standard groups and variables are
+
+ - VMI
+
+   H.Ha
+       Thickness on thickness gridpoints
+   S.Ha
+       Surface   on thickness gridpoints
+   B.Ha
+       Ice base  on thickness gridpoints
+
+ - VMHB
+
+   R.Ha
+      Bedrock topography on thickness gridpoints
+
+ - VMSX
+
+   uN.Hb
+       vertically-averaged u velocity on u gridpoints
+   vE.Hc
+       vertically-averaged v velocity on v gridpoints
+
+ - VMTI
+
+   uadv.Ta
+       3d u velocity (used for advection) on thickness gridpoints
+   vadv.Ta
+       3d v velocity (used for advection) on thickness gridpoints
+   wadv.Ta
+       3d w velocity (used for advection) on thickness gridpoints
+
+Restart extraction
+==================
+
+``PREFIX/local/bin/cnx.sh`` also can be used to extract Restart
+(Initial) condition from IcIES results.
+
+Usage::
+
+  PATH-TO/cnx.sh -X cabcnv [-f] -T <TIME> -G <GROUP> -F <RESTART> <REPORT>
+
+Typical usage::
+
+  % cd src/movement 
+  % ../../local/bin/cnx.sh -X cabcnv -f -T 30000 \
+     -G VMI -F restart.VMI \
+    O/mdrvrm2/nm11a_60_cnxtest/L/vrep.000_001 > Log.restart.VMI
+  % ../../local/bin/cnx.sh -X cabcnv -f -T 30000 \
+     -G VMTI -F restart.VMTI \
+    O/mdrvrm2/nm11a_60_cnxtest/L/vrep.000_001 > Log.restart.VMTI
+  % ls
+  restart.VMI  Log.restart.VMI
+  restart.VMTI Log.restart.VMTI
+
+``<REPORT>`` and ``-G <GROUP>`` is the same as NetCDF conversion.
+Output file-name should be specified by ``-F <RESTART>``, which is an
+original format that `IcIES` recognizes.
+The arguments ``-T <TIME>`` is mandatory to set which model-time to
+extract (30000 year in this example).
+
+In order to get precise attributes to restart, you must redirect
+its output to a file (``Log.restart.VMI`` and ``Log.restart.VMTI`` in
+the example).  This is quite long, but only the line begin with
+``CAX:F`` is used for this purposes.
+
+::
+
+  % grep -h '^CAX:F' Log.restart.VMI Log.restart.VMTI
+  CAX:F           105          840            1          22 ID VMI restart.VMI
+  CAX:F          1890        15120            1          12 ID VMTI restart.VMTI
+
+There are 7 columns (except for CAX:F fields).  Please specify these
+attributes in ``sysin`` as::
+
+   &NITFMI
+     CROOT = 'ID',       ## column 5
+     GROUP = 'VMI',      ## column 6
+     NV = 105,           ## column 1
+     LB = 840,           ## column 2
+     NR = 1,             ## column 3
+     MV = 22,            ## column 4
+     FNM = 'restart.VMI',   ## column 7
+     IRSKP = 15,16,17,18,19,20,   ## DO NOT MODIFY THIS LINE.
+   &END
+   &NITFMI
+     CROOT = 'ID',       ## column 5
+     GROUP = 'VMTI',     ## column 6
+     NV = 1890,          ## column 1
+     LB = 15120,         ## column 2
+     NR = 1,             ## column 3
+     MV = 12,            ## column 4
+     FNM = 'restart.VMTI',   ## column 7
+   &END
+
+To complete restart, you have to extract restart information from two
+groups, ``VMI`` and ``VMTI`` as above.  ``VMI`` attributes require
+special configuration entry of ``IRSKP``.
+
+Ascii extraction
+================
+
+Again, ``PREFIX/local/bin/cnx.sh`` can be used to extract ascii format data
+from IcIES results.
+
+Usage::
+
+  PATH-TO/cnx.sh -X cabcnv -t a [-f] -T <TIME> -G <GROUP> -F <OUTPUT> <REPORT>
+
+The arguments ``-t a`` set the output format as ascii.
+
+Typical usage::
+
+  % cd src/movement
+  % ../../local/bin/cnx.sh -v -t a -X cabcnv -f -T 30000 \
+     -G VMI -F ascii.VMI \
+    O/mdrvrm2/nm11a_60_cnxtest/L/vrep.000_001 > Log.ascii.VMI
+  % ls
+  ascii.VMI Log.ascii.VMI
+
+The arguments ``-T <TIME>`` is mandatory to set which model-time to
+extract (30000 year in this example).
+``<REPORT>`` and ``-G <GROUP>`` is the same as NetCDF or Restart conversion.
+Output file-name should be specified by ``-F <OUTPUT>``,
+which has 4 columns per one line::
+
+   VAR RANK COOR VALUE
+   VAR RANK COOR VALUE
+   :
+
+One group contains multiple variable fields.  Those variables are
+numbered from 1 on the first column (*VAR*).
+The second column (*RANK*) is the rank (from 0) which belongs to.
+The third column (*COOR*) is the grid index represented as 1-dimension
+array.  The fourth column (*VALUE*) is the value corresponds to *VAR*,
+*RANK*, and *COOR*.
+
+The geometric coordinates are outputted as the group ``AKW`` at the
+time **0**.  You can get the ``AKW`` group in the ascii format as::
+
+  % ../../local/bin/cnx.sh -v -t a -X cabcnv -f -T 0 \
+     -G AKW -F ascii.AKW \
+    O/mdrvrm2/nm11a_60_cnxtest/L/vrep.000_001 > Log.ascii.AKW
+  % ls
+  ascii.AKW Log.ascii.AKW
+
+In order to get variable index, you must redirect
+its output to a file (``Log.ascii.VMI`` and ``Log.ascii.AKW`` in
+the example).  This is quite long, but only the line begin with
+``CAX:V`` is used for this purposes.
+
+::
+
+  % grep -h '^CAX:V' Log.ascii.AKW
+  CAX:V     1 GXab.MO
+  CAX:V     2 GXab.MA
+  CAX:V     3 GXab.TO
+  CAX:V     4 GXab.TA
+  :
+
+The names of the X- and Y-coordinate of thickness grids are ``Xa.Mo``
+and ``Ya.Mo``, respectively, which are normally 105 and 113.
+
+In order to create, for example, 3-column ascii data contains x, y,
+and thickness (group ``VMI``, variable ``H.Ha``), the following
+procedure can be used::
+
+  % ../../local/bin/cnx.sh -v -t a -X cabcnv -f -T 30000 \
+     -G VMI -F ascii.VMI \
+    O/mdrvrm2/nm11a_60_cnxtest/L/vrep.000_001 > Log.ascii.VMI
+  # check index H.Ha (e.g., 3)
+
+  % ../../local/bin/cnx.sh -v -t a -X cabcnv -f -T 0 \
+     -G AKW -F ascii.AKW \
+    O/mdrvrm2/nm11a_60_cnxtest/L/vrep.000_001 > Log.ascii.AKW
+  # check index Xa.Mo (e.g., 105)
+  # check index Ya.Mo (e.g., 113)
+
+  % gawk '$1==3   {print $4}' ascii.VMI > ascii.VMI_H.Ha
+  % gawk '$1==105 {print $4}' ascii.VMI > ascii.Xa
+  % gawk '$1==113 {print $4}' ascii.VMI > ascii.Ya
+  % paste ascii.Xa ascii.Ya ascii.VMI_H.Ha > ascii.Xa_Ya_H.Ha
+
+
+..  LocalWords:  IcIES SAITO Fuyuki fuyuki README df ce bfdbe fc ae
+..  LocalWords:  dbbd sysin zx MISMIP NetCDF zsh cd src VMI nc MPI uN
+..  LocalWords:  gridpoints VMHB VMSX Hb cabcnv VMTI CAX NITFMI CROOT
+..  LocalWords:  MV FNM IRSKP VMTI Ascii ascii COOR AKW GXab Xa

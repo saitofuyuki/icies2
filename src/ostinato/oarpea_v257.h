@@ -2,14 +2,15 @@ C ostinato/oarpkw.h --- Ostinato/Arpeggio/Elements(A) definitions
 C Maintainer:  SAITO Fuyuki
 C Created: Dec 29 2011
 #ifdef HEADER_PROPERTY
-#define _TSTAMP 'Time-stamp: <2020/09/15 12:14:11 fuyuki oarpea_v257.h>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:28:23 fuyuki oarpea_v257.h>'
 #define _FNAME 'ostinato/oarpea.h'
 #define _REV   'Arpeggio 1.0'
 #endif /* HEADER_PROPERTY */
 CCC_! MANIFESTO
 C
 C Copyright (C) 2011--2020
-C           Japan Agency for Marine-Earth Science and Technology
+C           Japan Agency for Marine-Earth Science and Technology,
+C           Ayako ABE-OUCHI
 C
 C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)
@@ -227,7 +228,7 @@ CCC_ + maximum
 #define EA_MAX(T)     EA_list1(T)+EA_size1(T)*2
 
 CCC_* End definitions
-#endif  /* _OARPEA_H */
+#endif  /* not _OARPEA_H */
 CCC_! FOOTER
 C Local Variables:
 C mode: fortran

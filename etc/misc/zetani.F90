@@ -1,7 +1,7 @@
 !!!_! zetani.F90 --- zeta integral with simpson method.
 ! Maintainer:  SAITO Fuyuki
 ! Created: Nov 22 2018
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:48:24 fuyuki zetani.F90>'
+#define TIME_STAMP 'Time-stamp: <2020/09/17 09:02:01 fuyuki zetani.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif

@@ -4,9 +4,9 @@ C Created: Mar  3 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:47:46 fuyuki ddroot.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:49:23 fuyuki ddroot.F>'
 #define _FNAME 'development/ddroot.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -30,7 +30,7 @@ CCC_ & DevDev  ## Development/Development
      O     (iErr)
       implicit none
       _INTENT(OUT,integer) iErr
-      call DDcapo (iErr, 2, ' ', ' ', ' ', -1)
+      call DDcapC (iErr, 2, ' ', ' ', ' ', -1, 'B')
       return
       END
 CCC_ & DDmdef  ## Development/Development (mpi/default)
@@ -40,7 +40,7 @@ CCC_ & DDmdef  ## Development/Development (mpi/default)
       implicit none
       _INTENT(OUT,integer)   iErr
       _INTENT(IN, character) FNM*(*)
-      call DDcapo (iErr, 2, ' ', 'O', FNM, -1)
+      call DDcapC (iErr, 2, ' ', 'O', FNM, -1, 'B')
       return
       END
 CCC_ & DDsmpl  ## Development/Development (simple)
@@ -66,11 +66,11 @@ CCC_ & DDcapo  ## Development/core Capo
      I     KSPLT,
      I     DTMPL, TOP, EXE, KEXE)
       implicit none
-      _INTENT(INOUT,integer)   iErr
-      _INTENT(IN,   character) DTMPL*(*)
-      _INTENT(IN,   character) TOP*(*)
-      _INTENT(IN,   character) EXE*(*)
-      _INTENT(IN,   integer)   KEXE,  KSPLT
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, character) DTMPL*(*)
+      _INTENT(IN, character) TOP*(*)
+      _INTENT(IN, character) EXE*(*)
+      _INTENT(IN, integer)   KEXE,  KSPLT
       call DDcapC
      O    (iErr,
      I     KSPLT,
@@ -84,12 +84,12 @@ CCC_ & DDcapC  ## Development/core Capo core
      I     DTMPL, TOP, EXE, KEXE, CLOGD)
 CCC_  - Declaration
       implicit none
-      _INTENT(INOUT,integer)   iErr
-      _INTENT(IN,   character) DTMPL*(*)
-      _INTENT(IN,   character) TOP*(*)
-      _INTENT(IN,   character) EXE*(*)
-      _INTENT(IN,   character) CLOGD*(*)
-      _INTENT(IN,   integer)   KEXE,  KSPLT
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, character) DTMPL*(*)
+      _INTENT(IN, character) TOP*(*)
+      _INTENT(IN, character) EXE*(*)
+      _INTENT(IN, character) CLOGD*(*)
+      _INTENT(IN, integer)   KEXE,  KSPLT
 c
       character  BMSG0*(*)
       parameter (BMSG0 = 'WELCOME TO THE IcIES WORLD...')
@@ -105,9 +105,7 @@ CCC_   . Environment and Arguments
       if (iErr.eq.0) call DEmngr (iErr)
 CCC_   . MPI/Bootstrap initialization suite
       if (iErr.eq.0) call DMinit (iErr, ibsA, 1, KSPLT, LvlIni)
-c$$$CCC_  * MPI color manipulation
-c$$$      if (iErr.eq.0) call DMUcfg (iErr, ibsA)
-c$$$      if (iErr.eq.0) call DMUcfg (iErr, ibsA)
+CCC_   . banner
       if (CLOGD.ne.'N') then
          if (iErr.eq.0) then
             call DevBnB (ibsA, BMSG0)
@@ -278,7 +276,7 @@ CCC_ & DVHrgC ## alias for DDPrgC
       call DDPrgC (iErr, CLS, DROOT, DTMPL, ipA)
       RETURN
       END
-CCC_ & DDPrgC ## template class registration (old DVHrgC)
+CCC_ & DDPrgC ## template class registration (inherit DVHrgC)
       subroutine DDPrgC
      O    (iErr,
      I     CLS,  DROOT, DTMPL, ipA)

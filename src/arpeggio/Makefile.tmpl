@@ -1,8 +1,8 @@
-# arpeggio/Makefile.tmpl --- Arpeggio Makefile.am template
+# src/arpeggio/Makefile.tmpl --- Arpeggio Makefile.am template
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 4 2011
 # Revision:  Arpeggio 1.0
-# Time-stamp: <2020/09/15 22:30:01 fuyuki Makefile.tmpl>
+# Time-stamp: <2020/09/17 06:48:17 fuyuki Makefile.tmpl>
 
 # Copyright: 2011--2020 JAMSTEC
 # Licensed under the Apache License, Version 2.0
@@ -12,6 +12,18 @@ libicies_local_la_ORIGINS	= acorms.F agmtry.F aedlra.F akwopr.F afintf.F apscfg.
 EXTRA_SRCS =
 
 LIB_DEPEND_DIRS	=	development unison
+
+copy-bin:
+	$(CP) $(top_builddir)/$(ETC_HELPER)/bin/ax.sh $(builddir)/bin
+
+copy-sysin:
+	$(CP) $(top_srcdir)/$(ETC_HELPER)/$(subdir)/sysin.* $(builddir)
+
+ln-sysin:
+	$(LN_S) $(top_srcdir)/$(ETC_HELPER)/$(subdir)/sysin.* $(builddir)
+
+install-cadenza:
+	@cd $(top_builddir); $(MAKE) $(AM_MAKEFLAGS) $@
 
 ### Local Variables:
 ### mode: makefile-automake

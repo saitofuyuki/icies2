@@ -1,9 +1,6 @@
 dnl build-aux/icies/m4/sqidef.m4 --- definition for sqihelp
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Sep 5 2012 (original movement/mvheader.m4)
-dnl Copyright: 2012--2020 JAMSTEC
-dnl Licensed under the Apache License, Version 2.0
-dnl   (https://www.apache.org/licenses/LICENSE-2.0)
 m4_divert(KILL)dnl
 dnl --------------------------------------------------------------------------------
 dnl typical usage
@@ -49,17 +46,30 @@ m4_define([c_entry_core_aarray],
 [dnl
 m4_ifdef(m4_quote([TYPESET](_prefix)), [],
 [m4_define(m4_quote([TYPESET](_prefix)), [true])dnl
-typeset -A [$1]
+typeset -A _prefix
 ])dnl
 _prefix@<:@[$1]@:>@=_counter[] @%:@ $2[]dnl
 ])
+
+dnl c_entry_core_plist(SUFFIX, COMMENT)
+dnl make prefix list
+m4_define([c_entry_core_plist],
+[dnl
+m4_ifdef(m4_quote([TYPESET](_prefix)), [],
+[m4_define(m4_quote([TYPESET](_prefix)), [true])dnl
+_prefix])])
+
+m4_define([c_divert_text_nnl],
+[m4_divert_push([$1])$2[]dnl
+m4_divert_pop([$1])])
 
 dnl c_entry_core(SUFFIX, COMMENT)
 dnl Entry insertion using _c_entry_core as template macro.
 dnl As well as define <_prefix>SUFFIX m4-macro as <_counter>
 m4_define([c_entry_core],
 [dnl
-m4_divert_text([DEFS], [_$0([$1], [$2])])[]dnl
+dnl m4_divert_text([DEFS], [_$0([$1], [$2])])[]dnl
+c_divert_text_nnl([DEFS], [m4_n(_$0([$1], [$2]))])[]dnl
 _$0([$1], [$2])[]dnl
 m4_define(m4_quote(_prefix[]_$1), _counter)dnl
 _dummy(m4_quote(_prefix[]_$1),m4_indir(_prefix[]_$1))dnl
@@ -67,8 +77,16 @@ _dummy(m4_quote(_prefix[]_$1),m4_indir(_prefix[]_$1))dnl
 
 dnl template choice
 m4_case(OTYPE,
-[shell],  [m4_define([_c_entry_core], [c_entry_core_shell($@)])],
-[aarray], [m4_define([_c_entry_core], [c_entry_core_aarray($@)])],
+dnl shell
+[shell],
+[m4_define([_c_entry_core], [c_entry_core_shell($@)])],
+dnl shell/array
+[aarray],
+[m4_define([_c_entry_core], [c_entry_core_aarray($@)])],
+dnl prefix list
+[plist],
+[m4_define([_c_entry_core], [c_entry_core_plist($@)])],
+dnl others
 [m4_define([_c_entry_core], [c_entry_core_cpp($@)])])
 
 dnl c_entry_first(SUFFIX, COMMENT)

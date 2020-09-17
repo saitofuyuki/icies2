@@ -1,30 +1,27 @@
-C ostinato/ofnstd.h --- IcIES/Ostinato i/o units definitions
-C Maintainer:  SAITO Fuyuki
-C Created: Nov 18 1998
+/* ostinato/ofnstd.h --- IcIES/Ostinato i/o units definitions */
+/* Maintainer:  SAITO Fuyuki */
+/* Created: Nov 18 1998 */
 #ifdef HEADER_PROPERTY
-#define _TSTAMP 'Time-stamp: <2013/09/26 06:41:30 fuyuki ofnstd.h>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:48:15 fuyuki ofnstd.h>'
 #define _FNAME 'ostinato/ofnstd.h'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 #endif /* HEADER_PROPERTY */
-CCC_! MANIFESTO
-C
-C Copyright (C) 2010--2020
-C           Japan Agency for Marine-Earth Science and Technology,
-C           Ayako ABE-OUCHI
-C
-C Licensed under the Apache License, Version 2.0
-C   (https://www.apache.org/licenses/LICENSE-2.0)
-C
-CCC_* Definitions
+/***_! MANIFESTO */
+/* Copyright (C) 2010--2020 */
+/*           Japan Agency for Marine-Earth Science and Technology, */
+/*           Ayako ABE-OUCHI */
+/* Licensed under the Apache License, Version 2.0 */
+/*   (https://www.apache.org/licenses/LICENSE-2.0) */
+/***_* Definitions */
 #ifndef    _OFNSTD_H
 #  define  _OFNSTD_H
-CC
+
 #ifndef   LOG_CHANNEL_MAX
 #  define LOG_CHANNEL_MAX 39
 #endif
-CC                          012345678901234567890123456789012345678 == 39
+/*                          012345678901234567890123456789012345678 == 39 */
 #define LOG_CHANNEL_STRING 'ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789*-'
-C
+
 #ifndef   LOG_CHANNEL_NUM
 #  define LOG_CHANNEL_NUM 26
 #endif
@@ -54,11 +51,11 @@ C
 #define FPX(A) A(24)
 #define FPY(A) A(25)
 #define FPZ(A) A(26)
-CCC_ + Obsolete macros
+/***_ + Obsolete macros */
 #ifndef   _PFP
 #  define _PFP ipA
 #endif
-CCC_  - channels
+/***_  - channels */
 #define _PFPA _PFP (1)
 #define _PFPB _PFP (2)
 #define _PFPC _PFP (3)
@@ -85,20 +82,6 @@ CCC_  - channels
 #define _PFPX _PFP (24)
 #define _PFPY _PFP (25)
 #define _PFPZ _PFP (26)
-CCC_ + log symbols
-c$$$#define _CHMSG ': '
-c$$$#define _CHERR '# '
-c$$$      parameter (PchMON='% ')
-c$$$      parameter (PchDBG='@ ')
-c$$$      parameter (PchERR='# ')
-c$$$      parameter (PchMSG=': ')
-CCC_* End definitions
-c$$$#ifdef   _PFP
-c$$$#  undef _PFP
-c$$$#endif
-#endif  /* _OFNSTD_H */
-CCC_! FOOTER
-C Local Variables:
-C mode: fortran
-C fff-style: "iciesShermy"
-C End:
+/***_* End definitions */
+#endif  /* not _OFNSTD_H */
+/***_! FOOTER */

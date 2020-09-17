@@ -1,8 +1,8 @@
 # src/cadenza/Makefile.tmpl --- IcIES/Cadenza Makefile.am template
 # Maintainer:  SAITO Fuyuki
 # Created: Mar 29 2013
-# Revision:  Snoopy0.9
-# Time-stamp: <2020/09/15 22:30:37 fuyuki Makefile.tmpl>
+# Revision:  Snoopy0.97
+# Time-stamp: <2020/09/17 06:48:44 fuyuki Makefile.tmpl>
 
 # Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -15,6 +15,14 @@ LDADD						= libicies_local.la ../libicies.la  ##%% t
 
 bin_PROGRAMS_ORIGINS	= cnxseq.F cvglst.F caechk.F cabcnv.F
 
+## cnxsim_SOURCES  = cnxsim.F
+# cnxsim_LDADD	= $(LDADD) -lnetcdf -lnetcdff
+# cnxsim_LDADD	= -lnetcdf -lnetcdff
+# cnxsim_CPPFLAGS	= -I$(NETCDFINC)
+
+
+### cnxseq_SOURCES  = cnxseq.F
+# cnxseq_LDADD	= $(LDADD) -lnetcdf -lnetcdff
 cnxseq_LDADD	= $(LDADD) $(NETCDF_LDFLAGS) -lnetcdf -lnetcdff
 cnxseq_CPPFLAGS	= $(NETCDF_CPPFLAGS)  ##%% a
 cnxseq_FFLAGS	= -I$(NETCDFINC)  ##%% a
@@ -24,6 +32,10 @@ CLEANFILES		= $(bin_SCRIPTS) ##%% a
 
 LIB_DEPEND_DIRS	=	.
 SRC_DEPEND_DIRS	=	cadenza arpeggio development unison
+
+WRAP_obsolete256:
+	$(MAKE) DEFS='-DOARPEA_REV=256'
+	for i in $(bin_PROGRAMS); do mv $$i $$i''_o256; done
 
 ### Local Variables:
 ### mode: makefile-automake

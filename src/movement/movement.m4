@@ -2,7 +2,7 @@ dnl movement/movement.m4 --- Template for Definition for IcIES/Movement modules
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Jan 17 2012
 m4_define([TIME_STAMP],
-          ['Time-stamp: <2020/09/15 12:15:50 fuyuki movement.m4>'])dnl
+          ['Time-stamp: <2020/09/17 08:16:21 fuyuki movement.m4>'])dnl
 C movement/movement.h --- Definition for IcIES/Movement modules
 C Maintainer:  SAITO Fuyuki
 C Created: Dec 20 2011
@@ -12,11 +12,11 @@ C Created: Dec 20 2011
 #ifdef HEADER_PROPERTY
 [#]define _TSTAMP TIME_STAMP
 #define _FNAME 'movement/movement.h'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 #endif /* HEADER_PROPERTY */
 CCC_! MANIFESTO
 C
-C Copyright (C) 2011--2020
+C Copyright (C) 2012--2020
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -453,6 +453,9 @@ c_xincr([VMTW])
 
 c_xincr([VMTA])
 c_xincr([VMTD])
+
+c_xincr([VMAH], [HOA(a) 2d])
+c_xincr([VMAT], [HOA(a) 3d])
 
 c_xkeep([MAX])
 
@@ -1396,14 +1399,6 @@ c_xincr([nHa],   [Ice thickness (new)],     [nH], [a])
 c_xincr([nBa],   [Ice base      (new)],     [nB], [a])
 c_xincr([nSa],   [Ice surface   (new)],     [nS], [a])
 
-c_xincr([ADVXe], [advection switch xe],         [advxe],[a])
-c_xincr([ADVXw], [advection switch xw],         [advxw],[a])
-
-c_xincr([ADVYn], [advection switch yn],         [advyn],[a])
-c_xincr([ADVYs], [advection switch ys],         [advys],[a])
-
-c_xincr([frd],   [frictional dissipation (not heating)],        [frd],   [a])
-
 c_xkeep([MAX])
 
 CCC_  * [VMHW] Temperature and others (2d)
@@ -1421,10 +1416,76 @@ c_xincr([dHdy],  [dH/dy],                       [dHdy], [a])
 c_xincr([dBdy],  [db/dy],                       [dbdy], [a])
 
 c_xincr([HSB],   [HSB],       [HSB],    [a])
+c_xincr([frd],   [frictional dissipation (not heating)], [frd],   [a])
+
+c_xincr([ADVXe], [advection switch xe],         [advxe],[a])
+c_xincr([ADVXw], [advection switch xw],         [advxw],[a])
+
+c_xincr([ADVYn], [advection switch yn],         [advyn],[a])
+c_xincr([ADVYs], [advection switch ys],         [advys],[a])
 
 c_xincr([W1],   [work],      [W1],   [a])
 c_xincr([W2],   [work],      [W2],   [a])
 c_xincr([W3],   [work],      [W3],   [a])
+
+c_xkeep([MAX])
+
+CCC_  - [VMAH] HOA(a) 2d
+c_reset([VMAH])
+
+c_xincr([txho],  [txho],  [tau x hat org],  [b])
+c_xincr([tyho],  [tyho],  [tau y hat org],  [c])
+c_xincr([txhm],  [txhm],  [tau x hat cache (minimum)],  [b])
+c_xincr([tyhm],  [tyhm],  [tau y hat cache (minimum)],  [c])
+
+c_xincr([txhb],  [txhb],  [tau x hat current level],  [b])
+c_xincr([tyhb],  [tyhb],  [tau y hat current level],  [b])
+c_xincr([txhc],  [txhc],  [tau x hat current level],  [c])
+c_xincr([tyhc],  [tyhc],  [tau y hat current level],  [c])
+
+c_xincr([dudx], [dudx], [du/dx],      [aa])
+c_xincr([dudy], [dudy], [du/dy],      [aa])
+c_xincr([dvdx], [dvdx], [dv/dx],      [aa])
+c_xincr([dvdy], [dvdy], [dv/dy],      [aa])
+
+c_xincr([dcxdzb], [dcxdz], [dcx/dz],    [b])
+c_xincr([dcydzb], [dcydz], [dcy/dz],    [b])
+c_xincr([dcxdzc], [dcxdz], [dcx/dz],    [c])
+c_xincr([dcydzc], [dcydz], [dcy/dz],    [c])
+
+c_xkeep([MAX])
+
+CCC_  - [VMAT] HOA(a) 3d
+c_reset([VMAT])
+c_xincr([dxx],  [dxx], [dev.stress xx], [aa])
+c_xincr([dyy],  [dyy], [dev.stress yy], [aa])
+c_xincr([dxy],  [dxy], [stress xy],     [aa])
+c_xincr([dxz],  [dxz], [stress xz],     [ba])
+c_xincr([dyz],  [dyz], [stress yz],     [ca])
+
+c_xincr([exx],  [exx], [str. rate xx],  [aa])
+c_xincr([eyy],  [eyy], [str. rate yy],  [aa])
+c_xincr([exy],  [exy], [str. rate xy],  [aa])
+c_xincr([exz],  [exz], [str. rate xz],  [ba])
+c_xincr([eyz],  [eyz], [str. rate yz],  [ca])
+
+c_xincr([cxa],  [cxa],  [cxa],   [aa])
+c_xincr([cxb],  [cxb],  [cxb],   [ba])
+c_xincr([cxc],  [cxc],  [cxc],   [ca])
+c_xincr([cxha], [cxha], [cxha],  [ab])
+c_xincr([cxhb], [cxhb], [cxhb],  [bb])
+c_xincr([cxhc], [cxhc], [cxhc],  [cb])
+
+c_xincr([cya],  [cya],  [cya],   [aa])
+c_xincr([cyb],  [cyb],  [cyb],   [ba])
+c_xincr([cyc],  [cyc],  [cyc],   [ca])
+c_xincr([cyha], [cyha], [cyha],  [ab])
+c_xincr([cyhb], [cyhb], [cyhb],  [bb])
+c_xincr([cyhc], [cyhc], [cyhc],  [cb])
+
+c_xincr([rfa],  [rfa],  [rate factor], [aa])
+c_xincr([rfb],  [rfb],  [rate factor], [ba])
+c_xincr([rfc],  [rfc],  [rate factor], [ca])
 
 c_xkeep([MAX])
 
@@ -1478,7 +1539,7 @@ CCC_ + Work sizes
 CCC_ + Independent tests
 #define MOVEMENT_DV_CLS 'V'
 CCC_* End definitions
-#endif  /* _MOVEMENT_H */
+#endif  /* not _MOVEMENT_H */
 CCC_* Obsolete
 CCC_ + begin
 #if 0 /* obsolete */

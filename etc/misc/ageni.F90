@@ -1,7 +1,7 @@
 !!!_! ageni.F90 --- age integral with simpson method.
 ! Maintainer:  SAITO Fuyuki
 ! Created: Nov 14 2018
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:48:04 fuyuki ageni.F90>'
+#define TIME_STAMP 'Time-stamp: <2020/09/17 09:01:32 fuyuki ageni.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -12,6 +12,7 @@
 !
 ! Licensed under the Apache License, Version 2.0
 !   (https://www.apache.org/licenses/LICENSE-2.0)
+!
 !!!_* includes
 !!!_* program
 program ageni
@@ -181,9 +182,3 @@ end program ageni
 !!!_ + Local variables
 ! Local Variables:
 ! End:
-# Copyright: 2016--2020 JAMSTEC
-# Licensed under the Apache License, Version 2.0
-#   (https://www.apache.org/licenses/LICENSE-2.0)
-# Copyright: 2016--2020 JAMSTEC
-# Licensed under the Apache License, Version 2.0
-#   (https://www.apache.org/licenses/LICENSE-2.0)

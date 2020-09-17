@@ -4,9 +4,9 @@ C Created: Sep 5 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/08/19 14:29:56 fuyuki mslbcg.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:47:14 fuyuki mslbcg.F>'
 #define _FNAME 'movement/mslbcg.F'
-#define _REV   'Snoopy0.9/Three0.1'
+#define _REV   'Snoopy0.97/Three0.1'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -21,6 +21,7 @@ CCC_* Common macros
 #include "ologfm.h"   /* logging */
 #include "oarpea.h"
 #include "oarpkw.h"   /* operation id in arpeggio/kiwi */
+#include "odopts.h"   /* option/parameter configuration */
 #ifdef NO_MOVEMENT_H
 #else
 #  include "movement.h" /* movement definitions */
@@ -414,6 +415,64 @@ CCC_  - Arguments
       _INTENT(IN, character) CR*(*)
       _INTENT(IN, integer)   ipP, ipC, ipL
 CCC_  - Configuration
+      character Tag*(*)
+      parameter(Tag='SSAL')
+      integer   KSW
+      _REALSTD  Etol, EPS
+      integer   ItrMin, ItrMax
+CCC_ + Body
+      iErr = 0
+      KSW  = DOPTS_LEVEL_ALLOW_NULL + DOPTS_LEVEL_MATCH_TAG
+CCC_  - Parameters/options
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, ItrMax, 1024,
+     $        'ItrMax', 'Maximum iteration (SSA/linear)',
+     $        CR, Tag, ipP, ipC, ipL, KSW)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, ItrMin, 0,
+     $        'ItrMin', 'Minimum iteration (SSA/linear)',
+     $        CR, Tag, ipP, ipC, ipL, KSW)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, ETOL, ' ', 1.0d-12, ' ',
+     $        'ETOL', 'Conversion torelance (SSA/linear)',
+     $        CR, Tag, ipP, ipC, ipL, KSW)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, EPS, ' ', 0.0d0, ' ',
+     $        'EPS', 'epsilon',
+     $        CR, Tag, ipP, ipC, ipL, KSW)
+      endif
+CCC_  - Packing
+      if (iErr.eq.0) then
+         PMS (PMS_TOLL)    = ETOL
+         PMS (PMS_EPS)     = EPS
+         IMS (IMS_ITRL)    = ItrMax
+         IMS (IMS_ITRLmin) = ItrMin
+      endif
+c
+      call DAtrcU (ipL, iErr, 'R', 'MSLPMS')
+      RETURN
+      END
+CCC_& MSLpms  ## (obsolete/local namelist) Parameters initialization
+      subroutine obs_MSLpms
+     O    (iErr,
+     O     PMS,   IMS,
+     I     CR,    ipP, ipC, ipL)
+CCC_ + Declaration
+      implicit none
+CCC_  - Arguments
+      _INTENT(OUT,integer)   iErr
+      _INTENT(OUT,_REALSTD)  PMS (*)
+      _INTENT(OUT,integer)   IMS (*)
+      _INTENT(IN, character) CR*(*)
+      _INTENT(IN, integer)   ipP, ipC, ipL
+CCC_  - Configuration
       character  CROOT * (8)
       _REALSTD  Etol, EPS
       integer   ItrMin, ItrMax
@@ -440,7 +499,7 @@ c$$$      ItrMax = 100
 c$$$      EPS    = 1.0d-9
       EPS    = 0.0d0
 c
-      READ  (ipP, NISSAL, IOSTAT = iErr)
+      READ  (ipP, NISSAL, IOSTAT=iErr)
 c
       if (iErr.eq.0) then
          if (CROOT.eq.CR) goto 300
@@ -458,7 +517,7 @@ c
  300  continue
       if (iErr.eq.0) then
          CROOT = CR
-         write (ipC, NISSAL, IOSTAT = iErr)
+         write (ipC, NISSAL, IOSTAT=iErr)
       endif
 CCC_  - Packing
       PMS (PMS_TOLL)    = ETOL

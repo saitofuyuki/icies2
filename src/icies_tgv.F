@@ -1,12 +1,12 @@
-C icies_tgv.F --- IcIES/TGV (1d thermodynamics/age)
+C icies_tgv.F --- IcIES/TGV (1d thermodynamics)
 C Author: SAITO Fuyuki
 C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/17 13:48:13 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 06:51:50 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2018--2020
@@ -18,7 +18,7 @@ C   (https://www.apache.org/licenses/LICENSE-2.0)
 C
 CCC_* Common macros
 #include "ofdlct.h"   /* fortran dialect */
-#include "odevva.h"
+#include "odevel.h"
 #include "ofnstd.h"
 #include "ologfm.h"
 CCC_ + Switches
@@ -32,18 +32,18 @@ CCC_ + Domain size
 CCC_ + TGV test parameter
 #define ITGV_MSPATTERN   1 /* ms pattern */
 #  define SW_MSPAT_DEF    0
-#  define SW_MSPAT_STEP   1
-#  define SW_MSPAT_COS    2
-#  define SW_MSPAT_LINEAR 3
-#  define SW_MSPAT_EXP    4
-#  define SW_MSPAT_XFILE  5
+#  define SW_MSPAT_STEP   1 /* square-wave (step) */
+#  define SW_MSPAT_COS    2 /* cosine-wave */
+#  define SW_MSPAT_LINEAR 3 /* triangle-wave (linear) */
+#  define SW_MSPAT_EXP    4 /* exponential */
+#  define SW_MSPAT_XFILE  5 /* external file */
 #define ITGV_MBPATTERN   2 /* mb pattern */
 #define ITGV_DHPATTERN   3 /* dH pattern */
 #  define SW_DHPAT_EXP_VIALOV  5 /* exponential evolution toward vialov solution */
 #define ITGV_WTYPE       4 /* w pattern */
-#  define WTYPE_CONST    0
-#  define WTYPE_VIALOV   1
-#  define WTYPE_POWER    2
+#  define WTYPE_CONST    0 /* constant velocity */
+#  define WTYPE_VIALOV   1 /* vialov summit velocity */
+#  define WTYPE_POWER    2 /* (reserved) power formulation */
 #define ITGV_XFILE_MS    5 /* surface mass balance history */
 #define ITGV_MAX         5
 
@@ -55,11 +55,6 @@ CCC_ + TGV test parameter
 #define PTGV_S_THSTD     5   /* surface: steady high period */
 #define PTGV_S_DURATION  6   /* surface: total duration */
 #define PTGV_S_PHASE     7   /* surface: phase offset */
-
-#define PTGV_S_XTPREV   20   /* surface: xfile last time */
-#define PTGV_S_XTNEXT   21   /* surface: xfile next time */
-#define PTGV_S_VPREV    22   /* surface: xfile last value */
-#define PTGV_S_VNEXT    23   /* surface: xfile next value */
 
 #define PTGV_B_TDECR     8   /* base: decrement period */
 #define PTGV_B_TINCR     9   /* base: increment period */
@@ -75,7 +70,12 @@ CCC_ + TGV test parameter
 #define PTGV_H_DURATION  18  /* thickness: total duration */
 #define PTGV_H_PHASE     19  /* thickness: phase offset */
 
-#define PTGV_MAX          19
+#define PTGV_S_XTPREV   20   /* surface: xfile last time */
+#define PTGV_S_XTNEXT   21   /* surface: xfile next time */
+#define PTGV_S_VPREV    22   /* surface: xfile last value */
+#define PTGV_S_VNEXT    23   /* surface: xfile next value */
+
+#define PTGV_MAX         23
 CCC_ + TGV test field
 #define VXCFG_MSMAX     1
 #define VXCFG_MSMIN     2
@@ -91,23 +91,23 @@ CCC_@ TGVdrv  ## IcIES/TGV driver
 CCC_ + Declaration
       implicit none
       integer iErr
-      integer ipA (LOG_CHANNEL_MAX)
-      integer iMA (MAX_MPI_ATTR)
+      integer ipA(LOG_CHANNEL_MAX)
+      integer iMA(MAX_MPI_ATTR)
 CCC_ + Body
       call DDcapo
      O    (iErr,
      I     2, ' ', 'O', _FNAME, -1)
 c
       if (iErr.eq.0) then
-         call DLCmng (ipA, 't')
-         call DVHrgC (iErr, 'V', ' ', ' ', ipA)
+         call DLCmng(ipA, 't')
+         call DDPrgC(iErr, 'V', ' ', ' ', ipA)
       endif
 c
       if (iErr.eq.0) then
-         call DMAtma (iMA)
-         call TGVcnd (iErr, ipA, iMA)
+         call DMAtma(iMA)
+         call TGVcnd(iErr, ipA, iMA)
       endif
-      call DevFin (iErr)
+      call DevFin(iErr)
       STOP
       END
 CCC_& TGVcnd  ## IcIES/TGV conductor
@@ -128,8 +128,8 @@ CCC_ + System-dependent switches
 CCC_ + Declaration
       implicit none
       _INTENT(OUT,integer)  iErr
-      _INTENT(IN, integer)  ipA (*)
-      _INTENT(IN, integer)  iMA (*)
+      _INTENT(IN, integer)  ipA(*)
+      _INTENT(IN, integer)  iMA(*)
 CCC_  - Domain size limit
 #ifndef   OPT_MDRVRM_LHP_MAX
 #  define OPT_MDRVRM_LHP_MAX OPT_MOVEMENT_LHP_MAX
@@ -147,92 +147,86 @@ CCC_  - Domain size limit
 #  define OPT_BGLBRT_LVP_MAX (OPT_MDRVRM_LHP_MAX*OPT_BGLBRT_LVZ_MAX)
 #endif
       integer    LHPref
-      parameter (LHPref = OPT_MDRVRM_LHP_MAX)
+      parameter (LHPref=OPT_MDRVRM_LHP_MAX)
       integer    LHGref
-      parameter (LHGref = OPT_MDRVRM_LHG_MAX)
+      parameter (LHGref=OPT_MDRVRM_LHG_MAX)
       integer    LTPref
-      parameter (LTPref = OPT_MDRVRM_LVP_MAX)
+      parameter (LTPref=OPT_MDRVRM_LVP_MAX)
       integer    LZref
-      parameter (LZref  = OPT_MDRVRM_LVZ_MAX)
+      parameter (LZref=OPT_MDRVRM_LVZ_MAX)
       integer    LZrefR
-      parameter (LZrefR = OPT_BGLBRT_LVZ_MAX)
+      parameter (LZrefR=OPT_BGLBRT_LVZ_MAX)
       integer    LBPref
-      parameter (LBPref = OPT_BGLBRT_LVP_MAX)
+      parameter (LBPref=OPT_BGLBRT_LVP_MAX)
 CCC_  - Variable clusters
 CCC_   . work common
       integer    LVMW
-      parameter (LVMW  = LHPref  * VMW_MAX)
-      _REALSTD   VMW  (LVMW)
+      parameter (LVMW=LHPref * VMW_MAX)
+      _REALSTD   VMW(LVMW)
       integer    LVMTW
-      parameter (LVMTW = LTPref * VMTW_MAX)
-      _REALSTD   VMTW (LVMTW)
-CCC_   . bcg solution/right/intermediate
-CCC_   . field common
-      _REALSTD   VMHI (LHPref * VMHI_MAX)
-      _REALSTD   VMHW (LHPref * VMHW_MAX)
-c
-      _REALSTD   VMHB (LHPref * VMHB_MAX)
-      _REALSTD   VMHR (LHPref * VMHR_MAX)
-CCC_   . 3d velocity
-      _REALSTD   VMTI (LTPref * VMTI_MAX)
+      parameter (LVMTW=LTPref * VMTW_MAX)
+      _REALSTD   VMTW(LVMTW)
+CCC_   . 2d field common
+      _REALSTD   VMHI(LHPref * VMHI_MAX)
+      _REALSTD   VMHW(LHPref * VMHW_MAX)
+      _REALSTD   VMHB(LHPref * VMHB_MAX)
+CCC_   . 3d ice temperature
+      _REALSTD   VMTI(LTPref * VMTI_MAX)
 CCC_   . 3d age
-      _REALSTD   VMTA (LTPref * VMTA_MAX)
-      _REALSTD   VMTD (LTPref * VMTD_MAX)
-CCC_   , bedrock temperature
-      _REALSTD   VBBI (LHPref * VBBI_MAX)
-      _REALSTD   VBBT (LBPref * VBBT_MAX)
-      _REALSTD   VBBW (LBPref * VBBW_MAX)
+      _REALSTD   VMTA(LTPref * VMTA_MAX)
+      _REALSTD   VMTD(LTPref * VMTD_MAX)
+CCC_   . 3d bedrock temperature
+      _REALSTD   VBBI(LHPref * VBBI_MAX)
+      _REALSTD   VBBT(LBPref * VBBT_MAX)
+      _REALSTD   VBBW(LBPref * VBBW_MAX)
 CCC_   . experiment configuration
       _REALSTD   VXCFG(LHPref * VXCFG_MAX)
 CCC_   . conversion table
-      integer    KTB  (LHPref, 2)
-CCC_   . integration weights
+      integer    KTB(LHPref, 2)
+CCC_  - integration weights
       integer    NTH
-      parameter (NTH = 2)
-      _REALSTD   GG  (LZref * 4 * (NTH + 1) * (NTH + 1))
-CCC_  - kiwi weights
+      parameter (NTH=2)
+      _REALSTD   GG(LZref * 4 * (NTH + 1) * (NTH + 1))
+CCC_  - 2d geometry (kiwi weights)
       integer    LKW
-      parameter (LKW = 90)
-      _REALSTD   WW (LHPref * LKW)
+      parameter (LKW=90)
+      _REALSTD   WW(LHPref * LKW)
 CCC_  - vertical geometry
-      _REALSTD   WZV (LZref * VMVZ_MAX)
-      _REALSTD   WZR (LZref * VBBZ_MAX)
+      _REALSTD   WZV(LZref * VMVZ_MAX)
+      _REALSTD   WZR(LZref * VBBZ_MAX)
 CCC_  - work
       integer    LCK
       parameter (LCK = LZref + 16)
-      _REALSTD   CW (LHPref * LCK)
-      _REALSTD   GW (LHGref)
+      _REALSTD   CW(LHPref * LCK)
 CCC_  - Parameters
-      logical    OMM (OMM_MAX)
-      integer    IMM (IMM_MAX)
-      _REALSTD   PMM (PMM_MAX)
-      integer    IBB (IBB_MAX)
-      _REALSTD   PBB (PBB_MAX)
+      logical    OMM(OMM_MAX)
+      integer    IMM(IMM_MAX)
+      _REALSTD   PMM(PMM_MAX)
+      integer    IBB(IBB_MAX)
+      _REALSTD   PBB(PBB_MAX)
 c
-      integer    ITGV (ITGV_MAX)
-      _REALSTD   PTGV (PTGV_MAX)
+      integer    ITGV(ITGV_MAX)
+      _REALSTD   PTGV(PTGV_MAX)
 CCC_  - Table
       character  CR*8
       data       CR /'ID'/
       character  CRR*8
       data       CRR /'RD'/
-      character  CRX*8
-      data       CRX /'XD'/
       integer    LIE
       parameter (LIE = (LHPref * 10))
-      integer    IE   (LIE)
-      integer    ipKW (IPKW_FULL_DECL)
+      integer    IE(LIE)
+      integer    ipKW(IPKW_FULL_DECL)
 CCC_   . global/private stencils
       integer    LNR
-      parameter (LNR = 256)
-      integer    KSglb (LNR * 2)
+      parameter (LNR=256)
+      integer    KSglb(LNR * 2)
       integer    LTBL
-      parameter (LTBL = LHPref)
-      integer    kDTA (LTBL, 3)
+      parameter (LTBL=LHPref)
+      integer    kDTA(LTBL, 3)
 CCC_   . clone group
       integer    LCG
-      parameter (LCG = KWCG_DECL(CGRP_MEM_MAX))
-      integer    ipCG (LCG, CGRP_MAX)
+      parameter (LCG=KWCG_DECL(CGRP_MEM_MAX))
+      integer    ipCG(LCG, CGRP_MAX)
 CCC_  - Interior
       integer    MH,  LH,  MG, LG
       integer    NZ,  LZ,  KZ0
@@ -243,31 +237,31 @@ CCC_  - Coordinate
 CCC_  - Time
       integer    ITstp
       _REALSTD   T,    TNXT
-      _REALSTD   TSSA, TBBT
+      _REALSTD   TSSA
       _REALSTD   DTI
       _REALSTD   TINI, TEND, DT
       _REALSTD   TBINI
 CCC_  - Output
-      integer    idGX (32)
-      integer    idGM (32)
-      integer    idGB (32)
+      integer    idGX(32)
+      integer    idGM(32)
+      integer    idGB(32)
       character  CSW*(16), CLS*(16)
-CCC_  - Log
-      integer    ipL, ipP, ipC, ipV
-      integer    ipFI (16)
+CCC_  - i/o units
+      integer    ipL, ipP, ipC
+      integer    ipFI(16)
 CCC_  - Test configuration
-      integer    MAXMTI,       MAXMTP
-      parameter (MAXMTI = 128, MAXMTP = 128)
-      integer  IMTI (MAXMTI)
-      _REALSTD PMTI (MAXMTP)
+      integer    MAXMTI,     MAXMTP
+      parameter (MAXMTI=128, MAXMTP=128)
+      integer    IMTI(MAXMTI)
+      _REALSTD   PMTI(MAXMTP)
 CCC_  - misc
       integer    jedmy
       _REALSTD T0
-CCC   _   . MDstpD
+CCC_   . MDstpD
       _REALSTD TI
 CCC_   . MDstpT
       integer NHt
-      _REALSTD   CONDI, CONDIP
+      _REALSTD CONDI, CONDIP
 CCC_   . MTButp
       integer  KHH, KHB
       _REALSTD HC
@@ -282,13 +276,12 @@ CCC_  - i/o configuration
       CSW = 'C'
       CLS = MOVEMENT_DV_CLS
 CCC_  - file units
-      ipL  = FPL(ipA)
-      ipP  = FPP(ipA)
-      ipC  = FPC(ipA)
-      ipV  = FPV(ipA)
+      ipL = FPL(ipA)
+      ipP = FPP(ipA)
+      ipC = FPC(ipA)
 CCC_  - Health check for Test module
       if (iErr.eq.0) then
-         call MUThch (iErr, MAXMTI, MAXMTP, ipP, ipC, ipL)
+         call MUThch(iErr, MAXMTI, MAXMTP, ipP, ipC, ipL)
       endif
 CCC_  - Model time
       if (iErr.eq.0) then
@@ -349,13 +342,13 @@ CCC_   . initialization suite
 CCC_   . Initialization
       if (iErr.eq.0) then
          T0 = 263.15d0
-         call UV0stc (VMTI, MH, LH, LZ,   LZ,  1, VMTI_T, T0)
-         call UV0stc (VBBT, MH, LH, LZR,  LZR, 1, VBBT_T, T0)
+         call UV0stc(VMTI, MH, LH, LZ,   LZ,  1, VMTI_T, T0)
+         call UV0stc(VBBT, MH, LH, LZR,  LZR, 1, VBBT_T, T0)
       endif
       if (iErr.eq.0) then
          T0 = 0.0d0
-         call UV0stc (VMTA, MH, LH, LZ,   LZ,  1, VMTA_age,  T0)
-         call UV0stc (VMTA, MH, LH, LZ,   LZ,  1, VMTA_dad3, T0)
+         call UV0stc(VMTA, MH, LH, LZ,   LZ,  1, VMTA_age,  T0)
+         call UV0stc(VMTA, MH, LH, LZ,   LZ,  1, VMTA_dad3, T0)
       endif
       if (iErr.eq.0) then
          T0 = 0.0d0
@@ -363,14 +356,13 @@ CCC_   . Initialization
       endif
       if (iErr.eq.0) then
          T0 = 3000.0d0
-         call UV0sta (VBBI, MH, LH, VBBI_HR, T0)
+         call UV0sta(VBBI, MH, LH, VBBI_HR, T0)
          T0 = -42.0d-3 * 31556926d0
-         call UV0sta (VBBI, MH, LH, VBBI_GH, T0)
+         call UV0sta(VBBI, MH, LH, VBBI_GH, T0)
       endif
       if (iErr.eq.0) then
          call AFBrmp(jedmy, VMHI, VMW,LVMW, idGM(VGRP_VMHI), IE,ipFI)
          call AFBrmp(jedmy, VMHB, VMW,LVMW, idGM(VGRP_VMHB), IE,ipFI)
-         call AFBrmp(jedmy, VMHR, VMW,LVMW, idGM(VGRP_VMHR), IE,ipFI)
          call AFBrmp(jedmy, VMTI, VMW,LVMW, idGM(VGRP_VMTI), IE,ipFI)
          call AFBrmp(jedmy, VMTA, VMW,LVMW, idGM(VGRP_VMTA), IE,ipFI)
          call AFBrmp(jedmy, VMTD, VMW,LVMW, idGM(VGRP_VMTD), IE,ipFI)
@@ -380,17 +372,13 @@ CCC_   . Initialization
       endif
       if (iErr.eq.0) then
          T0 = 0.0d0
-         call UV0sta (VXCFG, MH, LH, VXCFG_MBMAX, T0)
-         call UV0sta (VXCFG, MH, LH, VXCFG_MBMIN, T0)
+         call UV0sta(VXCFG, MH, LH, VXCFG_MBMAX, T0)
+         call UV0sta(VXCFG, MH, LH, VXCFG_MBMIN, T0)
          call AFBrmp(jedmy, VXCFG,VMW,LVMW, idGX(VGRPX_VXCFG), IE,ipFI)
       endif
       if (iErr.eq.0) then
          TI = 0.0d0
-         call AFBwmp (jedmy, VMHR, idGM (VGRP_VMHR), TI, IE)
-      endif
-      if (iErr.eq.0) then
-         TI = 0.0d0
-         call AFBwmp (jedmy, VXCFG, idGX(VGRPX_VXCFG), TI, IE)
+         call AFBwmp(jedmy, VXCFG, idGX(VGRPX_VXCFG), TI, IE)
       endif
 CCC_   . Loop
       if (iErr.eq.0) then
@@ -398,22 +386,21 @@ CCC_   . Loop
          T      = TINI
          TNXT   = TINI
 c
- 101     format ('#T ', I7.7, 1x, F13.4, 1x, F13.4)
+ 101     format('#T ', I7.7, 1x, F13.4, 1x, F13.4)
          DO
 CCC_    * time step adjustment
             TNXT = T + DT
-c$$$            call AFBnxa (TNXT, T, idGM (VGRP_VMI))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMHB))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMTI))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMHW))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMHI))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMTW))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMTA))
-            call AFBnxa (TNXT, T, idGM (VGRP_VMTD))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMHB))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMTI))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMHW))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMHI))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMTW))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMTA))
+            call AFBnxa(TNXT, T, idGM(VGRP_VMTD))
 c
-            write (ipL, _FORMAT(101)) ITstp, T, TNXT
+            write(ipL, _FORMAT(101)) ITstp, T, TNXT
 #           if HAVE_F77_FLUSH
-            call FLUSH (ipL)
+            call FLUSH(ipL)
 #           endif
 c
             DTI  = TNXT - T
@@ -426,14 +413,14 @@ CCC_    * Environment update
      O             (iErr,
      O              VMHB,  VBBI,
      M              PTGV,
-     I              VXCFG, VMHR,  VMHI, VMTI, VBBT,
+     I              VXCFG, VMHI, VMTI, VBBT,
      I              T,     DTI,  ITGV, PMM, IMM, WW, IMTI, PMTI,
      I              PBB,   IBB,  WZR,
      I              MH,    LH,   NZ,   LZ,   KZ0,
      I              NZR,   LZR,  KZ0R,
      I              ipKW,  ipL)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/TGVUBC')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/TGVUBC')
             endif
             call BBTupd
      O          (iErr,
@@ -442,14 +429,16 @@ CCC_    * Environment update
      I           WZR,   T,    TBINI, DT,
      I           MH,    LH,   NZR,   LZR,   KZ0R,
      I           ipL)
-            call AFBwmp (jedmy, VBBT, idGB(VGRPB_VBBT), TI, IE)
-            call AFBwmp (jedmy, VBBI, idGB(VGRPB_VBBI), TI, IE)
+            call AFBwmp(jedmy, VBBT, idGB(VGRPB_VBBT), TI, IE)
+            call AFBwmp(jedmy, VBBI, idGB(VGRPB_VBBI), TI, IE)
 CCC_    * Topography
             if (iErr.eq.0) then
-               call UV0naa (VMHI, MH, LH, VMHI_oSa, VMHI_oHa, VMHI_oBa)
-               call UV0cpa (VMHI, MH, LH, VMHI_nBa, VMHI_oBa)
+               call UV0naa(VMHI, MH, LH, VMHI_oSa, VMHI_oHa, VMHI_oBa)
+               call UV0cpa(VMHI, MH, LH, VMHI_nBa, VMHI_oBa)
+c$$$               call UV0cpa (VMHI, MH, LH, VMHI_nHa, VMHI_oHa)
+c$$$               call UV0cpa (VMHI, MH, LH, VMHI_nSa, VMHI_oSa)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/BBTUPD')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/BBTUPD')
             endif
 CCC_    * Vertical velocity
             if (iErr.eq.0) then
@@ -463,33 +452,31 @@ CCC_    * Vertical velocity
      I              MH,   LH,   NZ,   LZ,   KZ0,
      I              ipKW, ipL)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/TGVUDI')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/TGVUDI')
             endif
 CCC_    * MDstpD
             TI = T
             if (DTI.gt.0.0d0) then
 CCC_     + output primitives
-               call AFBwmp (jedmy, VMTI, idGM (VGRP_VMTI), TI, IE)
-c
-               call AFBwmp (jedmy, VMHB, idGM (VGRP_VMHB), TI, IE)
-               call AFBwmp (jedmy, VMHI, idGM (VGRP_VMHI), TI, IE)
-               call AFBwmp (jedmy, VMHW, idGM (VGRP_VMHW), TI, IE)
-c
+               call AFBwmp(jedmy, VMTI, idGM(VGRP_VMTI), TI, IE)
+               call AFBwmp(jedmy, VMHB, idGM(VGRP_VMHB), TI, IE)
+               call AFBwmp(jedmy, VMHI, idGM(VGRP_VMHI), TI, IE)
+               call AFBwmp(jedmy, VMHW, idGM(VGRP_VMHW), TI, IE)
 c
                call AFBwmr
      $             (jedmy,
-     $              VMTW, idGM (VGRP_VMTW),
+     $              VMTW, idGM(VGRP_VMTW),
      $              1, VMTW_MAXD, TI, 'VMTWd', IE)
                call AFBwmr
      $             (jedmy,
-     $              VMTW, idGM (VGRP_VMTW),
+     $              VMTW, idGM(VGRP_VMTW),
      $              VMTW_MAXD+1, VMTW_MAX, TI, 'VMTWt', IE)
             endif
 CCC_     + MTBuvs
 CCC_      - thermal conductivity
             if (iErr.eq.0) then
-               CONDI  = PMM (PMT_COND)
-               CONDIP = PMM (PMT_CONDP)
+               CONDI  = PMM(PMT_COND)
+               CONDIP = PMM(PMT_CONDP)
                call MTSthc
      O             (iErr,
      O              VMTW,
@@ -497,7 +484,7 @@ CCC_      - thermal conductivity
      I              WZV,
      I              MH,   LH,    NZ,  LZ, KZ0)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSTHC')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MTSTHC')
             endif
 CCC_      - heat capacity
             if (iErr.eq.0) then
@@ -507,21 +494,24 @@ CCC_      - heat capacity
      I              VMTI,  PMM,
      I              MH,    LH,   NZ,  LZ, KZ0)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSHCS')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MTSHCS')
+            endif
+CCC_    * filter for 3d computation
+            if (iErr.eq.0) then
+               call MUMidv(KTB, NHt, VMHI, KHH, HC, MH, LH)
             endif
 CCC_    * MDstpT
 CCC_     + MTButp
             if (iErr.eq.0) then
                call MTStgp
      O             (iErr,
-     O              KTB,   NHt,
      M              VMHW,  CW,
      I              VMHI,  WW,
      I              KHH,   KHB,
-     I              HC,
+     I              KTB,   NHt,
      I              MH,    LH,  ipCG,  LCG, ipKW,  iMA)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSTGP')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MTSTGP')
             endif
             if (iErr.eq.0) then
                call MTSpjc
@@ -531,7 +521,7 @@ CCC_     + MTButp
      I              DT,
      I              KHH,   KTB,   NHt, MH,    LH)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSPJC')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MTSPJC')
             endif
             if (iErr.eq.0) then
                if (IMM(IMD_WADV).eq. SW_WADV_RAW) then
@@ -552,9 +542,8 @@ CCC_     + MTButp
      I                 ipL)
                endif
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSCXW')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MTSCXW')
             endif
-C           MTScxw option not used
 C           MTSdts skipped (no dT/dx dT/dy)
 C           VMTW_dTdXa VMTW_dTdYa
             if (iErr.eq.0) then
@@ -572,7 +561,7 @@ CCC_    * MTBupd
      I              MH,    LH,   NZ,   LZ,   KZ0,
      I              ipL)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTBUPD')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MTBUPD')
             endif
 CCC_    * MABstp
 CCC_     + age integration
@@ -581,13 +570,13 @@ CCC_     + age integration
      O             (iErr,
      M              CW,   VMTA, VMTD,
      I              KTB,  NHt,
-     I              VMTI, VMTW, VMHI, VMHW,
-     I              VMHB, OMM,  IMM,  PMM,   T,    DT,
+     I              VMTI, VMHW,
+     I              OMM,  IMM,  PMM,  T,     DT,
      I              WW,   WZV,
      I              MH,   LH,   NZ,   LZ,    KZ0,
      I              IE,   ipKW, iMA,  ipCG,  LCG,  idGM, ipL)
             else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MABSTP')
+               call DAtrcU(ipL, iErr, 'R', 'TGV/MABSTP')
             endif
 CCC_    * break
             if (iErr.ne.0) goto 900
@@ -599,8 +588,8 @@ CCC_    * update (must use the final state of VMI again).
  900     continue
       endif
 c
-      call AFBrpg (jedmy, ipL)
-      call ACCrep (ipL, 0)
+      call AFBrpg(jedmy, ipL)
+      call ACCrep(ipL, 0)
 c
       return
       END
@@ -620,25 +609,25 @@ CCC_  - Declaration
       _INTENT(OUT,  integer)   iErr
       _INTENT(IN,   integer)  MH, LH
       _INTENT(IN,   integer)  NZ, LZ, KZ0
-      _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
-      _INTENT(INOUT,_REALSTD) VMHW (LH, *)
-      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
-      _INTENT(IN,   _REALSTD) VMHB (LH, *)
+      _INTENT(INOUT,_REALSTD) VMTI(LH, LZ, *)
+      _INTENT(INOUT,_REALSTD) VMHW(LH, *)
+      _INTENT(INOUT,_REALSTD) VMHI(LH, *)
+      _INTENT(IN,   _REALSTD) VMHB(LH, *)
       _INTENT(IN,   _REALSTD) VXCFG(LH, *)
 c
       _INTENT(IN, _REALSTD)  T, DT
 c
       _INTENT(IN, integer)   ITGV(*)
       _INTENT(IN, _REALSTD)  PTGV(*)
-      _INTENT(IN, _REALSTD)  PMD  (*)
-      _INTENT(IN, integer)   IMD  (*)
-      _INTENT(IN, _REALSTD)  PBB  (*)
-      _INTENT(IN, integer)   IBB  (*)
-      _INTENT(IN, integer)   IMTI (*)
-      _INTENT(IN, _REALSTD)  PMTI (*)
-      _INTENT(IN, _REALSTD)  WW   (LH, *)
-      _INTENT(IN, _REALSTD)  WZV  (LZ, *)
-      _INTENT(IN, integer)   ipKW (IPKW_FULL_DECL)
+      _INTENT(IN, _REALSTD)  PMD(*)
+      _INTENT(IN, integer)   IMD(*)
+      _INTENT(IN, _REALSTD)  PBB(*)
+      _INTENT(IN, integer)   IBB(*)
+      _INTENT(IN, integer)   IMTI(*)
+      _INTENT(IN, _REALSTD)  PMTI(*)
+      _INTENT(IN, _REALSTD)  WW(LH, *)
+      _INTENT(IN, _REALSTD)  WZV(LZ, *)
+      _INTENT(IN, integer)   ipKW(IPKW_FULL_DECL)
       _INTENT(IN, integer)   IFPl
 c
       integer jz, jzz
@@ -662,14 +651,14 @@ CCC_   . log
 #if OPT_VERBOSE
  101  format('UDI:', 1x, F9.1, 1x, F9.1)
       if (COND_N(IFPl)) then
-         write (IFPl, 101) T, DT
+         write(IFPl, _FORMAT(101)) T, DT
       else if (COND_S(IFPl)) then
-         write (*,    101) T, DT
+         write(*,    _FORMAT(101)) T, DT
       endif
 #endif /* OPT_VERBOSE */
 CCC_   . heating
-      call UV3naa
-     $     (VMHW, VMHI, VMHB, MH, LH, VMHW_HSB, VMHI_frd, VMHB_GH)
+      call UV1naa
+     $     (VMHW, VMHB, MH, LH, VMHW_HSB, VMHW_frd, VMHB_GH)
 CCC_   . dH/dt
       TDUR  = PTGV(PTGV_H_DURATION)
       TINC  = PTGV(PTGV_H_TINCR)
@@ -702,7 +691,7 @@ c
      I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
      I        TNXT, MH,   LH)
       endif
-      call UV0naa (VMHI, MH, LH, VMHI_nSa, VMHI_nHa, VMHI_nBa)
+      call UV0naa(VMHI, MH, LH, VMHI_nSa, VMHI_nHa, VMHI_nBa)
       do jh = 1, MH
          VMHW(jh, KWDH)
      $        = (VMHI(jh, VMHI_nHa) - VMHI(jh, VMHI_oHa)) / DT
@@ -770,7 +759,7 @@ CCC_ & TGVubc  ## boundary condition update
      O    (iErr,
      O     VMHB,  VBBI,
      M     PTGV,
-     I     VXCFG, VMHR,  VMHI, VMTI, VBBT,
+     I     VXCFG, VMHI, VMTI, VBBT,
      I     T,     DT,
      I     ITGV,  PMD,  IMD,  WW,  IMTI, PMTI,
      I     PBB,   IBB,  WZR,
@@ -782,30 +771,29 @@ CCC_  - Declaration
       _INTENT(IN, integer)   MH,   LH
       _INTENT(IN, integer)   NZ,   LZ,  KZ0
       _INTENT(IN, integer)   NZR,  LZR, KZ0R
-      _INTENT(OUT,_REALSTD)  VMHB (LH, *)
-      _INTENT(OUT,_REALSTD)  VBBI (LH, *)
+      _INTENT(OUT,_REALSTD)  VMHB(LH, *)
+      _INTENT(OUT,_REALSTD)  VBBI(LH, *)
 c
       _INTENT(INOUT,_REALSTD)  PTGV(*)
 c
       _INTENT(IN, _REALSTD)  VXCFG(LH, *)
-      _INTENT(IN, _REALSTD)  VMHI (LH, *)
-      _INTENT(IN, _REALSTD)  VMHR (LH, *)
-      _INTENT(IN, _REALSTD)  VMTI (LH, LZ, *)
-      _INTENT(IN, _REALSTD)  VBBT (LH, LZR, *)
+      _INTENT(IN, _REALSTD)  VMHI(LH, *)
+      _INTENT(IN, _REALSTD)  VMTI(LH, LZ, *)
+      _INTENT(IN, _REALSTD)  VBBT(LH, LZR, *)
       _INTENT(IN, _REALSTD)  T, DT
 c
-      _INTENT(IN, _REALSTD)  WZR  (LZR, *)
+      _INTENT(IN, _REALSTD)  WZR(LZR, *)
 c
       _INTENT(IN, integer)   ITGV(*)
 c
-      _INTENT(IN, _REALSTD)  PMD  (*)
-      _INTENT(IN, integer)   IMD  (*)
-      _INTENT(IN, _REALSTD)  PBB  (*)
-      _INTENT(IN, integer)   IBB  (*)
-      _INTENT(IN, integer)   IMTI (*)
-      _INTENT(IN, _REALSTD)  PMTI (*)
-      _INTENT(IN, _REALSTD)  WW   (LH, *)
-      _INTENT(IN, integer)   ipKW (IPKW_FULL_DECL)
+      _INTENT(IN, _REALSTD)  PMD(*)
+      _INTENT(IN, integer)   IMD(*)
+      _INTENT(IN, _REALSTD)  PBB(*)
+      _INTENT(IN, integer)   IBB(*)
+      _INTENT(IN, integer)   IMTI(*)
+      _INTENT(IN, _REALSTD)  PMTI(*)
+      _INTENT(IN, _REALSTD)  WW(LH, *)
+      _INTENT(IN, integer)   ipKW(IPKW_FULL_DECL)
       _INTENT(IN, integer)   IFPl
 c
       _REALSTD GH
@@ -822,14 +810,14 @@ CCC_   . log
 #if OPT_VERBOSE
  101  format('UBC:', 1x, F9.1, 1x, F9.1)
       if (COND_N(IFPl)) then
-         write (IFPl, 101) T, DT
+         write(IFPl, _FORMAT(101)) T, DT
       else if (COND_S(IFPl)) then
-         write (*,    101) T, DT
+         write(*,    _FORMAT(101)) T, DT
       endif
 #endif /* OPT_VERBOSE */
 CCC   _   . misc properties
-      call UV0sta (VMHB, MH, LH, VMHB_TBI,   0.0d0)
-      call UV0sta (VMHB, MH, LH, VMHB_TBFLG, 0.0d0)
+      call UV0sta(VMHB, MH, LH, VMHB_TBI,   0.0d0)
+      call UV0sta(VMHB, MH, LH, VMHB_TBFLG, 0.0d0)
 CCC_   . surface temperature
       call UV0sta(VMHB, MH, LH, VMHB_TSI, 210.d0)
 CCC_   . surface mass balance
@@ -858,7 +846,6 @@ CCC_   . surface mass balance
      I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
      I        T,    MH,   LH)
       endif
-c$$$      write(*, *) 'MS', VMHB(:, VMHB_MS)
 CCC_   . basal mass balance
       TDUR  = PTGV(PTGV_B_DURATION)
       TINC  = PTGV(PTGV_B_TINCR)
@@ -874,28 +861,23 @@ CCC_   . basal mass balance
      I     TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
      I     T,    MH,   LH)
 CCC_   . geothermal heat flux
-c$$$      GH = -42.0d-3 * 31556926.d0
-c$$$      call UV0sta (VMHB, MH, LH, VMHB_GH,  GH)
 C     G = k dT/dz = k dT/dp dP/dZ dZ/dz
       KR = PBB(PBB_CONDR)
       jzt = KZ0R + NZR - 1
       do jh = 1, MH
-         DZDZ  = 1.0d0 / VBBI (jh, VBBI_HR)
-         DPDZ  = WZR (jzt-1, VBBZ_dXa)
-         DTDP  = WZR (jzt-1, VBBZ_dWPb) * VBBT(jh, jzt,   VBBT_T)
-     $         + WZR (jzt-1, VBBZ_dWMb) * VBBT(jh, jzt-1, VBBT_T)
+         DZDZ  = 1.0d0 / VBBI(jh, VBBI_HR)
+         DPDZ  = WZR(jzt-1, VBBZ_dXa)
+         DTDP  = WZR(jzt-1, VBBZ_dWPb) * VBBT(jh, jzt,   VBBT_T)
+     $         + WZR(jzt-1, VBBZ_dWMb) * VBBT(jh, jzt-1, VBBT_T)
          VMHB(jh, VMHB_GH) = KR * DTDP * DPDZ * DZDZ
       enddo
-c$$$      GH = -42.0d-3 * 31556926.d0
-c$$$      call UV0sta (VMHB, MH, LH, VMHB_GH,  GH)
 CCC_   . rock bc
       GH = -42.0d-3 * 31556926.d0
-      call UV0sta (VBBI, MH, LH, VBBI_GH,  GH)
+      call UV0sta(VBBI, MH, LH, VBBI_GH,  GH)
       do jh = 1, MH
          VBBI(jh, VBBI_TU) = VMTI(jh, KZ0, VMTI_T)
       enddo
 c
-c$$$      write(*, *) 'MS', 9, VMHB(:, VMHB_MS)
       RETURN
       END
 CCC_ + Begl./Climate Ts
@@ -912,7 +894,7 @@ CCC_  - Declaration
       _INTENT(OUT,integer)  iErr
       _INTENT(OUT,integer)  ITGV(*)
       _INTENT(OUT,_REALSTD) PTGV(*)
-      _INTENT(IN, _REALSTD) PMD (*)
+      _INTENT(IN, _REALSTD) PMD(*)
       _INTENT(IN, integer)  ipP, ipC, ipL
 CCC_   . interior
       integer  IOS
@@ -961,7 +943,7 @@ c
       FILEMS = ' '
 c
       if (ipP.ge.0) then
-         call UUrwnd (iErr, ipP)
+         call UUrwnd(iErr, ipP)
          READ(ipP, NITGVB, IOSTAT=IOS)
       else if (ipP.eq.-1) then
          READ(*,   NITGVB, IOSTAT=IOS)
@@ -1022,16 +1004,16 @@ c
       if (FILEMS.eq.' ') then
          ITGV(ITGV_XFILE_MS) = -1
       else
-         if (iErr.eq.0) call UUMCnu (iErr, jfpMS)
+         if (iErr.eq.0) call UUMCnu(iErr, jfpMS)
          if (iErr.eq.0) then
             LR = -1
-            call UUopen (iErr, jfpMS, FILEMS, LR, 'F', 'O', 'R', ' ')
+            call UUopen(iErr, jfpMS, FILEMS, LR, 'F', 'O', 'R', ' ')
          endif
          if (iErr.eq.0) ITGV(ITGV_XFILE_MS) = jfpMS
       endif
 c
       if (IOS.ne.0) iErr = IOS
-      call DAtrcU (ipL, iErr, 'R', 'TGVCFG')
+      call DAtrcU(ipL, iErr, 'R', 'TGVCFG')
 c
       return
       END
@@ -1048,32 +1030,32 @@ CCC_  * Declaration
       _INTENT(IN, character) CSW*(*)
       _INTENT(IN, character) CLS*(*), CRT*(*)
       _INTENT(IN, integer)   ipFI(*)
-      _INTENT(IN, integer)   IE  (*)
-      _INTENT(IN, integer)   iMA (*)
+      _INTENT(IN, integer)   IE(*)
+      _INTENT(IN, integer)   iMA(*)
 c
       integer jedmy, jcdmy
-      integer icG (4)
+      integer icG(4)
       integer ipL
       integer jg
 CCC_  - Body
       iErr = 0
 c
-      call AFUqip (ipL, 'L', ipFI)
-      call ACCrfI (jedmy, jcdmy, icG, icF, -1, 'H', ipL)
+      call AFUqip(ipL, 'L', ipFI)
+      call ACCrfI(jedmy, jcdmy, icG, icF, -1, 'H', ipL)
 c
       jg = -1
       call AFBrgd
      O    (iErr,
      O     jg,
-     I     'VXCFG', MH,  LH,  0, 0,  VXCFG_MAX, icG (1),
+     I     'VXCFG', MH,  LH,  0, 0,  VXCFG_MAX, icG(1),
      I     CSW,     CLS, CRT, ipFI,  iMA)
 c
-      call AFBrgi(iErr, jg, VXCFG_MSMAX,  icG (1), 'msmax')
-      call AFBrgi(iErr, jg, VXCFG_MSMIN,  icG (1), 'msmin')
-      call AFBrgi(iErr, jg, VXCFG_MBMAX,  icG (1), 'mbmax')
-      call AFBrgi(iErr, jg, VXCFG_MBMIN,  icG (1), 'mbmin')
-      call AFBrgi(iErr, jg, VXCFG_HMAX,   icG (1), 'hmax')
-      call AFBrgi(iErr, jg, VXCFG_HMIN,   icG (1), 'hmin')
+      call AFBrgi(iErr, jg, VXCFG_MSMAX,  icG(1), 'msmax')
+      call AFBrgi(iErr, jg, VXCFG_MSMIN,  icG(1), 'msmin')
+      call AFBrgi(iErr, jg, VXCFG_MBMAX,  icG(1), 'mbmax')
+      call AFBrgi(iErr, jg, VXCFG_MBMIN,  icG(1), 'mbmin')
+      call AFBrgi(iErr, jg, VXCFG_HMAX,   icG(1), 'hmax')
+      call AFBrgi(iErr, jg, VXCFG_HMIN,   icG(1), 'hmin')
 c
       if (iErr.eq.0) call AFBgmf(iErr, jg, ' ', ' ', IE, ipFI)
       if (iErr.ne.0) jg = -1
@@ -1239,9 +1221,9 @@ c
       endif
  101  format('XEV: ', F9.1, 1x, F9.3, 2(1x, E9.3), 2(1x, F9.1))
       if (COND_N(ifpl)) then
-         write(ifpl,101) T, WT, VPREV, VNEXT, TPREV, TNEXT
+         write(ifpl,_FORMAT(101)) T, WT, VPREV, VNEXT, TPREV, TNEXT
       else if (COND_S(ifpl)) then
-         write(*,   101) T, WT, VPREV, VNEXT, TPREV, TNEXT
+         write(*,   _FORMAT(101)) T, WT, VPREV, VNEXT, TPREV, TNEXT
       endif
       do jh = 1, MH
          VX(jh) = VVU(jh) * WT

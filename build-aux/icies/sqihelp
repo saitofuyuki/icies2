@@ -1,8 +1,5 @@
 #!/usr/bin/zsh -f
-# Time-stamp: <2020/09/15 12:23:53 fuyuki sqihelp>
-# Copyright: 2015--2020 JAMSTEC
-# Licensed under the Apache License, Version 2.0
-#   (https://www.apache.org/licenses/LICENSE-2.0)
+# Time-stamp: <2019/12/17 13:54:22 fuyuki sqihelp>
 
 : ${AUTOM4TE:=autom4te}
 
@@ -44,19 +41,22 @@ amopts=(-l M4sugar)
 # output type
 if   [[ $otype == e* ]];then
   # shell/export
-
+  :
 elif [[ $otype == s* ]];then
   # shell
   cfgh=$m4hdir/sqishell.m4
 elif [[ $otype == a* ]];then
   # shell, associative array
   cfgh=$m4hdir/sqiaarray.m4
+elif [[ $otype == p* ]];then
+  # shell, associative array
+  cfgh=$m4hdir/sqiplist.m4
 elif [[ $otype == t* ]];then
   # trace/cpp
   amopts=(-t '_dummy:$ %' $amopts)
 else
   # default cpp-macro
-
+  :
 fi
 
 

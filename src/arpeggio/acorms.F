@@ -4,7 +4,7 @@ C Created: Jan 27 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:55:43 fuyuki acorms.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:39:22 fuyuki acorms.F>'
 #define _FNAME 'arpeggio/acorms.F'
 #define _REV   'Arpeggio 1.0'
 CCC_! MANIFESTO

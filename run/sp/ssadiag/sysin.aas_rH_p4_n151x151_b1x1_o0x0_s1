@@ -1,0 +1,24 @@
+ &NIDMBS KCHECK = 1, FILE = 'O/mdrvrm6/x19t_atannll_n1d4_l4_bb_N8f/u/i/sysin.aas_rH_p4_n151x151_b1x1_o0x0_s1' &END
+ &NIDPTV TAG = 'RUN', VALUE='x19t_atannll_n1d4_l4_bb_N8f', &END
+ &NIDPTV TAG = 'TOP', VALUE='O', &END
+ &NILOGC CH = 'V', ROOT = 'vrep', &END
+ &NICARG  A = './mdrvrm6 +Z +q +D -r x19t_atannll_n1d4_l4_bb_N8f +A -p 4 -n 151,151 +M -e n -M UP1 -Caas -T0:0.125d0:0.125d0:0 -R+:::0.125d0 -RVMSXI::::1 -RVMSXT::::1 -B rH -P CLV=10.0d0 -X R=C:RI=G:TB=S:W=C:VB=0:UG=N:VBO=W:GCF=N -X GCE=A -P RF=1.0d-18 +MD -I -:VMI,HH,aasbc/b2_40/H:VMHB,Ra,aasbc/b2_40/zl -L 4096:1d-6 +MSN -P VXLIMU=-1.0d0 -P VXLIML=1.D-12 -I8:1e-1:0.9:256:1e-4:0:0:64 -P VDNML=1e-3 -X1:1:::0 :run VMI VMSXT VMSXI VMSX VMSC VMSV VMHB VMIW VMC VMID',  &END
+ &NITPMS KTEST = 0, WLX = 6000.d3, WLY=6000.d3, DGL = 0.0d3, RF = 1.0d-18, &END
+ &NITPMI CROOT = 'ID', KSW = 6, ACC = 0.3d0, HINI = 0.0d0, RF = 1.0d-18, &END
+ &NIMSWD MSW=4, MINI=0, KRF = 0, KRFI = 2, KWI = 0, KTBDZ = 1, KUSG = 0, KVB = 0, KVBSW = 3, KFGSW = 1, KEGSW = 1,  &END
+ &NIPRMD CLV = 10.0d0, RF = 1.0d-18, ItrMax=4096, Etol=1d-6, &END
+ &NIPRMS &END
+ &NITMMD CROOT = 'ID', TINI = 0, TEND = 0.125d0, DT = 0.125d0, TSSA = 0, DTRC = 0.125d0, &END
+ &NIAFWR CROOT = 'ID', GROUP = ' ', DT = 0.125d0, KSW = 0, &END
+ &NIAFWR CROOT = 'ID', GROUP = 'VMSXI', ISTEP = 1, KSW = 0, &END
+ &NIAFWR CROOT = 'ID', GROUP = 'VMSXT', ISTEP = 1, KSW = 0, &END
+ &NITAMI CROOT = 'ID', GROUP = 'VMI', IDX = 2, FNM = 'aasbc/b2_40/H', VUNDEF = 0.0d0, IX = 151, IY = 151, &END
+ &NITAMI_CHECK GROUP='VMI', VAR='HH', IDX='2' &END
+ &NITAMI CROOT = 'ID', GROUP = 'VMHB', IDX = 7, FNM = 'aasbc/b2_40/zl', VUNDEF = 0.0d0, IX = 151, IY = 151, &END
+ &NITAMI_CHECK GROUP='VMHB', VAR='Ra', IDX='7' &END
+ &NISSAL ItrMax=256, Etol=1e-4, ItrMin=64, &END
+ &NISSAN ItrMax=8, Etol=1e-1, Prlx=0.9, ItrGL=0, MaxTry=0, KswL=1, KswN=1, KswBT=0, VXLIMU = -1.0d0, VXLIML = 1.D-12, VDNML = 1e-3, &END
+ &NIGEOM CROOT = 'ID', CKIND = 'X', O = 0, T = 'R', W = 6000.d3, WN = -1, &END
+ &NIGEOM CROOT = 'ID', CKIND = 'Y', O = 0, T = 'R', W = 6000.d3, WN = -1, &END
+ &NICOOR CROOT = 'ID', NZ = 17, &END
+ &NIEDLA KDL=3, NXG=151, NYG=151, LXB=1, LYB=1, LXO=0, LYO=0, LXW=0, LYW=0, ISH=1, CROOT='ID',  NR=4,  &END

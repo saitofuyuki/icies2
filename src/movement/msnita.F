@@ -4,9 +4,9 @@ C Created: Oct 2 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2017/01/30 12:50:18 fuyuki msnita.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:47:20 fuyuki msnita.F>'
 #define _FNAME 'movement/msnita.F'
-#define _REV   'Snoopy0.9/Three0.1'
+#define _REV   'Snoopy0.97/Three0.1'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -21,6 +21,7 @@ CCC_* Common macros
 #include "oarpea.h"
 #include "oarpkw.h"   /* operation id in arpeggio/kiwi */
 #include "olimit.h"   /* huge value */
+#include "odopts.h"   /* option/parameter configuration */
 #ifdef NO_MOVEMENT_H
 #else
 #  include "movement.h" /* movement definitions */
@@ -2354,6 +2355,212 @@ CCC_  - Arguments
       _INTENT(IN, character) CR*(*)
       _INTENT(IN, integer)   ipP, ipC, ipL
 CCC_  - Configuration
+      _REALSTD  Etol,   Prlx
+      _REALSTD  VXLIMU, VXLIML
+      _REALSTD  VBLIML
+      _REALSTD  VSHLIM, VGLLIM, HGLIML
+      _REALSTD  FPrlx
+      _REALSTD  VDNML,  PDNML,  DSXLIM
+      integer   ItrMax, ItrMin, ItrGL
+      integer   MaxTry
+      integer   KswN, KswL, KswNG, KswGU, KswBT
+      integer   KswNOV
+      integer   IXRL, IXRH
+CCC_  - Configuration
+      character Tag*(*)
+      parameter(Tag='SSAN')
+      integer   KDOFLG
+CCC_ + Body
+      iErr = 0
+      KDOFLG = DOPTS_LEVEL_ALLOW_NULL + DOPTS_LEVEL_MATCH_TAG
+CCC_  - Parameters/options
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, ItrMax, 256,
+     $        'ItrMax', 'Maximum iteration (SSA/nonlinear)',
+     $         CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, ItrMin, 0,
+     $        'ItrMin', 'Minimum iteration (SSA/nonlinear)',
+     $         CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, ItrGL, 0,
+     $        'ItrGL', 'Maximum iteration (grounding-line flux)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, MaxTry, 4,
+     $        'MaxTry', 'Maximum trial (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, KswL, 0,
+     $        'KswL', 'initial guess switch linear (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, KswN, 0,
+     $        'KswN', 'initial guess switch nonlinear (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, KswNG, 1,
+     $        'KswNG', 'initial guess switch gl (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, KswGU, 0,
+     $        'KswGU', 'gl vel update timing (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, KswBT, SW_GLBT_DEF,
+     $        'KswBT', 'buttressing effect switch (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, KswNOV, SW_NOCONV_FINAL,
+     $        'KswNOV', 'solution when not converged (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, IXRL, -5,
+     $        'IXRL', 'residual report lower (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetI
+     $       (iErr, IXRH, +3,
+     $        'IXRH', 'residual report higher (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, Etol, ' ', 1.0d-8, ' ',
+     $        'ETOL', '(SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, Prlx, ' ', 1.2d0, ' ',
+     $        'Prlx', 'Relaxation (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, FPrlx, ' ', 0.95d0, ' ',
+     $        'FPrlx', 'Relaxation coeff. (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, HGLIML, 'topography', 1.0d0, 'm',
+     $        'HGLIML', 'GL H lower limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, DSXLIM, 'gradient', 0.0d0, '1',
+     $        'DSXLIM', 'dsdx limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, VXLIML, 'dudx', 1.0d-4/10.d3, '/yr',
+     $        'VXLIML', 'dudx lower limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, VXLIMU, 'dudx', 1.0d0/8.0d0, '/yr',
+     $        'VXLIMU', 'dudx upper limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, VBLIML, 'velocity', 1.0d-2, 'm/yr',
+     $        'VBLIML', 'SStA vb lower limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, VSHLIM, 'velocity', 1.0d20, 'm/yr',
+     $        'VSHLIM', 'SSA velocity limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, VGLLIM, 'velocity', 1.0d20, 'm/yr',
+     $        'VGLLIM', 'GL velocity limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, VDNML, ' ', 1.0d-2, ' ',
+     $        'VDNML', 'V dominator lower limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+      if (iErr.eq.0) then
+         call DOgetS
+     $       (iErr, PDNML, ' ', 1.0d3, ' ',
+     $        'PDNML', 'PQR dominator lower limit (SSA/nonlinear)',
+     $        CR, Tag, ipP, ipC, ipL, KDOFLG)
+      endif
+CCC_  - Packing
+      PMS (PMS_TOLNL)  = ETOL
+      PMS (PMS_OVW)    = Prlx
+      PMS (PMS_VXLIML) = VXLIML
+      PMS (PMS_VXLIMU) = VXLIMU
+      PMS (PMS_VBLIML) = VBLIML
+      PMS (PMS_VSHLIM) = VSHLIM
+      PMS (PMS_VGLLIM) = VGLLIM
+      PMS (PMS_HGLIML) = HGLIML
+      PMS (PMS_UDNML)  = VDNML
+      PMS (PMS_PDNML)  = PDNML
+      PMS (PMS_OVWFC)  = FPrlx
+      PMS (PMS_DSXLIM) = DSXLIM
+      IMS (IMS_ITRNL)  = ItrMax
+      IMS (IMS_ITRGL)  = ItrGL
+      IMS (IMS_MINNL)  = ItrMin
+      IMS (IMS_TRYNL)  = MaxTry
+      IMS (IMS_SWL)    = KswL
+      IMS (IMS_SWNL)   = KswN
+      IMS (IMS_SWNLG)  = KswNG
+      IMS (IMS_SWNOV)  = KswNOV
+      IMS (IMS_GLUPD)  = KswGU
+      IMS (IMS_GLBT)   = KswBT
+      IMS (IMS_XREPL)  = IXRL
+      IMS (IMS_XREPH)  = IXRH
+c$$$c
+      call DAtrcU (ipL, iErr, 'R', 'MSNPMS')
+      RETURN
+      END
+CCC_& obs_MSNpms  ## (obsolete) Parameters initialization (with local namelist)
+      subroutine obs_MSNpms
+     O    (iErr,
+     O     PMS,   IMS,
+     I     CR,    ipP, ipC, ipL)
+CCC_ + Declaration
+      implicit none
+CCC_  - Arguments
+      _INTENT(OUT,integer)   iErr
+      _INTENT(OUT,_REALSTD)  PMS (*)
+      _INTENT(OUT,integer)   IMS (*)
+      _INTENT(IN, character) CR*(*)
+      _INTENT(IN, integer)   ipP, ipC, ipL
+CCC_  - Configuration
       character  CROOT * (8)
       _REALSTD  Etol,   Prlx
       _REALSTD  VXLIMU, VXLIML
@@ -2465,7 +2672,7 @@ CCC_  - Packing
       IMS (IMS_XREPL)  = IXRL
       IMS (IMS_XREPH)  = IXRH
 c
-      call DAtrcU (ipL, iErr, 'R', 'MSLPMS')
+      call DAtrcU (ipL, iErr, 'R', 'MSNPMS')
       RETURN
       END
 CCC_& MSNITA  ## Movement/SSA/non-linear announcement

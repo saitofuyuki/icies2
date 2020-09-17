@@ -4,13 +4,13 @@ C Created: Jun 3 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 12:18:33 fuyuki dbg_mttcol.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 06:59:55 fuyuki dbg_mttcol.F>'
 #define _FNAME 'movement/mttcol.F'
 #define _REV   'Snoopy0.8'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2013--2020
-C           Japan Agency for Marine-Earth Science and Technology
+C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
 C Licensed under the Apache License, Version 2.0

@@ -1,3 +1,21 @@
+======================
+ IcIES-2(SNPY)/README
+======================
+:Maintainer:  SAITO Fuyuki
+:Created:     Sep 17 2020
+:Time-stamp:  <2020/09/17 12:41:52 fuyuki README>
+
+This is IcIES-2(SNPY), version 0.97, an beta version of Ice sheet model for Integrated Earth system
+Studies II (IcIES-2).  IcIES-2 is a three-dimensional numerical ice-sheet model, introduced in the
+following section.
+
+IcIES-2(SNPY) 0.97 is a preliminary stage for a major release of IcIES(SNPY) version 1.0, however,
+it is released for recording and archiving purposes.  In the next revision, the structure will be
+more efficient.
+
+See the next section for introduction of IcIES-2.
+See INSTALL-icies2 for specific installation instructions for IcIES-2(SNPY).
+
 ================
  IcIES-2/README
 ================
@@ -23,3 +41,12 @@ See NOTICE for copyright information.
 See AUTHORS for authors and contributors.
 See INSTALL-icies2 for specific installation instructions for IcIES-2.
 See INSTALL for generic installation instructions.
+
+==========
+ Addendum
+==========
+
+Development stages, releases, and distribution of IcIES-2 (and IcIES-1) are codenamed after the
+Peanuts characters.  See https://www.google.com/search?q=Snoopy+Peanuts to learn about SNPY
+(which stands for Snoopy, the world's most famous beagle).
+

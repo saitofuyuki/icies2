@@ -4,7 +4,7 @@
 
 :Maintainer: SAITO Fuyuki
 :Created:    Nov 5 2013
-:Time-stamp: <2020/09/17 13:48:35 fuyuki INSTALL-icies2>
+:Time-stamp: <2020/09/17 12:30:54 fuyuki INSTALL-icies2>
 
 Copyright 2013--2020 Japan Agency for Marine-Earth Science and Technology,
                      Ayako ABE-OUCHI
@@ -120,3 +120,25 @@ UV1000/``ifort`` for building `IcIES-2`.
   configure with ``--disable-gnu-extension`` in order to avoid
   Fortran GNU extensions.  This may be automatically resolved in the
   future.
+
+Building `IcIES-2` *test* program (still experimental)
+======================================================
+At the moment, only test programs can be built.
+::
+
+  % ./configure .......
+  % cd src
+  % make
+  % cd movement
+  % make mdrvrm2       # try mdrvrm3 .. mdrvrm8 for larger memory requirement
+  % make copy-helper   # to install helper scripts
+
+
+
+Building `IcIES-2`/cadenza utilities (netcdf conversion)
+========================================================
+::
+
+  % make install-cadenza
+
+`cnx.sh` and other utilities are installed into $(PREFIX)/bin.

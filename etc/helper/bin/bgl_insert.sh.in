@@ -1,0 +1,145 @@
+#!@ZSH@ -f
+# Maintainer:  SAITO Fuyuki
+# Created: Jun 22 2018
+# Time-stamp: <2020/09/17 09:05:06 fuyuki bgl_insert.sh.in>
+# Copyright: 2018--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_. [bgl]
+
+###_ , [bgl/bb]
+###_  . bgl_bb_init
+bgl_bb_init ()
+{
+  if [[ -z ${(t)BB} ]];then
+    typeset -gA BB
+
+    zui_init || exit $?
+
+    zui_help  add    BB bgl_bb_help  || exit $?
+    zui_parse insert BB bgl_bb_parse || exit $?
+  fi
+  return 0
+}
+###_  . bgl_bb_help
+bgl_bb_help ()
+{
+  print - "  -T TINI"
+  print - "  -P P=V  parameters"
+}
+###_  . bgl_bb_parse
+bgl_bb_parse ()
+{
+  if [[ $1 == -i ]];then
+    :
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='T:P:'}
+  elif [[ $1 == -p ]];then
+    bgl_bb_parse_post    || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    if [[ $name == P ]];then
+      BB[$name]=$BB[$name]:"$arg"
+    else
+      BB[$name]=$arg
+    fi
+  fi
+  return 0
+}
+###_  . bgl_bb_parse_post
+bgl_bb_parse_post ()
+{
+  ## parameters
+  local i
+  for i in "${(@s/:/)BB[P]}"
+  do
+    [[ -z $i ]] && continue
+    i=(${(s/=/)i})
+    BB[p/$i[1]]="$i[2]"
+  done
+  [[ $VERBOSE -gt 1 ]] && zui_debug_aa BB -u 2
+  return 0
+}
+
+###_  . bgl_bb_create_sysin
+##      use AA AE AG MG
+bgl_bb_create_sysin ()
+{
+  local TINI=$BB[T]
+  print -n - " &NIBTIM"
+  print -n - " CBGL='B',"
+  [[ -n $TINI ]] && print -n - " TINI=$TINI,"
+  print - " &END"
+  return 0
+}
+
+###_ , [standard]
+###_  . bgl_standard_init
+bgl_standard_init ()
+{
+  if [[ -z ${(t)BSTD} ]];then
+    typeset -gA BSTD
+
+    zui_init || exit $?
+
+    zui_help  add    B bgl_standard_help  || exit $?
+    zui_parse append B bgl_standard_parse || exit $?
+  fi
+  return 0
+}
+###_  . bgl_standard_help
+bgl_standard_help ()
+{
+  # print - "  -e environment choice {n,-}"
+  return 0
+}
+###_  . bgl_standard_parse
+bgl_standard_parse ()
+{
+  if [[ $1 == -i ]];then
+    :
+  elif [[ $1 == -s ]];then
+    : ${(P)2::=''}
+  elif [[ $1 == -p ]];then
+      bgl_standard_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    BSTD[$name]=$arg
+  fi
+  return 0
+}
+###_  . bgl_standard_parse_post
+bgl_standard_parse_post ()
+{
+  :
+  return 0
+}
+
+###_  . bgl_standard_env VAR
+bgl_standard_env ()
+{
+  local __var=$1; shift
+  if [[ $__var == ATTR ]];then
+    :
+  else
+    local -A ATTR
+    ATTR=("${(@Pkv)__var}")
+  fi
+  [[ $__var == ATTR ]] || set -A $__var "${(@Pkv)ATTR}"
+  return 0
+}
+
+###_ , [bgl root]
+
+###_  . bgl_init
+bgl_init ()
+{
+  bgl_standard_init || return $?
+  bgl_bb_init       || return $?
+  return 0
+}
+
+###_ , [mov] end

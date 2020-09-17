@@ -4,9 +4,9 @@ C Created: Feb 2 2003
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/13 09:19:43 fuyuki uuioms.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:50:34 fuyuki uuioms.F>'
 #define _FNAME 'unison/uuioms.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -3152,7 +3152,7 @@ c
 #if HAVE_F77_LEN_TRIM == 0
       integer len_trim
 #endif
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_  - Body
       iErr  = 0
       iplog = -1
@@ -3160,7 +3160,7 @@ CCC_   . announcement
       call UDTbnr ('announcement', iplog)
 #define _ANNOUNCE UUIOMS
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 CCC_   . initialization
       call UDTbnr ('initialization', iplog)
       call UUmngC (iErr)

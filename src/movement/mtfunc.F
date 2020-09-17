@@ -4,9 +4,9 @@ C Created: Jan 4 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/26 14:48:21 fuyuki mtfunc.F>'
+#define _TSTAMP 'Time-stamp: <2020/01/08 14:55:54 fuyuki mtfunc.F>'
 #define _FNAME 'movement/mtfunc.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -232,69 +232,6 @@ CCC_   . check
       RETURN
       END
 CCC_* primitives
-CCC_ & MTFidv  ## build index vector
-      subroutine MTFidv
-     O    (KTB, NH,
-     I     VH,  KHH,
-     I     HC,  MH,  LH)
-CCC_  - Declaration
-      implicit none
-      _INTENT(IN, integer)  MH,  LH
-      _INTENT(OUT,integer)  KTB (LH, *)
-      _INTENT(OUT,integer)  NH
-      _INTENT(IN, _REALSTD) VH  (LH, *)
-      _INTENT(IN, _REALSTD) HC
-      _INTENT(IN, integer)  KHH
-      integer  jh
-      integer  nh0
-      integer  kfw, kbw
-CCC_  - Body
-      NH  = 0
-      NH0 = MH
-      kfw = 1
-      kbw = 2
-      do jh = 1, MH
-         if (VH (jh, KHH).le.HC) then
-            KTB (NH0, kfw) = jh
-            KTB (jh,  kbw) = NH0
-            NH0 = NH0 - 1
-         else
-            NH = 1 + NH
-            KTB (NH, kfw) = jh
-            KTB (jh, kbw) = NH
-         endif
-      enddo
-      RETURN
-      END
-CCC_ & MTFbwz  ## backward conversion via index table
-      subroutine MTFbwz
-     O    (VZ,  KVZ,
-     I     VX,  KVX,
-     I     KTB, NH, MH, LH, NZ, LZ, KZ0)
-CCC_  - Declaration
-      implicit none
-      _INTENT(IN, integer)  MH, LH
-      _INTENT(IN, integer)  NZ, LZ, KZ0
-      _INTENT(IN, integer)  NH, KTB (LH, *)
-      _INTENT(IN, integer)  KVX, KVZ
-      _INTENT(OUT,_REALSTD) VZ (LH, LZ, *)
-      _INTENT(IN, _REALSTD) VX (LH, LZ, *)
-      integer  jz,  jz0, jz9
-      integer  jh,  jht
-      integer  kbw
-CCC_  - Body
-      kbw = 2
-      jz0 = max(1, KZ0 - 1)
-      jz9 = KZ0 + NZ - 1
-      do jz = jz0, jz9
-         do jh = 1, MH
-            jht = KTB (jh, kbw)
-c$$$            write (*, *) jht, jz, VX (jht, jz, KVX)
-            VZ (jh, jz, KVZ) = VX (jht, jz, KVX)
-         enddo
-      enddo
-      RETURN
-      END
 CCC_ & MTFchg  ## horizontal gradient (central)
 CCC_ & MTFwhg  ## horizontal gradient (foreward/backward)
 CCC_ & MTFdzd  ## dZ/d[xyt] (element of jacobian matrix) times H
@@ -435,10 +372,9 @@ CCC_  - Body
 CCC_ & MTFshf  ## strain heating (full)
 CCC_ & MTFbfc  ## basal friction (dissipation) component; inconsistent timing
       subroutine MTFbfc
-     M    (VH,
-     I     VT,    VW,
-     I     KHFR,
-     I     KVU,   KWST,
+     M    (VH,    KHFR,
+     I     VT,    KTU,
+     I     VW,    KWST,
      I     MH,    LH,   NZ,    LZ, KZ0)
 CCC_  - Description
 CC      check MTFbfr()
@@ -446,26 +382,24 @@ CCC_  - Declaration
       implicit none
       _INTENT(IN,   integer)  MH, LH
       _INTENT(IN,   integer)  NZ, LZ, KZ0
-      _INTENT(INOUT,_REALSTD) VH (LH, *)
-      _INTENT(IN,   _REALSTD) VT (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VW (LH, LZ, *)
+      _INTENT(INOUT,_REALSTD) VH(LH, *)
       _INTENT(IN,   integer)  KHFR
-      _INTENT(IN,   integer)  KVU
+      _INTENT(IN,   _REALSTD) VT(LH, LZ, *)
+      _INTENT(IN,   integer)  KTU
+      _INTENT(IN,   _REALSTD) VW(LH, LZ, *)
       _INTENT(IN,   integer)  KWST
       integer  jh
 CCC_  - Body
       do jh = 1, MH
-         VH (jh, KHFR) =
-     $        -(VW (jh, KZ0, KWST) * VT (jh, KZ0, KVU))
+         VH (jh, KHFR) = -(VW(jh, KZ0, KWST) * VT(jh, KZ0, KTU))
       enddo
       RETURN
       END
 CCC_ & MTFbfd  ## basal friction (dissipation) component; consistent timing
       subroutine MTFbfd
-     M    (VH,
-     I     VT,    VID,
-     I     KHFR,
-     I     KVU,   KIDST,
+     M    (VH,    KHFR,
+     I     VT,    KTU,
+     I     VI,    KIST,
      I     MH,    LH,   NZ,    LZ, KZ0)
 CCC_  - Description
 CC      check MTFbfr()
@@ -473,27 +407,25 @@ CCC_  - Declaration
       implicit none
       _INTENT(IN,   integer)  MH, LH
       _INTENT(IN,   integer)  NZ, LZ, KZ0
-      _INTENT(INOUT,_REALSTD) VH (LH, *)
-      _INTENT(IN,   _REALSTD) VT (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VID(LH, *)
+      _INTENT(INOUT,_REALSTD) VH(LH, *)
       _INTENT(IN,   integer)  KHFR
-      _INTENT(IN,   integer)  KVU
-      _INTENT(IN,   integer)  KIDST
+      _INTENT(IN,   _REALSTD) VT(LH, LZ, *)
+      _INTENT(IN,   integer)  KTU
+      _INTENT(IN,   _REALSTD) VI(LH, *)
+      _INTENT(IN,   integer)  KIST
       integer  jh
 CCC_  - Body
       do jh = 1, MH
-         VH (jh, KHFR) =
-     $        -(VID (jh, KIDST) * VT (jh, KZ0, KVU))
+         VH (jh, KHFR) = -(VI(jh, KIST) * VT(jh, KZ0, KTU))
       enddo
       RETURN
       END
 CCC_ & MTFbfr  ## basal friction (dissipation)
       subroutine MTFbfr
-     M    (VH,
-     I     VT,    VW,
-     I     KHFR,
-     I     KVU,   KVV,  KWSTx, KWSTy,
-     I     MH,    LH,   NZ,    LZ, KZ0)
+     M    (VH, KHFR,
+     I     VT, KTU,   KTV,
+     I     VW, KWSTx, KWSTy,
+     I     MH, LH,    NZ,    LZ, KZ0)
 CCC_  - Description
 CC    In terms of frictional heating, the sign should be plus
 CC    This term is to be added to geothermal heat flux (negative),
@@ -503,17 +435,17 @@ CCC_  - Declaration
       _INTENT(IN,   integer)  MH, LH
       _INTENT(IN,   integer)  NZ, LZ, KZ0
       _INTENT(INOUT,_REALSTD) VH (LH, *)
-      _INTENT(IN,   _REALSTD) VT (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VW (LH, LZ, *)
       _INTENT(IN,   integer)  KHFR
-      _INTENT(IN,   integer)  KVU,   KVV
+      _INTENT(IN,   _REALSTD) VT (LH, LZ, *)
+      _INTENT(IN,   integer)  KTU,   KTV
+      _INTENT(IN,   _REALSTD) VW (LH, LZ, *)
       _INTENT(IN,   integer)  KWSTx, KWSTy
       integer  jh
 CCC_  - Body
       do jh = 1, MH
-         VH (jh, KHFR) =
-     $        -(VW (jh, KZ0, KWSTx) * VT (jh, KZ0, KVU)
-     $         +VW (jh, KZ0, KWSTy) * VT (jh, KZ0, KVV))
+         VH(jh, KHFR) =
+     $        -(VW(jh, KZ0, KWSTx) * VT(jh, KZ0, KTU)
+     $         +VW(jh, KZ0, KWSTy) * VT(jh, KZ0, KTV))
       enddo
       RETURN
       END

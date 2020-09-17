@@ -1,14 +1,14 @@
 # src/development/Makefile.tmpl --- IcIES/Development Makefile.am template
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 2 2011
-# Revision:  Snoopy0.9
-# Time-stamp: <2020/09/15 11:03:00 fuyuki Makefile.tmpl>
+# Revision:  Snoopy0.97
+# Time-stamp: <2020/09/17 06:48:53 fuyuki Makefile.tmpl>
 
 # Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
-libicies_local_la_ORIGINS	=	danntr.F denvms.F \
+libicies_local_la_ORIGINS	=	danntr.F denvms.F duntms.F doptms.F \
 								dbstrp.F dpathn.F dmpims.F dlogms.F dvioms.F \
 								ddroot.F
 
@@ -17,6 +17,8 @@ LIB_DEPEND_DIRS	=	unison
 EXTRA_DIST = dvainc.F dvainc.m4 ##%% a
 
 dvioms.f: dvainc.F
+
+INPUT_DIR	=	S
 
 BUILT_SOURCES	=	dvainc.F
 MAINTAINERCLEANFILES = dvainc.F ##%% a
@@ -34,6 +36,9 @@ dvainc.F: dvainc.m4
        $(CP) $(srcdir)/$@ $@; \
     else $(CREATE_DVAINC); fi
 endif
+
+check-inputs:
+	test -e $(builddir)/$(INPUT_DIR) || $(LN_S) $(srcdir)/$(INPUT_DIR)
 
 ### Local Variables:
 ### mode: makefile-automake

@@ -1,7 +1,7 @@
 !!!_! ageni.F90 --- age integral with simpson method.
 ! Maintainer:  SAITO Fuyuki
 ! Created: Nov 14 2018
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:48:08 fuyuki ageni_00.F90>'
+#define TIME_STAMP 'Time-stamp: <2020/09/17 09:01:45 fuyuki ageni_00.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif

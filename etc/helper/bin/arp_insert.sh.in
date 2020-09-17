@@ -1,0 +1,711 @@
+#!@ZSH@ -f
+# Maintainer:  SAITO Fuyuki
+# Created: Apr 11 2013
+# Time-stamp: <2020/09/17 09:04:40 fuyuki arp_insert.sh.in>
+# Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_. [arp]
+###_ , [arp aa]
+###_  . arp_aa_init
+arp_aa_init ()
+{
+  if [[ -z ${(t)AA} ]];then
+    typeset -gA AA
+    zui_init || exit $?
+    zui_help  add    AA arp_aa_help   || exit $?
+    zui_parse append AA arp_aa_parse  || exit $?
+  fi
+  return 0
+}
+
+###_  . arp_aa_help
+arp_aa_help ()
+{
+  print - "IcIES/arpeggio common"
+  print - "usage: $xbin PROGRAM [OPTIONS..]"
+  print - "  -r CROOT (default: $AA[r])"
+}
+
+###_  . parser
+###_   , arp_aa_parse
+arp_aa_parse ()
+{
+  if [[ $1 == -i ]];then
+    : ${AA[r]:=ID}   # CROOT
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='r:'}
+  elif [[ $1 == -p ]];then
+    arp_aa_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    AA[$name]=$arg
+  fi
+  return 0
+}
+
+###_   , arp_ae_parse_post
+arp_aa_parse_post ()
+{
+  :
+  return
+}
+
+###_ , [arp ae]
+
+###_  . arp_ae_init
+arp_ae_init ()
+{
+  if [[ -z ${(t)AE} ]];then
+    typeset -gA AE
+
+    zui_init || exit $?
+
+    zui_help  add    AE arp_ae_help   || exit $?
+    zui_parse append AE arp_ae_parse  || exit $?
+    ## zui_parse post arp_ae_parse_post || exit $?
+  fi
+  return 0
+}
+
+###_  . arp_ae_help
+arp_ae_help ()
+{
+  print - "IcIES/arpeggio/elements dealer helper"
+  print - "usage: $xbin PROGRAM [OPTIONS..]"
+  print - "  -k KDL         (default: $AE[k])"
+  print - "  -n NXG[,NYG]   (default: $AE[n])"
+  print - "  -b LXB[,LYB]   (default: $AE[b])"
+  print - "  -o LXO[,LYO]   (default: $AE[o])"
+  print - "  -w LXW[,LYW]   (default: $AE[w])"
+  print - "  -s ISH         (default: $AE[s])"
+  print - "  -p NR          (default: $AE[p])"
+  print - "  -d LVDBG       (default: $AE[d])"
+  print - "  -i IR          (default: $AE[i])"
+}
+
+###_  . parser (arppegio elements dealer)
+###_   , arp_ae_parse
+arp_ae_parse ()
+{
+  if [[ $1 == -i ]];then
+    : ${AE[k]:=3}    # KDL
+    : ${AE[n]:=11}   # N
+    : ${AE[b]:=1}    # LB
+    : ${AE[o]:=0}    # LO
+    : ${AE[w]:=0}    # LW
+    : ${AE[s]:=1}    # ISH
+    : ${AE[p]:=1}    # NR
+    : ${AE[d]:=}     # LVDBG
+    : ${AE[i]:=}     # IR
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='k:n:b:o:s:p:d:i:w:'}
+  elif [[ $1 == -p ]];then
+    arp_ae_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    AE[$name]=$arg
+  fi
+  return 0
+}
+
+###_   , arp_ae_parse_post
+arp_ae_parse_post ()
+{
+  zui_split -a AE , "$AE[n]" x/N  y/N
+  zui_split -a AE , "$AE[b]" x/LB y/LB
+  zui_split -a AE , "$AE[o]" x/LO y/LO
+  zui_split -a AE , "$AE[w]" x/LW y/LW
+  return
+}
+
+###_  . sysin generation
+##      arp_ae_create_sysin (use AA, AE)
+arp_ae_create_sysin ()
+{
+  local nr=$AE[p]
+
+  local ish=$AE[s]
+  # [[ $ish == - ]] && ish=$(GMT gmtmath -Q $nr 10 MUL =)
+  [[ $ish == - ]] && ish=$(zui_wrap dc -e "$nr 10 * p")
+
+  local dbg=$AE[d]
+  [[ -n $dbg ]] && dbg="LVDBG=$dbg,"
+
+  local ir=$AE[i]
+  [[ -n $ir ]] && ir="IR = $ir, "
+
+  local kx=x ky=y
+  [[ -n $AE[swap] ]] && ky=x kx=y
+  [[ $VERBOSE -gt 0 ]] && print -u2 "$0: key x:$kx y:$ky"
+
+  print -n " &NIEDLA"
+  print -n " CROOT='$AA[r]',"
+  print -n " KDL=$AE[k],"
+  print -n " NXG=$AE[$kx/N], NYG=$AE[$ky/N],"
+  print -n " LXB=$AE[$kx/LB], LYB=$AE[$ky/LB],"
+  print -n " LXO=$AE[$kx/LO], LYO=$AE[$ky/LO],"
+  print -n " LXW=$AE[$kx/LW], LYW=$AE[$ky/LW],"
+  print -n " ISH=$ish,"
+  print -n " ${ir}NR=$nr, $dbg"
+  print    " &END"
+
+  return 0
+}
+
+###_ , [arp ae figure]
+
+###_  . netcdf to figure
+arp_ae_figure_wrap ()
+{
+  local nc=$1 fmt=$2; shift 2
+  _$0 $nc $fmt pi  -c wysiwyg -w    $@
+  _$0 $nc $fmt khp -c wysiwyg -w -n $@
+  _$0 $nc $fmt khg -c wysiwyg -w -n $@
+  _$0 $nc $fmt mu  -c wysiwyg       $@
+  _$0 $nc $fmt cu  -c wysiwyg       $@
+}
+_arp_ae_figure_wrap ()
+{
+  local nc=$1 fmt=$2 var=$3; shift 3
+  local ps=$(printf $fmt $var)
+  arp_ae_figure $nc $var $@ > $ps
+}
+
+##      arp_ae_figure NC VAR [OPTIONS]
+##      OPTIONS:
+##         [-c CPT]
+##         [-O][-K]
+##         [-J][-R][-B]
+arp_ae_figure ()
+{
+  local gg=$1 var=$2; shift 2
+  local gf="$gg?$var"
+  local -A G
+  local name def args
+  local -a ginf
+  ## create default option (R)
+  ginf=($(zui_wrap GMT grdinfo -C $gf))
+  ginf[2]=$((ginf[2]-0.5))
+  ginf[3]=$((ginf[3]+0.5))
+  ginf[4]=$((ginf[4]-0.5))
+  ginf[5]=$((ginf[5]+0.5))
+  def=($def -R$ginf[2]/$ginf[3]/$ginf[4]/$ginf[5])
+  ## create default option (J)
+  def=($def -Jx0.4c/0.4c)
+  ## create default option (B)
+  def=($def -Ba2 +Bg1)
+  ## option parser
+  args=($def $@)
+  while getopts OKPnwc:J:R:B:X:Y: name $args
+  do
+    case $name in
+    n|w)  G[$name]=$name;;
+    c)    G[$name]=$OPTARG;;
+    B|+B) G[$name]=$OPTARG;;
+    *) G[$name]=$OPTARG
+       G[g:$name]=-$name$OPTARG;;
+    esac
+    OPTARG=
+  done
+  shift $((OPTIND - 1)) args
+  ## cpt
+  if [[ -e $G[c] ]];then
+    :
+  else
+    local cf=$(mktemp)
+    zui_wrap GMT makecpt $args -C$G[c] -T0/$((ginf[7]+1))/1 -M > $cf
+    G[c]=$cf
+  fi
+  ## draw
+  zui_wrap GMT psxy $args -T $G[g:J] $G[g:R] $G[g:P] $G[g:X] $G[g:Y] $G[g:O] -K
+  [[ -n $G[B]  ]] && zui_wrap GMT psbasemap  $args -O -K -R -J -B"$G[B]"
+  [[ -n $G[c]  ]] && zui_wrap GMT grdview    $args -O -K -R -J -T -C$G[c] $gf
+  if [[ -n $G[n] ]];then
+    : ${KPH_FONT:=9}
+    : ${KPH_SIZE:=5}
+    zui_wrap GMT grd2xyz $gf |\
+      gawk -v font=$KPH_FONT -v size=$KPH_SIZE \
+        '$3>=0{print $1, $2, size, 0, font, "MC ", $3}' | zui_wrap GMT pstext $args -O -K -R -J
+    zui_wrap GMT grd2xyz $gf |\
+      gawk -v font=$KPH_FONT -v size=$KPH_SIZE \
+        '$3< 0{print $1, $2, size, 0, font, "MC ", -$3}' | zui_wrap GMT pstext $args -O -K -R -J -Ggray
+  fi
+  ## interior region (not activated)
+  if [[ -n $G[w] ]];then
+    : ${OVW_PEN:=fat,white}
+    local ox=0 oy=0 oxw= oxe= oys= oyn=
+    if [[ $ox -gt 0 ]];then
+      # oxw=$(GMT gmtmath -Q $ox 0.5 SUB =)
+      oxw=$(zui_wrap dc -e "$ox 0.5 - p")
+      print -l "$oxw -0.5" "$oxw $ny" | zui_wrap GMT psxy $args -O -K -R -J -W$OVW_PEN
+      # oxe=$(GMT gmtmath -Q $nxg $ox ADD 0.5 SUB =)
+      oxe=$(zui_wrap dc -e "$nxg $ox + 0.5 - p")
+      print -l "$oxe -0.5" "$oxe $ny" | zui_wrap GMT psxy $args -O -K -R -J -W$OVW_PEN
+    fi
+    if [[ $oy -gt 0 ]];then
+      # oys=$(GMT gmtmath -Q $oy 0.5 SUB =)
+      oys=$(zui_wrap dc -e "$oy 0.5 SUB p")
+      print -l "-0.5 $oys" "$nx $oys" | zui_wrap GMT psxy $args -O -K -R -J -W$OVW_PEN
+      # oyn=$(GMT gmtmath -Q $nyg $oy ADD 0.5 SUB =)
+      oyn=$(zui_wrap dc -e "$nyg $oy + 0.5 - p")
+      print -l "-0.5 $oyn" "$nx $oyn" | zui_wrap GMT psxy $args -O -K -R -J -W$OVW_PEN
+    fi
+  fi
+  [[ -n $G[+B] ]] && zui_wrap GMT psbasemap  $args -O -K -R -J -B"$G[+B]"
+  zui_wrap GMT psxy $args -T -J -R -O $G[g:K]
+}
+
+###_  . conversion from ascii log
+
+## arp_create_log2nc PROG LOG OUT_FMT CROOT
+arp_create_log2nc ()
+{
+  [[ $# -lt 4 ]] && print -u2 "Not enough arguments" && exit 1
+  local pbase=$1 log=$2 ofmt=$3 CROOT=$4
+  shift 4 || return $?
+  [[ ! -e $log ]] && print -u2 "No log file $log" && exit 1
+
+  local attX= attY=
+  attX=($(sed -n -e "/^AE:${CROOT}:X /s///p" $log))
+  attY=($(sed -n -e "/^AE:${CROOT}:Y /s///p" $log))
+  # local mxlg=$attX[4] mylg=$attY[4]
+  local mxlg=$attX[5] mylg=$attY[5]
+  local gg=$(printf "$ofmt" $CROOT)
+  local cargs=
+  local gf=$(mktemp).grd
+  cargs=($CROOT $log $gf $gg -I1/1 -R0/$mxlg/0/$mylg)
+  print -u2 - $cargs
+  arp_create_log2nc_parse xt  XT 1 $cargs
+  arp_create_log2nc_parse yt  YT 1 $cargs
+  arp_create_log2nc_parse xk  XT 2 $cargs
+  arp_create_log2nc_parse yk  YT 2 $cargs
+  arp_create_log2nc_parse ir  HP 2 $cargs
+  arp_create_log2nc_parse jhp HP 1 $cargs
+  arp_create_log2nc_parse wt  MT 1 $cargs
+  arp_create_log2nc_parse cu  CC 1 $cargs
+  arp_create_log2nc_parse ct  CC 2 $cargs
+  rm -f $gf
+}
+
+
+## arp_create_log2nc_parse var TAG COLUMN CROOT LOG TMPGF OUTCF [GMT ARGS..]
+##   extract and append to OUTCF
+arp_create_log2nc_parse ()
+{
+  local v=$1 tag=$2 col=$3; shift 3 || return $?
+  local cr=$1 log=$2 gf=$3 cf=$4; shift 4 || return $?
+  let col++
+
+  # gawk "/^AE:${cr}:$tag"'/{print $4,$5,$'$col'}' $log >&2
+
+  gawk "/^AE:${cr}:$tag"'/{print $4,$5,$'$col'}' $log |\
+      zui_wrap GMT xyz2grd -G$gf "$@" -D:=:=:${v}:=:=:=:
+  ncrename -v z,$v $gf
+  if [[ -e $gf ]];then
+    ncks $gf -A $cf
+  else
+    ncks $gf    $cf
+  fi
+
+  return 0
+}
+
+arp_create_nc2fig ()
+{
+  local pbase=$1 nc=$2 ofmt=$3 CROOT=$4
+  shift 4 || return $?
+  ### print -u2 - "$@"
+  nc=$(printf "$nc" $CROOT)
+  [[ ! -e $nc ]] && "cannot found $nc" && return 1
+  local opts= args=
+  zui_group_arguments opts args "$@"
+  [[ -z $args ]] && args=(xt yt ir jhp)
+  local ft
+  local rx ry rz xr yr
+  rx=($(ncks -s '%.0f\n' -H -v x $nc | GMT minmax -C))
+  ry=($(ncks -s '%.0f\n' -H -v y $nc | GMT minmax -C))
+  xr=$(($rx[2]-$rx[1]))
+  yr=$(($ry[2]-$ry[1]))
+  let 'rx[1]-=0.5' 'rx[2]-=0.5'
+  let 'ry[1]-=0.5' 'ry[2]-=0.5'
+  ## print -u2 - $rx $ry
+  local gf= cf= ops=
+  local cpt=
+  local gargs= bargs=
+  local cleans=
+  local bx= by= rr= b= bb= b0= b1=
+  bb=(a f g)
+  b=(1 1 0)
+  [[ $xr -gt 20 ]]  && b=(5 1 0)
+  [[ $xr -gt 100 ]] && b=(10 2 0)
+  for b0 b1 in ${bb:^b}
+  do
+    [[ $b1 -gt 0 ]] && bx=$bx$b0$b1
+  done
+  b=(1 1 0)
+  [[ $yr -gt 20 ]]  && b=(5 1 0)
+  [[ $yr -gt 100 ]] && b=(10 2 0)
+  for b0 b1 in ${bb:^b}
+  do
+    [[ $b1 -gt 0 ]] && by=$by$b0$b1
+  done
+  for ft in $args
+  do
+    gf="$nc?$ft"
+    ops=$(printf "$ofmt" ${ft}_$CROOT)
+    [[ x$ops == x- ]] && ops=
+    print -u2 "$0: $ops"
+    if [[ -n $ops ]];then
+      exec 4> $ops
+    else
+      exec 4>&1
+    fi
+
+    gargs= bargs=
+    bargs=(-P -JX5i/5i)
+    if [[ $ft == [xy]t ]];then
+      cf=$cpt
+      rz=($(GMT grdinfo -C $gf)); rz=($rz[6] $rz[7])
+      bargs=($bargs -JZ1i)
+      bargs=($bargs -R$rx[1]/$rx[2]/$ry[1]/$ry[2]/$rz[1]/$rz[2])
+      bargs=($bargs -B${bx}:'X':/${by}:'Y':WSNE -E60/60)
+      if [[ -z $cf ]];then
+        cf=$(mktemp).cpt
+        GMT makecpt -T$rz[1]/$((rz[2]+1))/1 -Cwysiwyg > $cf
+        cleans=($cleans $cf)
+      fi
+      gargs=($gargs -C$cf)
+      zui_wrap GMT psbasemap -K $bargs >&4
+      GMT grd2xyz -S $gf | gawk '{print $0,$NF}' | zui_wrap GMT psxyz -O -K $bargs $gargs -So0.8u >&4
+      zui_wrap GMT psxy -T -O -J -R >&4
+      print -u2 "$0:figure[$ft] $opts $rz"
+    fi
+    [[ -n $ops ]] && exec 4>&-
+  done
+  [[ -n $cleans ]] && rm -f ${(u)cleans}
+  return 0
+}
+
+##      arp_ae_log2nc nc CROOT LOG...
+arp_ae_log2nc ()
+{
+  [[ $# -lt 3 ]] && print -u2 "Not enough arguments" && exit 1
+
+  local gg=$1; shift
+
+  local CROOT=$1; shift
+  local -a rlog; rlog=($@)
+
+  local r
+###_   , get primitive attributes
+  r=($(sed -ne "/^${CROOT}:H/{p;q}" $rlog))
+  local nx=$r[6] ny=$r[7]
+
+  r=($(sed -ne "/^${CROOT}:P/{p;q}" $rlog))
+  local np=$r[3]
+
+  r=($(sed -ne "/^${CROOT}:I/{p;q}" $rlog))
+  local ox=$r[5] oy=$r[6] nxg=$r[2] nyg=$r[3]
+
+  [[ -z $nx$ny   ]] && print -u2 "Invalid log $rlog" && return 1
+  [[ -z $np      ]] && print -u2 "Invalid log $rlog" && return 2
+  [[ -z $ox$oy   ]] && print -u2 "Invalid log $rlog" && return 3
+  [[ -z $nxg$nyg ]] && print -u2 "Invalid log $rlog" && return 4
+
+###_   , GMT attributes
+  # local R=0/$nxg/0/$nyg
+  local R=0/$nx/0/$ny
+  local I=1/1
+  local -a gargs; gargs=(-R$R -I$I)
+###_   , variable extraction
+  local gdir=$(mktemp -d)
+  ## local gdir=testae; mkdir -p $gdir
+  arp_ae_log2nc_gen pi  LW 6 $CROOT $rlog -- $gdir $gargs
+  arp_ae_log2nc_gen khp MN 2 $CROOT $rlog -- $gdir $gargs
+  arp_ae_log2nc_gen khg LW 2 $CROOT $rlog -- $gdir $gargs
+
+  arp_ae_log2nc_gen mu  MU 2 $CROOT $rlog -- $gdir $gargs
+  arp_ae_log2nc_gen cu  CU 2 $CROOT $rlog -- $gdir $gargs
+
+  ncks    $gdir/pi.grd  $gg
+  ncks -A $gdir/khp.grd $gg
+  ncks -A $gdir/khg.grd $gg
+  ncks -A $gdir/mu.grd  $gg
+  ncks -A $gdir/cu.grd  $gg
+
+  # print -u2 $gdir
+  # ls -l $gdir >&2
+  rm -rf $gdir
+}
+
+###_  . arp_ae_log2nc_gen     # IE properties to GMT gridfile
+arp_ae_log2nc_gen ()
+{
+  local var=$1
+  local -a xarg garg
+  zui_group_arguments xarg garg $@
+
+  local gd=$garg[1]; shift garg
+  local gf=$gd/$var.grd
+
+  arp_ae_log2nc_extract $xarg | zui_wrap GMT xyz2grd -G$gf $garg -D:=:=:${var}:=:=:=:
+  ncrename -v z,$var $gf
+  return $?
+}
+
+###_  . arp_ae_log2nc_extract # IE properties to stdout
+arp_ae_log2nc_extract ()
+{
+  local var=$1; shift
+  local tag=$1 col=$2; shift 2
+  local CROOT=$1; shift
+  local -a rlog; rlog=($@)
+
+  gawk "/^${CROOT}:$tag"'/{print $4,$5,$'$col'}' $rlog
+}
+
+###_  . arp_ae_get_id  ## get arpeggio/elements id
+##      arp_ae_get_id VAR [AE]
+arp_ae_get_id ()
+{
+  local __var=$1; shift
+  if [[ $1 == AE || -z $1 ]];then
+    :
+  else
+    local -A AE
+    AE=("${(@Pkv)1}")
+  fi
+  [[ $__var == __id ]] || local __id
+  __id=(p${AE[p]}
+        n${AE[x/N]}x${AE[y/N]}
+        b${AE[x/LB]}x${AE[y/LB]}
+        o${AE[x/LO]}x${AE[y/LO]})
+  [[ -n $AE[x/LW]$AE[y/LW] && $AE[x/LW]$AE[y/LW] != 00 ]] && __id=($__id w${AE[x/LW]}x${AE[y/LW]})
+  __id=($__id s${AE[s]})
+  __id="${(j:_:)__id}"
+  [[ $__var == __id ]] || : ${(P)__var::=$__id}
+  return 0
+}
+
+
+###_ , [arp ag] geometry
+###_  . arp_ag_init
+arp_ag_init ()
+{
+  if [[ -z ${(t)AG} ]];then
+    typeset -gA AG
+
+    zui_init || exit $?
+
+    zui_help  add    AG arp_ag_help   || exit $?
+    zui_parse append AG arp_ag_parse  || exit $?
+    ## zui_parse post arp_ae_parse_post || exit $?
+  fi
+  return 0
+}
+###_  . arp_ag_help
+arp_ag_help ()
+{
+  print - "IcIES/arpeggio/geometry helper"
+  print - "usage: $xbin PROGRAM [OPTIONS..]"
+  print - "  -w WIDTH(s)"
+  print - "  -c ORIGIN(s)"
+  print - "  -t ORIGIN-TYPE(s) [PLR]"
+  print - "  -l WN(s)"
+  print - "  -x DIRECTION      [wesn]"
+  print - "  -z NZ[:type]"
+}
+
+###_  . parser (arppegio geometry)
+###_   , arp_ag_parse
+arp_ag_parse ()
+{
+  if [[ $1 == -i ]];then
+    : ${AG[w]:=}         # W
+    : ${AG[c]:=}         # O
+    : ${AG[t]:=}         # T
+    : ${AG[l]:=}         # WN
+    : ${AG[z]:=}         # Z
+    : ${AG[x]:=e}        # swap direction
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='w:c:t:l:z:x:'}
+  elif [[ $1 == -p ]];then
+    arp_ag_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    AG[$name]=$arg
+  fi
+  return 0
+}
+
+###_   , arp_ag_parse_post
+arp_ag_parse_post ()
+{
+  local sw=$AG[x]
+
+  # zui_split -a AG , "$AG[c]" x/O  y/O
+  # zui_split -a AG , "$AG[l]" x/WN y/WN
+  # zui_split -a AG , "$AG[w]" x/W  y/W
+  # zui_split -a AG , "$AG[t]" x/T  y/T
+  local xo xn xw xt xzl xzu xml xmu
+  local yo yn yw yt yzl yzu yml ymu
+  local kx=x ky=y
+
+  ## set default
+  : ${AG[l]:=-1} ${AG[t]:=R} ${AG[c]:=0.5} ${AG[w]:=100.0}
+
+  ## split
+  zui_split , "$AG[c]"  xo  yo
+  zui_split , "$AG[l]"  xn  yn
+  zui_split , "$AG[w]"  xw  yw
+  zui_split , "$AG[t]"  xt  yt
+  zui_split -b , "$AG[zl]" xzl yzl
+  zui_split -b , "$AG[zu]" xzu yzu
+  zui_split -b , "$AG[ml]" xml yml
+  zui_split -b , "$AG[mu]" xmu ymu
+
+  if [[ $sw == w || $sw == s ]];then
+    if [[ $xt == L ]];then
+      let 'AE[x/N]++'
+      [[ $VERBOSE -gt 0 ]] && print -u2 "$0: elements/NX modified ($AE[x/N])"
+      [[ $xn -lt 0 ]] && xn=$((xn-1.0))
+      xo=$((xo+1.0))
+    fi
+    xw=-$xw
+  fi
+  if [[ $sw == n || $sw == s ]];then
+    [[ $VERBOSE -gt 0 ]] && print -u2 "$0: swap x/y."
+    kx=y ky=x
+    AE[swap]=T
+  fi
+  ## print -u2 ZZ $xzl/$xzu/$yzl/$yzu
+
+  AG[$kx/O]=$xo AG[$kx/WN]=$xn AG[$kx/W]=$xw AG[$kx/T]=$xt
+  AG[$ky/O]=$yo AG[$ky/WN]=$yn AG[$ky/W]=$yw AG[$ky/T]=$yt
+
+  AG[$kx/ZU]=$xzu AG[$kx/ZL]=$xzl
+  AG[$ky/ZU]=$yzu AG[$ky/ZL]=$yzl
+  AG[$kx/MU]=$xmu AG[$kx/ML]=$xml
+  AG[$ky/MU]=$ymu AG[$ky/ML]=$yml
+
+  : ${AG[z]:=17}
+  return
+}
+
+###_   , arp_ag_create_sysin (use AG, AA)
+arp_ag_create_sysin ()
+{
+  local croot=$AA[r]
+
+  arp_ag_create_sysin_part $croot X x
+  arp_ag_create_sysin_part $croot Y y
+
+  arp_ag_create_sysin_z    $croot
+
+  return 0
+}
+
+arp_ag_create_sysin_part ()
+{
+  local croot=$1 ck=$2 key=$3
+  ## print -u2 ${(kv)AG}
+  print -n " &NIGEOM"
+  print -n " CROOT='$croot',"
+  print -n " CKIND = '$ck',"
+  print -n " O = $AG[$key/O],"
+  print -n " T = '$AG[$key/T]',"
+  print -n " W = $AG[$key/W],"
+  print -n " WN = $AG[$key/WN],"
+
+  [[ -n $AG[$key/ZU] ]] && print -n " ZDU = $AG[$key/ZU],"
+  [[ -n $AG[$key/ZL] ]] && print -n " ZDL = $AG[$key/ZL],"
+  [[ -n $AG[$key/MU] ]] && print -n " RXU = $AG[$key/MU],"
+  [[ -n $AG[$key/ML] ]] && print -n " RXL = $AG[$key/ML],"
+
+  print -  " &END"
+}
+
+arp_ag_create_sysin_z ()
+{
+  local croot=$1
+  local za=$AG[z]
+  if [[ -n $za ]];then
+    za=("${(@s/:/)za}")
+    if [[ -n $za[1] ]];then
+      print " &NICOOR CROOT='$croot', NZ = $za[1], &END"
+    fi
+    if    [[ $za[2] == l ]];then
+      :
+    elif  [[ $za[2] == p1p4 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 4,  CWGT = 3.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == p1p4h ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 4,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == p1p3 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 3,  CWGT = 3.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == p2 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 2,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == p1p2p4 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 2,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 4,  CWGT = 3.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == p1p2 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 2,  CWGT = 3.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == p1p5 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1,  CWGT = 1.0d0,  COFS = 0.0d0  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 5,  CWGT = 3.0d0,  COFS = 0.0d0  &END"
+    elif  [[ $za[2] == glimmer ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER = 0,  CWGT = -1.0d0, COFS =  0.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = -2, CWGT =  4.0d0, COFS = -2.0d0 &END"
+    elif  [[ $za[2] == wv3d4 ]];then
+      #    [3 [(p+1) - (p+2)(1-zeta) + (1-zeta)^(p+2)]/(p+1) + zeta] / 4
+      # =  [1/4(p+1)] [[3 (p+1) - 3(p+2)(1-zeta) + 3(1-zeta)^(p+2)] + (p+1)zeta]
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1, CWGT = 4.0d0,   COFS =  0.0d0, DNM=16.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 0, CWGT = 12.0d0,  COFS =  0.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 1, CWGT = -15.0d0, COFS = -1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER = 5, CWGT = 3.0d0,   COFS = -1.0d0, &END"
+    elif  [[ $za[2] == wv3 ]];then
+      print " &NIGEOZ CROOT='$croot', IPOWER=0, CWGT=0.0d0,  COFS=0.0d0, DNM=4.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=0, CWGT=4.0d0,  COFS=0.0d0,  &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=1, CWGT=-5.0d0, COFS=-1.0d0, &END"
+      print " &NIGEOZ CROOT='$croot', IPOWER=5, CWGT=1.0d0,  COFS=-1.0d0, &END"
+    elif  [[ $za[2] == sally ]];then
+      print " &NIGEOZ CROOT='$croot', NLV = 11, DXN =  1.d0, DXD = 100.0d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV = -1, DXN =  6.d0, DXD = 0.0d0   &END"
+    fi
+  fi
+  return 0
+}
+
+###_   , arp_ag_extract_geom
+arp_ag_extract_geom ()
+{
+  ## print -u2 "IN $@ $#"
+  [[ $# -lt 3 ]] && return 1
+  local tag=$1 var=$2; shift 2
+  local -a plog; plog=($@)
+  local s="${var}:$tag"
+  ## print -u2 sed $s
+  sed -ne "/S:$s/","/E:$s/p" $plog | sed -e '1d;$d'
+}
+
+###_ , [arp root]
+###_  . arp_init
+arp_init ()
+{
+  ## typeset -g  arpeggio=$abs_builddir_src/arpeggio
+  arp_aa_init || return $?
+  arp_ae_init || return $?
+  arp_ag_init || return $?
+  return 0
+}
+
+## [[ -z $NO_INIT ]] || arp_init || exit $?

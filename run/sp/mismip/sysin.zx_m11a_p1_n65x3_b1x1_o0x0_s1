@@ -1,0 +1,17 @@
+ &NIDMBS KCHECK = 1, FILE = 'O/mdrvrm2/ym11a_30/u/i/sysin.zx_m11a_p1_n65x3_b1x1_o0x0_s1' &END
+ &NIDPTV TAG = 'RUN', VALUE='ym11a_30', &END
+ &NILOGC CH = 'V', ROOT = 'vrep', &END
+ &NICARG  A = './mdrvrm2 +Z +q -f +D -r ym11a_30 +A -p 1 -c 2,0.5 -n 65,3 -l -5,-1 +M -e n -M UP1 -Czx -X R=C:RI=G:TB=S:W=C:VB=T:UG=N:VBO=W:GCF=N -P CLV=0.0d0 -B m11a -T0:30000:1:0 -R+:::100 +MD -L :1d-10 +MSN -I1024:1e-2:0.5:4096:1e-4:1:8 -X1:1:::1 :run VMI VMHB VMSV VMC VMQ VMSX VMID VMSX0 rst::INI/ym11a_30.set:30000:VMI:VMTI',  &END
+ &NITPMS KTEST = 0, WLX = 1800.d3, WLY=0.d0, DGL = 0d0, RF = 1.46474627722e-16, &END
+ &NITPMI CROOT = 'ID', KSW = 3, ACC = 0.3d0, HINI = 0.0d0, RF = 1.46474627722e-16, &END
+ &NIMSWD MSW=4, MINI=0, KRF = 0, KRFI = 2, KWI = 0, KTBDZ = 1, KUSG = 0, KVB = 3, KVBSW = 3, KFGSW = 1,  &END
+ &NIPRMD GRAV = 9.8d0, DENS = 900.d0, DENSW = 1000.d0, CLV = 0.0d0, Etol=1d-10, &END
+ &NIPRMS GRAV = 9.8d0, DENS = 900.d0, DENSW = 1000.d0, &END
+ &NITMMD CROOT = 'ID', TINI = 0, TEND = 30000, DT = 1, TSSA = 0, DTRC = 100, &END
+ &NIAFWR CROOT = 'ID', GROUP = ' ', DT = 100, KSW = 0, &END
+ &NISSAL ItrMax=4096, Etol=1e-4, &END
+ &NISSAN ItrMax=1024, Etol=1e-2, Prlx=0.5, ItrGL=1, MaxTry=8, KswL=1, KswN=1, KswBT=1, &END
+ &NIGEOM CROOT = 'ID', CKIND = 'X', O = 2, T = 'L', W = 1800.d3, WN = -5, ZDL = 0, RXL = 0, &END
+ &NIGEOM CROOT = 'ID', CKIND = 'Y', O = 0.5, T = 'R', W = 0.d0, WN = -1, ZDU = 0, ZDL = 0, &END
+ &NICOOR CROOT = 'ID', NZ = 17, &END
+ &NIEDLA KDL=3, NXG=65, NYG=3, LXB=1, LYB=1, LXO=0, LYO=0, ISH=1, CROOT='ID',  NR=1,  &END

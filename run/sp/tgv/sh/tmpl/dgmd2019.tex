@@ -6,7 +6,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[ansinew]{inputenc}
 \usepackage[hiresbb]{graphicx}
-\usepackage{grffile}
+\usepackage{grffile}[=v1]
 \usepackage[sub]{psfragx}
 \usepackage{color}
 \pagestyle{empty}
@@ -19,7 +19,7 @@
 \makeatother
 % \newcommand{\REPL}[2][]{{\LARGE\sffamily\bfseries #2}\small\texttt{#1}}
 \newcommand{\REPL}[2][]{%
-  \setkeys*[SF]{base,coor,leg}{C,A,Ap,B,t,T,P,k,#1}\Insert{#2}}
+  \setkeys*[SF]{base,coor,leg,ann}{C,A,Af,Ap,B,t,T,P,k,#1}\Insert{#2}}
 \newcommand{\Percent}{\%}
 
 \usepackage{xkeyval}%      \define@cmdkey
@@ -28,6 +28,14 @@
 \usepackage{etoolbox}
 %\usepackage{stringstrings}
 \usepackage{trimspaces}
+
+\newcommand{\Ms}{M_{\mathrm{s}}}
+\newcommand{\Mb}{M_{\mathrm{b}}}
+\newcommand{\AccH}{a_{\mathsf{H}}}
+\newcommand{\AccL}{a_{\mathsf{L}}}
+\newcommand{\PerH}{P_{\mathsf{H}}}
+\newcommand{\PerL}{P_{\mathsf{L}}}
+\newcommand{\PerT}{P_{\mathsf{T}}}
 
 % \newcommand{\InsertIfNotEmpty}[2][]{\ifthenelse{\equal{#2}{}}{}{#1#2}}
 % \newcommand{\CallIfNotEmpty}[2]{\ifthenelse{\equal{#2}{}}{}{#1{#2}}}
@@ -49,6 +57,9 @@
 \def\Var@zc{\ensuremath{\mathsf{Z}}}
 \def\Var@dzb{\ensuremath{\Delta\zeta}}
 \def\Var@dzc{\ensuremath{\Delta\mathsf{Z}}}
+\def\Var@time{Time}
+\def\Var@acc{\ensuremath{\Ms}}
+\def\Var@H{\ensuremath{H}}
 
 \def\Pfx@D{\ensuremath{\Delta}}
 \def\Pfx@R{\ensuremath{\delta}}
@@ -74,12 +85,19 @@
 \def\Ap@c{1:1}
 \def\Ap@g{1:7}
 
+\def\Af@s{square}
+\def\Af@c{cosine}
+\def\Af@l{triangle}
+
+\define@cmdkey[SF]{ann}{a}[]{}
+
 \define@cmdkey[SF]{leg}{A}[]{}
 \define@cmdkey[SF]{leg}{B}[]{}
 \define@cmdkey[SF]{leg}{T}[]{}
 \define@cmdkey[SF]{leg}{C}[]{}
 \define@cmdkey[SF]{leg}{P}[]{}
 \define@cmdkey[SF]{leg}{Ap}[]{}
+\define@cmdkey[SF]{leg}{Af}[]{}
 \define@cmdkey[SF]{leg}{t}[]{}
 \define@cmdkey[SF]{leg}{k}[]{}
 
@@ -90,18 +108,20 @@
 \def\InsertLegC{\csname C@\cmdSF@leg@C\endcsname}
 \def\InsertLegT{\csname T@\cmdSF@leg@T\endcsname}
 \def\InsertLegk{\csname k@\cmdSF@leg@k\endcsname}
+\def\InsertLegAf{\csname Af@\cmdSF@leg@Af\endcsname\,\,}
 
 \def\InsertTime#1{$\SI{#1}{kyr}$\,\,}
 \def\InsertLegt{\CallIfNotEmpty{\InsertTime}{\cmdSF@leg@t}}
 
-\def\InsertAcc#1{$a_{cc}=\SI{#1}{cm~yr^{-1}}$\,\,}
+\def\InsertAcc#1{$\Ms=\SI{#1}{cm~yr^{-1}}$\,\,}
 \def\InsertLegA{\CallIfNotEmpty{\InsertAcc}{\cmdSF@leg@A}}
 
-\def\InsertBml#1{$M_{\mathrm{B}}=\SI{#1}{mm~yr^{-1}}$\,\,}
+\def\InsertBml#1{$\Mb=\SI{#1}{mm~yr^{-1}}$\,\,}
 \def\InsertLegB{\CallIfNotEmpty{\InsertBml}{\cmdSF@leg@B}}
 
-\def\InsertAp#1{$\mathsf{h:l={\csname Ap@#1\endcsname}}$\,\,}
+\def\InsertAp#1{$\PerH:\PerL=\mathsf{{\csname Ap@#1\endcsname}}$\,\,}
 \def\InsertLegAp{\CallIfNotEmpty{\InsertAp}{\cmdSF@leg@Ap}}
+
 
 \expandafter\def\csname P@vii100\endcsname{100}
 \expandafter\def\csname P@vii50\endcsname{50}
@@ -118,7 +138,7 @@
 \newcommand{\ParseText}[1][]{%
    \InsertLeg{k}%
    \InsertLeg{C}\InsertLeg{T}\InsertLeg{P}%
-   \InsertLeg{A}\InsertLeg{Ap}\InsertLeg{B}\InsertLeg{t}%
+   \InsertLeg{A}\InsertLeg{Af}\InsertLeg{Ap}\InsertLeg{B}\InsertLeg{t}%
 }
 
 \def\Insert@L#1{%
@@ -130,6 +150,12 @@
  {\tikz \draw node[anchor=mid,fill=white,inner sep=0pt]
    {\Large\sffamily\bfseries \ParseText};
  }}
+
+%% special annotation
+\expandafter\def\csname Ann@acc:0\endcsname{\ensuremath{a_{\mathsf{L}}}}
+\expandafter\def\csname Ann@acc:1\endcsname{\ensuremath{a_{\mathsf{H}}}}
+
+\def\Insert@A#1{{\LARGE\csname Ann@\cmdSF@ann@a\endcsname}}
 
 \newcommand{\Insert}[1]{\csname Insert@\cmdSF@base@format\endcsname{#1}}
 

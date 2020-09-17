@@ -170,14 +170,7 @@ gmon.out
 /doc/tex/*.log
 /doc/tex/*.pdf
 /src/cadenza/Makefile.am
-/src/cadenza/cnx.sh
-/src/cadenza/cabcnv
-/src/cadenza/caechk
-/src/cadenza/cnxseq
-/src/cadenza/cvglst
 /src/ostinato/gcldef.h
-/src/icies_tgv
-/src/iciesa
 /etc/css/t
 /build-aux/ar-lib
 /HIST
@@ -188,7 +181,6 @@ gmon.out
 /build-aux/compile
 /doc/r/coding.html
 /doc/r/coding.pdf
-/etc/helper/*.sh
 /build-aux/icies/mkmkam*c
 /run/sp/mismip/README.pdf
 /run/sp/ssadiag/README.pdf
@@ -196,4 +188,4 @@ gmon.out
 /etc/misc/levopt
 /etc/misc/zetani
 /etc/misc/*.mod
-
+/src/rhythm/Makefile.am

@@ -4,9 +4,9 @@ C Created: Jan 3 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/07/19 10:27:20 fuyuki msfunc.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:47:08 fuyuki msfunc.F>'
 #define _FNAME 'movement/msfunc.F'
-#define _REV   'Snoopy0.9/Three0.1'
+#define _REV   'Snoopy0.97/Three0.1'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020

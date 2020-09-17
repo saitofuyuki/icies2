@@ -1,0 +1,1087 @@
+#!@ZSH@ -f
+# Maintainer:  SAITO Fuyuki
+# Created: Apr 11 2013
+# Time-stamp: <2020/09/17 09:05:22 fuyuki mov_insert.sh.in>
+# Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_. [mov]
+
+###_ , [mg geometry]
+###_  . mov_mg_init
+mov_mg_init ()
+{
+  if [[ -z ${(t)MG} ]];then
+    typeset -gA MG
+
+    zui_init || exit $?
+
+    zui_help  add    MG mov_mg_help || exit $?
+    zui_parse insert MG mov_mg_parse AG AE +AA || exit $?
+  fi
+  return 0
+}
+###_  . mov_mg_help
+mov_mg_help ()
+{
+  print - "  -C TYPE    [xy] [xy]r l[xy] l[xy]r c h"
+  print - "  -B TYPE    [fm] ih etc"
+  print - "  -G DGL"
+  print - "  -K KTEST"
+  print - "  -D DXVSOL (used only [xy] [xy]r)"
+  print - "  -P P=V     parameters"
+}
+###_  . mov_mg_parse
+mov_mg_parse ()
+{
+  if [[ $1 == -i ]];then
+    :
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='C:B:G:D:K:P:'}
+  elif [[ $1 == -p ]];then
+    mov_mg_post_adjust_C || return $?
+    mov_mg_post_adjust_B || return $?
+    mov_mg_parse_post    || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    if [[ $name == [PB] ]];then
+      MG[$name]=$MG[$name]:"$arg"
+    else
+      MG[$name]=$arg
+    fi
+  fi
+  return 0
+}
+###_  . mov_mg_parse_post
+mov_mg_parse_post ()
+{
+  ## parameters
+  local i
+  for i in "${(@s/:/)MG[P]}"
+  do
+    [[ -z $i ]] && continue
+    i=(${(s/=/)i})
+    MG[p/$i[1]]="$i[2]"
+  done
+  [[ $VERBOSE -gt 1 ]] && zui_debug_aa MG -u 2
+  return 0
+}
+
+###_  . mov_mg_post_adjust  ## adjust MG and AE by configuration
+##   use MG, AE, AG
+mov_mg_post_adjust_C ()
+{
+  # zui_debug_aa AG -u 2
+  # zui_debug_aa AE -u 2
+
+  local cfg=$MG[C]
+  ## print -u2 "$0 set configuration [$cfg]"
+  ## first turn: set default geometry
+  local nx  ny;  zui_split -b , "$AE[n]" nx ny
+  local xw  yw;  zui_split -b , "$AG[w]" xw yw
+  local wnx wny; zui_split -b , "$AG[l]" wnx wny
+  local cx  cy;  zui_split -b , "$AG[c]" cx cy
+  local tx  ty;  zui_split -b , "$AG[t]" tx ty
+  local ktest=$MG[K]
+  local zux= zlx= zuy= zly=
+  local mux= mlx= muy= mly=
+  local r
+  case $cfg in
+  ## [1] pseudo 1d
+  p1d*): ${xw:=200.d3}
+       AG[w]="${xw}",0d0
+       : ${AG[c]:=1.5} ${AG[l]:=-2.0} ${AG[t]:=L}
+       : ${ktest:=1}
+       : ${MG[G]:=0d0}
+       if [[ -z $MG[D] ]];then
+         # MG[D]=$(GMT gmtmath -Q $xw $nx 2 SUB DIV =)
+         MG[D]=$(zui_wrap dc -e "6 k $xw $nx 2 - / p")
+       fi
+       ;;
+  ## [1] ssx
+  ss*) AG[w]="${xw:-200.d3}"
+       : ${AG[c]:=2.5,0.5} ${AG[t]:=L,R} ${AG[l]:=-3.0}
+       : ${ktest:=1}
+       : ${MG[G]:=0d0}
+       zlx=0 zuy=0 zly=0
+       ;;
+  ## [3] lateral wall
+  lw*) : ${xw:=200.d3}
+       : ${ktest:=3}
+       : ${MG[G]:=200.d3}
+       ## default lateral width as doubled length
+       if [[ -z $yw ]];then
+         r=(${(s:d:)xw})
+         yw=$r[1]
+         # yw=$((r[1]*2.0))
+         [[ -n $r[2] ]] && yw="${yw}d$r[2]"
+       ### print -u2 $yw
+       fi
+       AG[w]="$xw,$yw"
+       ## default lateral elements doubled
+       : ${nx:=7}
+       : ${wnx:=-2}
+       [[ -z $ny  ]] && ny=$(((nx+wnx)*2+3))
+       [[ -z $wny ]] && wny=$(((nx+wnx)))
+       AE[n]="$nx,$ny"
+       AG[l]="$wnx,$wny"
+       ## c t
+       : ${cx:=1.5} ${cy:=0.5}
+       : ${tx:=L}   ${ty:=M}
+       AG[c]="$cx,$cy"
+       AG[t]="$tx,$ty"
+       ;;
+  ## [0] z
+  zz*) AG[w]="${xw:-1800.d3}","${yw:-1.d0}"
+      : ${AG[c]:=1.5,0.5} ${AG[t]:=L,R} ${AG[l]:=-1.0,0}
+      : ${ktest:=0}
+      : ${MG[G]:=0d0}
+      zlx=0 zuy=0 zly=0 mlx=0
+      ;;
+  ## [0] z
+  z*) AG[w]="${xw:-1800.d3}","${yw:-0.d0}"
+      : ${AG[c]:=1.5,0.5} ${AG[t]:=L,R} ${AG[l]:=-1.0}
+      : ${ktest:=0}
+      : ${MG[G]:=0d0}
+      zlx=0 zuy=0 zly=0 mlx=0
+      ;;
+  ## mismip+
+  mplusB*)
+      AG[w]="${xw:-640.d3}","${yw:-80.d3}"
+      : ${AG[c]:=2.0,2.0} ${AG[t]:=L,L} ${AG[l]:=-5.0,-3.0}
+      : ${ktest:=0}
+      zlx=0       mlx=0
+      zly=0       # mly=0
+      zuy=80.0d3  # muy=80.0d3
+      ;;
+  mplus*)
+      AG[w]="${xw:-640.d3}","${yw:-80.d3}"
+      : ${AG[c]:=2.0,1.5} ${AG[t]:=L,L} ${AG[l]:=-5.0,-2.0}
+      : ${ktest:=0}
+      zlx=0       mlx=0
+      zly=0       # mly=0
+      zuy=80.0d3  # muy=80.0d3
+      ;;
+  ## [0] h
+  h*) AG[w]="${xw:-200.d3}"
+      local n=$nx
+      [[ -n $ny && "$ny" -lt $nx ]] && n=$ny
+      local nn=$(zui_wrap GMT gmtmath -Q $n 3 MUL 1 ADD 2 DIV RINT 2 MUL 1 ADD =)
+      local o=$(zui_wrap GMT gmtmath -Q $nn 1 ADD 2 DIV RINT =)
+      # local nn=$(zui_wrap dc -e "$n 3 * 1 + 2 / RINT 2 * 1 + p")
+      # local o=$(zui_wrap dc -e "$nn 1 ADD 2 DIV RINT p")
+      AE[n]=$nn
+      : ${AG[c]:=$o} ${AG[l]:=$n} ${AG[t]:=L}
+      : ${MG[G]:=100.0d3}
+      : ${ktest:=0}
+      ;;
+  ## [0] c
+  c*) AG[w]="${xw:-1500.d3}"
+      : ${AG[c]:=0.5} ${AG[l]:=-1} ${AG[t]:=R}
+      : ${MG[G]:=0.0d3}
+      : ${ktest:=0}
+      # local hw=$(GMT gmtmath -Q $AG[w] 2 DIV =)
+      local hw=$(zui_wrap dc -e "4 k $AG[w] 2.0 / p")
+      : ${MD[p/RL]:=$hw}
+      [[ $cfg == c2* ]] && zuy=0 zly=0
+      ;;
+  aas*) AG[w]="${xw:-6000.d3}"
+      : ${AG[c]:=0} ${AG[l]:=-1} ${AG[t]:=R}
+      : ${MG[G]:=0.0d3}
+      : ${ktest:=0}
+      ;;
+  aa*) AG[w]="${xw:-5600.d3}"
+      : ${AG[c]:=0.5} ${AG[l]:=-1} ${AG[t]:=R}
+      : ${MG[G]:=0.0d3}
+      : ${ktest:=0}
+      ;;
+  # ## [0] ih
+  # ih*) AG[w]="${xw:-4000.d3}"
+  #     : ${AG[c]:=0.5} ${AG[l]:=-1} ${AG[t]:=R}
+  #     : ${MG[G]:=0.0d3}
+  #     : ${ktest:=0}
+  #     ;;
+  esac
+  MG[K]=${ktest:--1}
+  [[ -n $zlx$zly ]] && AG[zl]="$zlx,$zly"
+  [[ -n $zux$zuy ]] && AG[zu]="$zux,$zuy"
+  [[ -n $mlx$mly ]] && AG[ml]="$mlx,$mly"
+  [[ -n $mux$muy ]] && AG[mu]="$mux,$muy"
+
+  r=(${(s:.:)cfg})
+  [[ -n $r[2] ]] && AG[x]=$r[2]
+
+  return 0
+}
+
+mov_mg_post_adjust_B ()
+{
+  local bc=$MG[B]
+  local BC; BC=(${(s@:@)bc} '' '')
+  bc="$BC[1]"; shift BC
+  ## print -u2 "$0 set boundary condition and parameters [$bc]"
+  bc=("${(s@=@)bc}")
+  ## print -u2 "BC $bc"
+
+  MG[id/B]=$bc[1]
+
+  local BCSW= ACC= RF= GRAV= DENS= DENSW= EF= PF= MS= R= SLV= BDC= OVBCAA
+  case $bc[1] in
+  m)  BCSW=1; : ${ACC:=0.5d0} ;;  ## bench mov
+  f*) BCSW=0; : ${ACC:=0.3d0}     ## bench fix
+      if [[ $bc[1] == fb ]]; then # bump
+        R=6
+      elif [[ $bc[1] == fc* ]];then # canal
+        R=8
+      fi
+      ;;
+  e2s*) BCSW=8                   ## eismint phase ii sliding
+        : ${ACC:=0.5d0}
+        ;;
+  r)  BCSW=2; : ${ACC:=0.3d0} ;;
+  ih) BCSW=4; : ${EF:=3.0d0}  ;;  ## ismip heino
+  rH) BCSW=6; : ${ACC:=0.3d0} ;;  ## aa read r,H
+  rHa)BCSW=6; : ${ACC:=} ${MS:=3} ;;  ## aa read r,H,acc
+  m1*) BCSW=3; : ${ACC:=0.3d0}
+     case $bc[1] in
+     m?1?) RF=4.6416e-24;;
+     m?2?) RF=2.1544e-24;;
+     m?3?) RF=1.e-24;;
+     m?4?) RF=4.6416e-25;;
+     m?5?) RF=2.1544e-25;;
+     m?6?) RF=1.e-25;;
+     m?7?) RF=4.6416e-26;;
+     m?8?) RF=2.1544e-26;;
+     m?9?) RF=1.e-26;;
+     esac
+     RF=$(zui_wrap GMT gmtmath -Q $RF 31556926 MUL =)
+     GRAV=9.8d0 DENS=900.d0 DENSW=1000.d0
+     ;;
+  m[34]*) BCSW=5; : ${ACC:=0.3d0}
+     case $bc[1] in
+     m31?) RF=3e-25;;
+     m32?) RF=2.5e-25;;
+     m33?) RF=2e-25;;
+     m34?) RF=1.5e-25;;
+     m35?) RF=1e-25;;
+     m36?) RF=5e-26;;
+     m37?) RF=2.5e-26;;
+     m38?) RF=5e-26;;
+     m39?) RF=1e-25;;
+     m40?) RF=1.5e-25;;
+     m41?) RF=2e-25;;
+     m42?) RF=2.5e-25;;
+     m43?) RF=3e-25;;
+     esac
+     RF=$(zui_wrap GMT gmtmath -Q $RF 31556926 MUL =)
+     GRAV=9.8d0 DENS=900.d0 DENSW=1000.d0
+     ;;
+  mplus*) BCSW=7; : ${ACC:=0.3d0}
+     RF=2.0d-17
+     BDC=1.0d4 OVBCAA=T
+     DENS=918.0d0
+     ;;
+  *) BCSW=0; : ${ACC:=0.3d0} ;;
+  esac
+
+  local k v
+  for k in BCSW R
+  do
+    : ${MG[sw/$k]:=${(P)k}}
+  done
+  for bc in $BC
+  do
+    [[ -z $bc ]] && continue
+    bc=(${(s@=@)bc})
+    k=$bc[1] v=$bc[2]
+    MG[sw/$k]="$v"
+    # MG[id/B]="$MG[id/B]$v"
+  done
+  for k in ACC RF GRAV DENS DENSW EF SLV BDC OVBCAA HINI
+  do
+    : ${MD[p/$k]:=${(P)k}}
+  done
+  for k in MS
+  do
+    : ${MD[sw/$k]:=${(P)k}}
+  done
+
+  return 0
+}
+###_  . mov_mg_create_sysin
+##      use AA AE AG MG
+mov_mg_create_sysin ()
+{
+  local ktest=$MG[K]
+  local k= v=
+  if [[ $ktest == 1 && -n $AE[swap] ]];then
+    let ktest++
+  elif [[ $ktest == 3 && -n $AE[swap] ]];then
+    let ktest++
+  fi
+  print -n - " &NITPMS"
+  print -n - " KTEST = $ktest, WLX = $AG[x/W], WLY=$AG[y/W], DGL = ${MG[G]},"
+  [[ -n $MG[D] ]]    &&  print -n - " DX = $MG[D],"
+  [[ -n $MD[p/RF] ]] &&  print -n - " RF = $MD[p/RF],"
+  [[ -n $MD[p/HCF] ]] &&  print -n - " HCF = $MD[p/HCF],"
+  [[ -n $MD[p/HGL] ]] &&  print -n - " HGL = $MD[p/HGL],"
+  [[ -n $MD[p/VGL] ]] &&  print -n - " VGL = $MD[p/VGL],"
+  print - " &END"
+
+  [[ -z $HINI ]] && HINI=$MD[p/HINI]
+  : ${HINI:=0.0d0}
+  print -n - " &NITPMI"
+  print -n - " CROOT='$AA[r]',"
+  [[ -n $MG[sw/BCSW]  ]] && print -n - " KSW = $MG[sw/BCSW],"
+  [[ -n $MD[p/ACC]    ]] && print -n - " ACC = $MD[p/ACC],"
+  [[ -n $MD[p/SLV]    ]] && print -n - " SLV = $MD[p/SLV],"
+  [[ -n $MD[sw/MS] ]] && print -n - " KCFGMS = $MD[sw/MS],"
+  [[ -n $HINI        ]] && print -n - " HINI = $HINI,"
+
+  for k in RA RXL RYL RXO RYO
+  do
+    [[ -n $MD[p/$k] ]] && print -u2 "-P $k=.. should be after +MG" && return 1
+    [[ -n $MG[p/$k] ]] && print -n - " $k = $MG[p/$k],"
+  done
+
+  [[ -n $MD[p/RF]    ]] && print -n - " RF = $MD[p/RF],"
+  [[ -n $MD[p/BDC]   ]] && print -n - " BDC = $MD[p/BDC],"
+  [[ -n $MD[p/OVBCAA] ]] && print -n - "OVBCAA = $MD[p/OVBCAA],"
+
+  for k in R M VB TS MS H SH TB
+  do
+    [[ -n $MD[c/$k] ]] && print -n - " KCFG$k = $MD[c/$k],"
+  done
+
+  if [[ -n $MG[sw/R] ]];then
+    v=$MG[sw/R]
+    case $v in
+    C*) v=1 ;; ## RCOS
+    G*) v=6 ;; ## RGAUSS
+    esac
+    print -n - " KCFGR = $v,"
+  fi
+  print - " &END"
+  return 0
+}
+
+###_  . mov_m_get_id
+mov_mg_get_id ()
+##      mov_mg_get_id VAR [MG]
+{
+  local __var=$1; shift
+  if [[ $1 == MG || -z $1 ]];then
+    :
+  else
+    local -A MG
+    MG=("${(@Pkv)1}")
+  fi
+  [[ $__var == __id ]] || local __id
+  local gc;
+  gc=(${(s/./)MG[C]})
+  gc="${(j//)gc}"
+  __id=($gc
+        ${MG[id/B]})
+  __id="${(j:_:)__id}"
+  [[ $__var == __id ]] || : ${(P)__var::=$__id}
+  return 0
+}
+
+###_ , [md dynamics]
+###_  . mov_md_init
+mov_md_init ()
+{
+  if [[ -z ${(t)MD} ]];then
+    typeset -gA MD
+
+    zui_init || exit $?
+
+    zui_help  add    MD mov_md_help  || exit $?
+    zui_parse append MD mov_md_parse || exit $?
+  fi
+  return 0
+}
+###_  . mov_md_help
+mov_md_help ()
+{
+  print - "  -T TIME       INI:END:DT:INI-SSA"
+  print - "  -R RECORD     [+|-][GROUP]:INI:END:DT[:SUBSTEP]"
+  print - "  -M TYPE       matrix type"
+  print - "                available types: DVB,ZEV,DE,D00,UP1,UPD,UPE,"
+  print - "                                 HZEV, HUP1, HUPD, HUPE"
+  print - "                                 HU0,  CIPax"
+  print - "  -L ITERATION  MAXITR:TOL"
+  print - "  -I INITIAL    initial configuration"
+  print - "                LOG:[VAR,skip,..]:[VAR,skip,...]"
+  print - "                or -:[VGRP,idx,FILE,UNDEF]:[VGRP,idx,FILE,UNDEF]..."
+  print - "                or 0:[VGRP,VAR,COOR,VAL,FILE,FMT,LB,IR,DIMS]:..."
+  print - "  -C CFG        configuration fine tuning"
+  print - "  -X SWITCHES   experiment switches"
+  print - "                SALLY      SALLY compatible (RI=E:W=S:TB=F:UG=O:STRH=S)"
+  print - "                R=[CT]     rate factor method"
+  print - "                RI=[CEG]   rate factor integral method"
+  print - "                UG=[ON]    U method (old/new gradient)"
+  print - "                W=[CS]     w integral method"
+  print - "                TB=[FS]    bottom temperature gradient method"
+  print - "                VB=[0HAT]  sliding velocity scheme"
+  print - "                VBO=[AOSW] sliding velocity occurence"
+  print - "                SS=[DW]    shelfy-stream occurence"
+  print - "                TZ=[OI]    Z-loop in T solver"
+  print - "                STRH=[0S]  strain heating design"
+  print - "  -P P=V        parameters"
+}
+###_  . mov_md_parse
+mov_md_parse ()
+{
+  if [[ $1 == -i ]];then
+    :
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='T:R:M:I:C:P:X:L:'}
+  elif [[ $1 == -p ]];then
+    mov_md_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    if [[ $name == P ]];then
+      MD[$name]=$MD[$name]:"$arg"
+    elif [[ $name == R ]];then
+      MD[$name]="$MD[$name] $arg"
+    elif [[ $name == X ]];then
+      MD[$name]=$MD[$name]:"$arg"
+    elif [[ $name == C ]];then
+      MD[$name]=$MD[$name]:"$arg"
+    else
+      MD[$name]=$arg
+    fi
+  fi
+  return 0
+}
+###_  . mov_md_parse_post
+mov_md_parse_post ()
+{
+  ## TIME
+  local rt; rt=("${(@s/:/)MD[T]}")
+  [[ x$rt[1] == x- || -z $rt[1] ]] && rt[1]=0.d0
+  [[ x$rt[2] == x- || -z $rt[2] ]] && rt[2]=100000.d0
+  [[ x$rt[3] == x- || -z $rt[3] ]] && rt[3]=10.d0
+  [[ x$rt[4] == x- || -z $rt[4] ]] && rt[4]=$rt[2]
+  MD[T]="${(j/:/)rt}"
+  ## RECORD
+  local rg; rg=(${=MD[R]})
+  local ri rr rv rs
+  for ri in "${(@)rg}"
+  do
+    rr=("${(@s/:/)ri}" '' '' '' '')
+    # [[ x$rr[1] == x- || -z $rr[1] ]] && rr[1]=$rt[1]
+    # [[ x$rr[3] == x- || -z $rr[3] ]] && rr[3]=10000.d0
+    if [[ x$rr[1] == x- || x$rr[1] == x+ ]];then
+      MD[R]="${(j/:/)rr}"
+    else
+      rv=$rr[1]
+      rs=$rv[1] rv=$rv[2,-1]
+      if [[ x$rs == x- || x$rs == x+ ]];then
+        for rv in ${(s:,:)rv}
+        do
+          MD[R/$rv]=${rs}:"${(j/:/)rr[2,-1]}"
+        done
+      else
+        for rv in ${(s:,:)rr[1]}
+        do
+          MD[R/$rv]=+:"${(j/:/)rr[2,-1]}"
+        done
+      fi
+    fi
+  done
+  ## matrix type
+  : ${MD[M]:=DVB}
+  case $MD[M] in
+  DVB) MD[M]=0;;
+  ZEV) MD[M]=1;;
+  DE)  MD[M]=2;;
+  D00) MD[M]=3;;
+  UP1) MD[M]=4;;
+  UPD) MD[M]=5;;
+  UPE) MD[M]=6;;
+
+  HZEV) MD[M]=7;;
+  HUP1) MD[M]=8;;
+  HUPD) MD[M]=9;;
+  HUPE) MD[M]=10;;
+  HU0)  MD[M]=11;;
+  HU1)  MD[M]=12;;
+  HU2)  MD[M]=13;;
+
+  CIPaxP) MD[M]=14;;
+  CIPaxL) MD[M]=15;;
+  esac
+  ## initial guess type
+  : ${MD[X/I]:=0}
+  ## switches
+  local k v
+  if [[ -n $MD[X] ]];then
+    local mem
+    for mem in ${(s@:@)MD[X]}
+    do
+      if [[ $mem == SALLY ]];then
+        MD[X/RI]=E MD[X/W]=S MD[X/TB]=F MD[X/UG]=O MD[X/STRH=S]
+      elif [[ $mem == *=* ]];then
+        mem=(${(s:=:)mem})
+        MD[X/$mem[1]]=$mem[2]
+      fi
+    done
+  fi
+  if [[ -n $MD[C] ]];then
+    for v in ${(s@:@)MD[C]}
+    do
+      v=(${(s@=@)v})
+      k=$v[1]; shift v
+      MD[c/$k]="$v"
+    done
+  fi
+  ## parameters
+  local i
+  for i in "${(@s/:/)MD[P]}"
+  do
+    [[ -z $i ]] && continue
+    i=(${(s/=/)i})
+    MD[p/$i[1]]="$i[2]"
+  done
+  [[ $VERBOSE -gt 1 ]] && zui_debug_aa MD -u 2
+  return 0
+}
+
+###_  . mov_md_Xswitch  VAR  KEY [CHOICES...]
+mov_md_Xswitch ()
+{
+  local var=$1 key=$2; shift 2 || return $?
+  local v=$MD[X/$key]
+  if [[ -z $v ]];then
+    :
+  else
+    local ic=0 c f=
+    for c in $@
+    do
+      if [[ $v == $c* ]];then
+        print -n "$var = $ic, "
+        f=T
+        break
+      else
+        let ic++
+      fi
+    done
+    if [[ -z $f ]];then
+      print "$var = -999, "
+      print -u2 "INVALID ARGUMENT [$v] for [$var] {$@}"
+      return 1
+    fi
+  fi
+}
+###_  . mov_md_create_sysin
+##      use AA AE AG MG
+mov_md_create_sysin ()
+{
+  local igt=$MD[X/I]
+  case $igt in
+  OLD) igt=1;;
+  esac
+
+  print -n " &NIMSWD"
+  print -n " MSW=$MD[M], MINI=$igt, "
+  mov_md_Xswitch KRF    R    C T     || return $?
+  mov_md_Xswitch KRFI   RI   C E G   || return $?
+  mov_md_Xswitch KWI    W    C S B   || return $?
+  mov_md_Xswitch KTBDZ  TB   F S     || return $?
+  mov_md_Xswitch KUSG   UG   N O     || return $?
+  mov_md_Xswitch KUADV  UADV H A     || return $?
+  mov_md_Xswitch KWADV  WADV R X     || return $?
+  mov_md_Xswitch KVB    VB   0 H A T || return $?
+  mov_md_Xswitch KVBSW  VBO  A O S W || return $?
+  mov_md_Xswitch KSHSW  SS   S W     || return $?
+  mov_md_Xswitch KFGSW  GCF  0 N     || return $?
+  mov_md_Xswitch KEGSW  GCE  N A     || return $?
+  mov_md_Xswitch KTZLP  TZ   O I     || return $?
+  mov_md_Xswitch KSTRH  STRH 0 S     || return $?
+  mov_md_Xswitch KHUPD  HU   T F     || return $?
+  mov_md_Xswitch KDHDT  DHDT F S     || return $?
+  print    " &END"
+  ##
+  print -n " &NIPRMD"
+  local k v
+  for k in GRAV DENS DENSW EF TCVB CLV RF RVSH DRSH PF
+  do
+    v=$MD[p/$k]
+    [[ -n $v ]] && print -n " $k = $v,"
+  done
+  local ri
+  ri=("${(@s/:/)MD[L]}")
+  [[ -n $ri[1] ]] && print -n " ItrMax=$ri[1],"
+  [[ -n $ri[2] ]] && print -n " Etol=$ri[2],"
+
+  print " &END"
+  print -n " &NIPRMS"
+  for k in GRAV DENS DENSW PF SCXFSR EF
+  do
+    v=$MD[p/$k]
+    [[ -n $v ]] && print -n " $k = $v,"
+  done
+  print " &END"
+
+  local rt; rt=("${(@s/:/)MD[T]}")
+  local rr; rr=("${(@s/:/)MD[R]}")
+  ##print -u2 "##rr"
+  ##print -u2 -l "${(@)rr}"
+
+  print -n " &NITMMD"
+  print -n " CROOT='$AA[r]',"
+  [[ -n $rt[1] ]] && print -n " TINI = $rt[1],"
+  [[ -n $rt[2] ]] && print -n " TEND = $rt[2],"
+  [[ -n $rt[3] ]] && print -n " DT = $rt[3],"
+  [[ -n $rt[4] ]] && print -n " TSSA = $rt[4],"
+  print    " &END"
+
+  # print -n " &NIAFWR"
+  # print -n " CROOT='$AA[r]',"
+  # [[ -n $rr[2] ]] && print -n " TINI = $rr[2],"
+  # [[ -n $rr[3] ]] && print -n " TEND = $rr[3],"
+  # [[ -n $rr[4] ]] && print -n " DT = $rr[4],"
+  # print    " &END"
+
+  local rk rv
+  for rk in ${(k)MD}
+  do
+     [[ $rk == R || $rk == R/* ]] || continue
+     if [[ $rk == R ]];then
+       rk=' '
+       rr=$MD[R]; rr=("${(@s/:/)rr}")
+     else
+       rk=(${(s:/:)rk}); rk=$rk[2]
+       rr=$MD[R/$rk]; rr=("${(@s/:/)rr}")
+     fi
+     ##print -u2 MD/$rk/
+     ##print -u2 -l "${(@)rr}"
+     print -n " &NIAFWR"
+     print -n " CROOT='$AA[r]',"
+     local ksw=
+     print -n " GROUP = '$rk',"
+     if [[ x$rr[1] == x- ]];then
+       [[ -z $ksw ]] && ksw=-1
+     elif [[ x$rr[1] == x+ ]];then
+       [[ -z $ksw ]] && ksw=0
+     fi
+     [[ -n $rr[2] ]] && print -n " TINI = $rr[2],"
+     [[ -n $rr[3] ]] && print -n " TEND = $rr[3],"
+     [[ -n $rr[4] ]] && print -n " DT = $rr[4],"
+     [[ -n $rr[5] ]] && print -n " ISTEP = $rr[5],"
+     [[ -n $rr[2]$rr[3]$rr[4] && -z $ksw ]] && ksw=0
+     [[ -n $ksw ]] && print -n " KSW = $ksw,"
+     print    " &END"
+  done
+
+  ## makeshift
+  print -n " &NIPRMT"
+  for k in DENS
+  do
+    v=$MD[p/$k]
+    [[ -n $v ]] && print -n " $k = $v,"
+  done
+  print " &END"
+
+
+  ## new initialization
+  local gr=
+  for gr in VMI VMTI VMHI VMHB
+  do
+    print " &NIDATA CROOT='$AA[r]', GROUP='$gr', VAR='*', COOR='*', FMT='SKIP', &END"
+  done
+
+  if [[ -n $MD[I] ]];then
+    local mdi; mdi=(${(s@:@)MD[I]})
+    ## af interface
+    if [[ $mdi[1] == 0 ]];then
+      shift mdi
+      # namelist /NITAMI/ CROOT, GROUP, IDX, FNM, FMT, IX, IY, VUNDEF
+      local mi=
+      local gr= vn= cn= fn= lb= ir= dims= fmt= val=
+      local ix iy;  zui_split -b , "$AE[n]" ix iy
+      for mi in $mdi
+      do
+        mi=("${(@s:,:)mi}")
+        gr=$mi[1] vn=$mi[2]    cn=$mi[3] val=$mi[4]
+        fn=$mi[5] fmt="$mi[6]" lb=$mi[7] ir=$mi[8]
+        shift 8 mi
+        dims=${(j:,:)mi}
+        [[ -z $val ]] && val=0.0d0
+        if [[ x$fmt == x- || x"$fmt" == x' ' ]];then
+          [[ -z $lb ]] && lb=0
+          fmt=' '
+        else
+          [[ -z $lb ]] && lb=-1
+        fi
+        [[ -z $ir ]] && ir=1
+        print -n " &NIDATA"
+        print -n " CROOT='$AA[r]',"
+        print -n " GROUP = '$gr',"
+        print -n " VAR = '$vn',"
+        print -n " COOR = '$cn',"
+        print -n " FNM = '$fn',"
+        print -n " FMT = '$fmt',"
+        print -n " VAL = $val,"
+        print -n " LB = $lb,"
+        print -n " IR = $ir,"
+        print -n " DIMS = $dims,"
+        print    " &END"
+      done
+    ## restarting
+    elif [[ -e $mdi[1] ]];then
+      local ilog=$mdi[1]; shift mdi
+      local nv lr np mv cr gr fn mi
+      sed -ne '/^CAX:F/s///p' $ilog |\
+      while read nv lr np mv cr gr fn
+      do
+        print -n " &NITFMI"
+        # print -u2 "$nv $lr $np $mv $cr $gr $fn"
+        ## CROOT, GROUP, NV, LR, NR, MV, FNM
+        print -n " CROOT='$cr',"
+        print -n " GROUP = '$gr',"
+        print -n " NV = $nv,"
+        print -n " LB = $lr,"
+        print -n " NR = $np,"
+        print -n " MV = $mv,"
+        print -n " FNM = '$fn',"
+        for mi in $mdi
+        do
+          if [[ $mi == $gr,* ]];then
+            print -n " IRSKP = ${mi##$gr,},"
+          fi
+        done
+        print    " &END"
+      done
+    ## ascii initialization hack
+    elif [[ x$mdi[1] == x- ]];then
+      shift mdi
+      # namelist /NITAMI/ CROOT, GROUP, IDX, FNM, FMT, IX, IY, VUNDEF
+      local mi= gr= iv= iv0= fn= ud= ivq=
+      local ix= iy=;  zui_split -b , "$AE[n]" ix iy
+      for mi in $mdi
+      do
+        mi=(${(s:,:)mi})
+        gr=$mi[1] iv=$mi[2] fn=$mi[3] ud=$mi[4]
+        ivr=$iv
+        mov_mv_query ivq $gr $iv
+        [[ -n $ivq ]] && iv=$ivq
+        [[ -z $ud ]] && ud=0.0d0
+        print -n " &NITAMI"
+        print -n " CROOT='$AA[r]',"
+        print -n " GROUP = '$gr',"
+        print -n " IDX = $iv,"
+        print -n " FNM = '$fn',"
+        print -n " VUNDEF = $ud,"
+        print -n " IX = $ix,"
+        print -n " IY = $iy,"
+        print    " &END"
+        print " &NITAMI_CHECK GROUP='$gr', VAR='$ivr', IDX='$iv' &END"
+      done
+    else
+      print -u2 "No $mdi[1]"
+      exit 1
+    fi
+  fi
+  return 0
+}
+
+###_ , [msl SSA/linear]
+###_  . mov_msl_init
+mov_msl_init ()
+{
+  if [[ -z ${(t)MSL} ]];then
+    typeset -gA MSL
+
+    zui_init || exit $?
+
+    zui_help  add    MSL mov_msl_help  || exit $?
+    zui_parse append MSL mov_msl_parse || exit $?
+  fi
+  return 0
+}
+###_  . mov_msl_help
+mov_msl_help ()
+{
+  print - "  -I ITERATION    [L-MAXITR]:[L-TOL]"
+  print - "  -P P=V      parameters"
+}
+###_  . mov_msl_parse
+mov_msl_parse ()
+{
+  if [[ $1 == -i ]];then
+    :
+    # : ${MSL[M]:=1024}
+    # : ${MSL[E]:=1.d-12}
+  elif [[ $1 == -s ]];then
+    # : ${(P)2::='P:M:E:'}
+    : ${(P)2::='P:I:'}
+  elif [[ $1 == -p ]];then
+    mov_msl_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    if [[ $name == P ]];then
+      MSL[$name]=$MSL[$name]:"$arg"
+    else
+      MSL[$name]=$arg
+    fi
+  fi
+  return 0
+}
+###_  . mov_msl_create_sysin
+##      use AA AE AG MG
+mov_msl_create_sysin ()
+{
+  local ri rs
+  ri=("${(@s/:/)MSL[I]}")
+  print -n " &NISSAL"
+  [[ -n $ri[1] ]] && print -n " ItrMax=$ri[1],"
+  [[ -n $ri[2] ]] && print -n " Etol=$ri[2],"
+  [[ -n $ri[3] ]] && print -n " ItrMin=$ri[3],"
+  # print -n " ItrMax=$MSL[M],"
+  # print -n " Etol=$MSL[E],"
+  print -  " &END"
+  return 0
+}
+###_  . mov_msl_parse_post
+mov_msl_parse_post ()
+{
+  :
+  return 0
+}
+
+###_ , [msn SSA/non-linear]
+###_  . mov_msn_init
+mov_msn_init ()
+{
+  if [[ -z ${(t)MSN} ]];then
+    typeset -gA MSN
+
+    zui_init || exit $?
+
+    zui_help  add    MSN mov_msn_help  || exit $?
+    zui_parse append MSN mov_msn_parse || exit $?
+  fi
+  return 0
+}
+###_  . mov_msn_help
+mov_msn_help ()
+{
+  print - "  -I ITERATION    [MAXITR]:[TOL]:[RLX]:[L-MAXITR]:[L-TOL]:[ITLGL]:[MAXTRY]:[L-MINITR]"
+  print - "  -X SWITCHES     [L]:[NL]:[GL-LOOP]:[GL-UPD]:[BTR]"
+  # print - "  -M MAX-ITERATION"
+  # print - "  -E TOLERANCE"
+  # print - "  -W RELAXATION"
+  # print - "  -N SWITCH/N"
+  # print - "  -G SWITCH/NG"
+  # print - "  -L SWITCH/L"
+  # print - "  -U SWITCH/GU"
+  print - "  -P P=V      parameters"
+  return 0
+}
+###_  . mov_msn_parse
+mov_msn_parse ()
+{
+  if [[ $1 == -i ]];then
+    :
+    # : ${MSN[M]:=256}
+    # : ${MSN[E]:=1.d-8}
+    # : ${MSN[W]:=1.2d0}
+    # : ${MSN[L]:=0}
+    # : ${MSN[S]:=0}
+    # : ${MSN[G]:=1}
+    # : ${MSN[U]:=0}
+  elif [[ $1 == -s ]];then
+    # : ${(P)2::='P:M:E:W:N:L:G:U:'}
+    : ${(P)2::='P:I:X:'}
+  elif [[ $1 == -p ]];then
+    mov_msn_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    if [[ $name == P ]];then
+      MSN[$name]=$MSN[$name]:"$arg"
+    else
+      MSN[$name]=$arg
+    fi
+  fi
+  return 0
+}
+###_  . mov_msn_create_sysin
+##      use AA AE AG MG
+mov_msn_create_sysin ()
+{
+  local ri rs
+  ri=("${(@s/:/)MSN[I]}")
+  rs=("${(@s/:/)MSN[X]}")
+  print -n " &NISSAN"
+  [[ -n $ri[1] ]] && print -n " ItrMax=$ri[1],"
+  [[ -n $ri[2] ]] && print -n " Etol=$ri[2],"
+  [[ -n $ri[3] ]] && print -n " Prlx=$ri[3],"
+  [[ -n $ri[6] ]] && print -n " ItrGL=$ri[6],"
+  [[ -n $ri[7] ]] && print -n " MaxTry=$ri[7],"
+  [[ -n $rs[1] ]] && print -n " KswL=$rs[1],"
+  [[ -n $rs[2] ]] && print -n " KswN=$rs[2],"
+  [[ -n $rs[3] ]] && print -n " KswNG=$rs[3],"
+  [[ -n $rs[4] ]] && print -n " KswGU=$rs[4],"
+  [[ -n $rs[5] ]] && print -n " KswBT=$rs[5],"
+
+  for k in VXLIMU VXLIML VGLLIM VSHLIM VDNML PDNML DSXLIM KSWNOV
+  do
+    v=$MSN[p/$k]
+    [[ -n $v ]] && print -n " $k = $v,"
+  done
+
+  print -  " &END"
+  return 0
+}
+###_  . mov_msl_parse_post
+mov_msn_parse_post ()
+{
+  local ri
+  ri=("${(@s/:/)MSN[I]}")
+  MSL[I]="${ri[4]}:${ri[5]}:${ri[8]}"
+
+  for i in "${(@s/:/)MSN[P]}"
+  do
+    [[ -z $i ]] && continue
+    i=(${(s/=/)i})
+    MSN[p/$i[1]]="$i[2]"
+  done
+
+  return 0
+}
+
+###_ , mov_mv  variable helper
+###_  . mov_mv_query VARIABLE GROUP NAME
+mov_mv_query ()
+{
+  local __var=$1; shift
+  local mvdir=$top_srcdir/src/movement
+  [[ ! -e $mvdir ]] && print -u2 "cannot found $mvdir" && return 1
+  local sqihelp=$top_srcdir/build-aux/icies/sqihelp
+  [[ ! -e $sqihelp ]] && print -u2 "cannot found $sqihelp" && return 1
+
+  local __num=
+  # __num=$(autom4te -t '_dummy:$ %' -l M4sugar $mvdir/mvheader.m4 $mvdir/movement.m4 | sed -n -e "/^$1_$2 /s///p")
+  __num=$($sqihelp -t trace $mvdir/movement.m4 | sed -n -e "/^$1_$2 /s///p")
+
+  # print -u2 $__num
+  [[ $__var == __num ]] || : ${(P)__var::=$__num}
+  return 0
+}
+
+###_ , [standard]
+###_  . mov_standard_init
+mov_standard_init ()
+{
+  if [[ -z ${(t)MSTD} ]];then
+    typeset -gA MSTD
+
+    zui_init || exit $?
+
+    zui_help  add    M mov_standard_help  || exit $?
+    zui_parse append M mov_standard_parse || exit $?
+  fi
+  return 0
+}
+###_  . mov_standard_help
+mov_standard_help ()
+{
+  print - "  -e environment choice {n,-}"
+  return 0
+}
+###_  . mov_standard_parse
+mov_standard_parse ()
+{
+  if [[ $1 == -i ]];then
+    : ${MSTD[e]:=-}
+  elif [[ $1 == -s ]];then
+    : ${(P)2::='e:'}
+  elif [[ $1 == -p ]];then
+      mov_standard_parse_post || return $?
+  else
+    local name=$1 arg=$2
+    [[ $VERBOSE -gt 1 ]] && print -u2 - "($0) parse [$name] $arg"
+    MSTD[$name]=$arg
+  fi
+  return 0
+}
+###_  . mov_standard_parse_post
+mov_standard_parse_post ()
+{
+  :
+  return 0
+}
+
+###_  . mov_standard_env VAR
+mov_standard_env ()
+{
+  local __var=$1; shift
+  if [[ $__var == ATTR ]];then
+    :
+  else
+    local -A ATTR
+    ATTR=("${(@Pkv)__var}")
+  fi
+  local eflag=$MSTD[e]
+
+  local id
+  mov_standard_get_id id || return $?
+
+  ATTR[d/sysin]=${DEV[dir/i]:-.}/sysin.$id
+  ATTR[d/run]=${DEV[dir/r]:-.}/log.$id
+
+  if [[ $eflag = n ]];then
+    ATTR[d/nc]=${DEV[dir/g]:-.}/%s.nc
+    ATTR[d/asc]=${DEV[dir/r]:-.}/%s
+    ATTR[d/fig]=${DEV[dir/p]:-.}/%s.ps
+    ATTR[d/rst]=${DEV[dir/r]:-.}/%s.bin
+    ATTR[d/rcf]=${DEV[dir/r]:-.}/rst.dat
+  else
+    ATTR[d/nc]=${DEV[dir/g]:-.}/%s.$id.nc
+    ATTR[d/asc]=${DEV[dir/r]:-.}/%s.$id
+    ATTR[d/fig]=${DEV[dir/p]:-.}/%s.$id.ps
+    ATTR[d/rst]=${DEV[dir/r]:-.}/%s.$id.bin
+    ATTR[d/rcf]=${DEV[dir/r]:-.}/rst.$id.dat
+  fi
+
+  [[ $__var == ATTR ]] || set -A $__var "${(@Pkv)ATTR}"
+  return 0
+}
+
+###_  . mov_standard_get_id VAR
+mov_standard_get_id ()
+{
+  local __var=$1; shift
+  local aid= xid=
+  arp_ae_get_id aid || return $?
+  mov_mg_get_id xid || return $?
+  [[ $__var == __id ]] || local __id
+  __id=($xid $aid)
+  __id=${(j/_/)__id}
+  [[ $VERBOSE -gt 0 ]] && print -u2 "ID: $__id {$aid/$xid}"
+  [[ $__var == __id ]] || : ${(P)__var::=$__id}
+  return 0
+}
+
+###_ , [mov root]
+
+###_  . mov_init
+mov_init ()
+{
+  mov_standard_init || return $?
+  mov_mg_init       || return $?
+  mov_md_init       || return $?
+  mov_msl_init      || return $?
+  mov_msn_init      || return $?
+  return 0
+}
+
+###_ , [mov] end

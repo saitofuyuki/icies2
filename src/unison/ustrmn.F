@@ -4,9 +4,9 @@ C Created: Jan 6 2016 (folked from ufortw.F)
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/02/23 09:00:34 fuyuki ustrmn.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:50:17 fuyuki ustrmn.F>'
 #define _FNAME 'unison/ustrmn.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2016--2020
@@ -33,46 +33,26 @@ CCC_ & USGlfs  ## Real/standard to string (lpad/fmt) [UFxs2a]
       _INTENT(OUT,character) STR*(*)
       _INTENT(IN, _REALSTD)  SV
       _INTENT(IN, character) FMT*(*)
-      character B*(32)
-      integer   jp, lb, jpe, jpz
-#if HAVE_F77_LEN_TRIM == 0
-      integer len_trim
-#endif
+      _REALSTD  T
       if (FMT.eq.' ') then
          write (STR, '(E24.16)') SV
-      else if (FMT(1:1).eq.'C') then
-         if (ANINT(SV).eq.SV) then
+      else if (FMT.eq.'*') then
+         write (STR, *) SV
+      else if (FMT(1:1).eq.'C'.or.FMT(1:1).eq.'F') then
+         if (SV.gt._XREALS(_INTEGER_MAX)
+     $        .or. SV.lt._XREALS(_INTEGER_MIN)) then
+            call USGlff(STR, SV, FMT)
+         else if (ANINT(SV).eq.SV) then
             if (FMT.eq.'CI') then
                call USGlni (STR, INT(SV))
             else
                write (STR, '(F24.0, ''D0'')') SV
             endif
+c           for safety (e.g., overflow from integer)
+            read(STR, *) T
+            if (T.ne.SV) call USGlff(STR, SV, FMT)
          else
-            write (B, '(E24.16)') SV
-            lb = len_trim(B)
-            jpe = 0
-            jpz = 0
-            do jp = lb, 1, -1
-               if (INDEX('DdEe', B(jp:jp)).gt.0) then
-                  jpe = jp
-                  goto 100
-               endif
-            enddo
- 100        continue
-            if (jpe.gt.0) then
-               do jp = jpe - 1, 1, -1
-                  if (B(jp:jp).ne.'0') then
-                     jpz = jp
-                     goto 110
-                  endif
-               enddo
-            endif
- 110        continue
-            STR = ' '
-            if (jpe.gt.0 .and. jpz.gt.0) then
-               STR(1:jpz) = B(1:jpz)
-               STR(jpz+1:jpz+(lb-jpe)+1) = B(jpe:lb)
-            endif
+            call USGlff(STR, SV, FMT)
          endif
       else
          write (STR, FMT) SV
@@ -82,6 +62,59 @@ CCC_ & USGlfs  ## Real/standard to string (lpad/fmt) [UFxs2a]
 #   else
       call ufadjl (STR)
 #   endif
+      RETURN
+      END
+CCC_ & USGlff  ## Real/standard to string (lpad/fmt/sub)
+      SUBROUTINE USGlff
+     O    (STR,
+     I     SV, FMT)
+      implicit none
+      _INTENT(OUT,character) STR*(*)
+      _INTENT(IN, _REALSTD)  SV
+      _INTENT(IN, character) FMT*(*)
+      character B*(32)
+      character F*(32)
+      integer   jp, lb, jpe, jpz
+      _REALSTD  T
+#if HAVE_F77_LEN_TRIM == 0
+      integer len_trim
+#endif
+      if (FMT(1:1).eq.'F') then
+ 201     format('(E26.', I2, ')')
+         do jp = 10, 18
+            write(F, 201) jp
+            write(B, F) SV
+            read(B, *) T
+            if (T.eq.SV) goto 210
+         enddo
+ 210     continue
+      else
+         write (B, '(E24.16)') SV
+      endif
+      lb = len_trim(B)
+      jpe = 0
+      jpz = 0
+      do jp = lb, 1, -1
+         if (INDEX('DdEe', B(jp:jp)).gt.0) then
+            jpe = jp
+            goto 100
+         endif
+      enddo
+ 100  continue
+      if (jpe.gt.0) then
+         do jp = jpe - 1, 1, -1
+            if (B(jp:jp).ne.'0') then
+               jpz = jp
+               goto 110
+            endif
+         enddo
+      endif
+ 110  continue
+      STR = ' '
+      if (jpe.gt.0 .and. jpz.gt.0) then
+         STR(1:jpz) = B(1:jpz)
+         STR(jpz+1:jpz+(lb-jpe)+1) = B(jpe:lb)
+      endif
       RETURN
       END
 CCC_ & USGbni  ## Integer to string (append unless blank)(blank) [UFxiap]
@@ -786,6 +819,54 @@ CCC_ & USMmlc  ## left shift string skipping characters [UFskpv]
       STR = STR(jp:l)
       RETURN
       END
+CCC_ & USMupc  ## upper case conversion
+      subroutine USMupc
+     M     (STR)
+      implicit none
+      _INTENT(INOUT,character) STR*(*)
+      integer  jp, l
+#if HAVE_F77_LEN_TRIM == 0
+      integer len_trim
+#endif
+      integer jal, jzl, jau
+      integer jc
+      jal = IACHAR('a')
+      jzl = IACHAR('z')
+      jau = IACHAR('A')
+      l  = len_trim(STR)
+      do jp = 1, l
+         jc = IACHAR(STR(jp:jp))
+         if (jal.le.jc .and. jc.le.jzl) then
+            jc = jc + (jau - jal)
+            STR(jp:jp) = ACHAR(jc)
+         endif
+      enddo
+      RETURN
+      END
+CCC_ & USMlwc  ## lower case conversion
+      subroutine USMlwc
+     M     (STR)
+      implicit none
+      _INTENT(INOUT,character) STR*(*)
+      integer  jp, l
+#if HAVE_F77_LEN_TRIM == 0
+      integer len_trim
+#endif
+      integer jau, jzu, jal
+      integer jc
+      jal = IACHAR('a')
+      jzu = IACHAR('Z')
+      jau = IACHAR('A')
+      l  = len_trim(STR)
+      do jp = 1, l
+         jc = IACHAR(STR(jp:jp))
+         if (jau.le.jc .and. jc.le.jzu) then
+            jc = jc + (jal - jau)
+            STR(jp:jp) = ACHAR(jc)
+         endif
+      enddo
+      RETURN
+      END
 CCC_* [UF] old interfaces for compatibility
 CCC_ + Conditional compilation
 #if WITH_UF_OLD_INTERFACES
@@ -1000,12 +1081,12 @@ c
 #if HAVE_F77_LEN_TRIM == 0
       integer len_trim
 #endif
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_  - Body
 c
 #define _ANNOUNCE USTRMN
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 c
       iplog = -1
       itest = 0
@@ -1165,7 +1246,7 @@ c
       write (*, 431) _TRIM(VI0), NIX, (IXV (j), j=1, NIX)
 CCC_   . real to string conversion
       call UFTEST_banner (itest, iplog, 'real-standard')
- 501  format (E24.16, ' :', A, ':')
+ 501  format (E26.18, ' :', A, ':')
       SI = 1.0d4
       call USGlfs (STR, SI, ' ')
       write (*, 501) SI, _TRIM(STR)
@@ -1186,6 +1267,31 @@ CCC_   . real to string conversion (compact)
       SI = 1.0d-18
       call USGlfs (STR, SI, 'C')
       write (*, 501) SI, _TRIM(STR)
+CCC_   . real to string conversion (asterisk)
+      call UFTEST_banner (itest, iplog, 'real-standard/asterisk')
+      SI = 1.0d4
+      call USGlfs (STR, SI, '*')
+      write (*, 501) SI, _TRIM(STR)
+      SI = 0.1d0
+      call USGlfs (STR, SI, '*')
+      write (*, 501) SI, _TRIM(STR)
+      SI = 1.0d-18
+      call USGlfs (STR, SI, '*')
+      write (*, 501) SI, _TRIM(STR)
+CCC_   . real to string conversion (full-try)
+      call UFTEST_banner (itest, iplog, 'real-standard/full-try')
+      SI = 1.0d4
+      call USGlfs (STR, SI, 'F')
+      write (*, 501) SI, _TRIM(STR)
+      SI = 0.1d0
+      call USGlfs (STR, SI, 'F')
+      write (*, 501) SI, _TRIM(STR)
+      SI = 1.0d-18
+      call USGlfs (STR, SI, 'F')
+      write (*, 501) SI, _TRIM(STR)
+c$$$      SI = 0.1d0/3.0d0
+c$$$      call USGlfs (STR, SI, 'F')
+c$$$      write (*, 501) SI, _TRIM(STR)
 CCC_   . split string
       call UFTEST_banner (itest, iplog, 'split')
  801  format ('SPLIT ', 2I3, 1x, '<', A, '> ', '(', A, ')')
@@ -1214,6 +1320,13 @@ CCC_   . integer parser
       call USTEST_pi ('123ABC',  iplog)
       call USTEST_pi ('ABC123',  iplog)
       call USTEST_pi ('123 456', iplog)
+CCC_   . case conversion
+      call UFTEST_banner (itest, iplog, 'case')
+      call USTEST_case('abc',  iplog)
+      call USTEST_case('ABC',  iplog)
+      call USTEST_case('abc0123XYZ',  iplog)
+      call USTEST_case('ABC4567xyz',  iplog)
+      call USTEST_case('aBcDeFgHiJkLmNoPqRsTuVwXyZ',  iplog)
 CCC_   . end
       call UFTEST_banner (itest, iplog, 'fine')
       stop
@@ -1395,6 +1508,26 @@ CCC_ & USTEST_pi
          write (iplog, 101) str, iv, jei, sv, jes
       else if (COND_S(iplog)) then
          write (*,     101) str, iv, jei, sv, jes
+      endif
+      RETURN
+      END
+CCC_ & USTEST_case
+      subroutine USTEST_case(STR, iplog)
+      implicit none
+      _INTENT(IN,character) STR*(*)
+      _INTENT(IN,integer)   iplog
+      character*(1024) BUFL
+      character*(1024) BUFU
+
+      BUFL = STR
+      BUFU = STR
+      call USMupc(BUFU)
+      call USMlwc(BUFL)
+ 101  format('CASE ', A, 1x, A, 1x, A)
+      if (COND_N(iplog)) then
+         write (iplog, 101) trim(str), trim(BUFU), trim(BUFL)
+      else if (COND_S(iplog)) then
+         write (*,     101) trim(str), trim(BUFU), trim(BUFL)
       endif
       RETURN
       END

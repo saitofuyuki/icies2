@@ -1,0 +1,57 @@
+=============================
+ IcIES/run/sp/ssadiag/README
+=============================
+:Maintainer: SAITO Fuyuki
+:Created:    Aug 4 2014
+:Time-stamp: <2015/06/15 14:36:34 fuyuki README>
+:Revision: 1f761f6c07afe7f6a5ae9ddc28f66114eb823981 or later
+
+Files
+=====
+
+``sysin.aas_rH_p4_n151x151_b1x1_o0x0_s1``
+    Example configuration file which is used for Antarctic ice-sheet
+    diagnosis (40km resolution, 4pe).
+    This is just an example.  Adjust it by yourself.
+
+
+``sysin.template``
+    Configuration template including brief description.
+
+``aadiag_002p4.sh``
+    Example batch script (Antarctica 40km (151x151), 4pe).
+
+Files (Obsolete)
+================
+
+``sysin.aa_rH_p4_n141x141_b1x1_o0x0_s1``
+    Example configuration file which is used for Antarctic ice-sheet
+    diagnosis (40km resolution, 4pe).
+    This is just an example.  Adjust it by yourself.
+
+``aadiag_001p16.sh``
+    UV1000 example batch script (Antarctica 40km (141x141), 16pe).
+    Not fully tested.  Adjust it by yourself.
+
+
+Initialization
+==============
+
+Initialization by external files is now implemented, but this is just
+a makeshift way.
+
+Prepare initial thickness and bedrock files in the format of one-value
+by one-line style.  Do not forget to specify number of grids in x- and
+y-direction at ``IX`` and ``IY`` in the namelist ``NITAMI``,
+respectively.
+
+
+Other useful info
+=================
+Check ``run/sp/mismip/README`` or ``run/sp/mismip/README.pdf`` for
+further information.
+
+..  LocalWords:  IcIES SAITO Fuyuki fuyuki README df ce bfdbe fc ae
+..  LocalWords:  dbbd sysin zx MISMIP NetCDF zsh cd src VMI nc MPI uN
+..  LocalWords:  gridpoints VMHB VMSX Hb cabcnv VMTI CAX NITFMI CROOT
+..  LocalWords:  MV FNM IRSKP VMTI Ascii ascii COOR AKW GXab Xa

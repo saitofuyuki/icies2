@@ -4,9 +4,9 @@ C Created: Oct 3 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2019/09/04 22:13:52 fuyuki muvcio.F>'
+#define _TSTAMP 'Time-stamp: <2020/01/08 14:56:58 fuyuki muvcio.F>'
 #define _FNAME 'movement/muvcio.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -476,11 +476,6 @@ c
       call AFBrgi (iErr, idVG, VMHI_nHa, icG (1), 'nH')
       call AFBrgi (iErr, idVG, VMHI_nBa, icG (1), 'nB')
       call AFBrgi (iErr, idVG, VMHI_nSa, icG (1), 'nS')
-      call AFBrgi (iErr, idVG, VMHI_ADVXe, icG (1), 'advxe')
-      call AFBrgi (iErr, idVG, VMHI_ADVXw, icG (1), 'advxw')
-      call AFBrgi (iErr, idVG, VMHI_ADVYn, icG (1), 'advyn')
-      call AFBrgi (iErr, idVG, VMHI_ADVYs, icG (1), 'advys')
-      call AFBrgi (iErr, idVG, VMHI_frd,   icG (1), 'frd')
 c
       if (iErr.eq.0) call AFBgmf (iErr, idVG, ' ', ' ', IE, IFPa)
 c
@@ -832,8 +827,14 @@ c
       call AFBrgi (iErr, idVG, VMHW_dHdy, icG (1), 'dHdy')
       call AFBrgi (iErr, idVG, VMHW_dBdy, icG (1), 'dbdy')
       call AFBrgi (iErr, idVG, VMHW_HSB,  icG (1), 'HSB')
+      call AFBrgi (iErr, idVG, VMHW_frd,  icG (1), 'frd')
+      call AFBrgi (iErr, idVG, VMHW_ADVXe, icG (1), 'advxe')
+      call AFBrgi (iErr, idVG, VMHW_ADVXw, icG (1), 'advxw')
+      call AFBrgi (iErr, idVG, VMHW_ADVYn, icG (1), 'advyn')
+      call AFBrgi (iErr, idVG, VMHW_ADVYs, icG (1), 'advys')
       call AFBrgi (iErr, idVG, VMHW_W1,   icG (1), 'W1')
       call AFBrgi (iErr, idVG, VMHW_W2,   icG (1), 'W2')
+      call AFBrgi (iErr, idVG, VMHW_W3,   icG (1), 'W3')
 c
       if (iErr.eq.0) call AFBgmf (iErr, idVG, ' ', ' ', IE, IFPa)
 c

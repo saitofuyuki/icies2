@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# Time-stamp: <2020/09/15 12:51:03 fuyuki symlogx.py>
-#
-# Copyright: 2019--2020 JAMSTEC
+# Time-stamp: <2020/09/17 09:08:23 fuyuki symlogx.py>
+# Copyright: 2019--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 

@@ -4,9 +4,9 @@ C Created: Apr 4 2012 (inherited from uuioms)
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/07/05 13:16:36 fuyuki unmlem.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:50:02 fuyuki unmlem.F>'
 #define _FNAME 'unison/unmlem.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -54,6 +54,9 @@ CCC_* Macros
 #endif
 #ifndef    OPT_NAMELIST_ERROR_MAX
 #  define  OPT_NAMELIST_ERROR_MAX 128
+#endif
+#ifndef   OPT_NML_COMPACT
+#  define OPT_NML_COMPACT 1
 #endif
 CCC_* [UNB] Default buffer
 CCC_ & UNBmng  ## default buffer
@@ -1047,6 +1050,16 @@ CCC_ & UNPvvF  ## namelist output var/val pair (file)
       lcl  = len_trim (CL)
       lcr  = len_trim (CR)
 c
+#if OPT_NML_COMPACT
+ 2222 format (2x, A,  '=', A, A, A, ',')
+ 2221 format (2x, A,  '=', A, A,    ',')
+ 2122 format (2x, A,  '=',    A, A, ',')
+ 2121 format (2x, A,  '=',    A,    ',')
+ 1222 format (2x, 2x, 1x,  A, A, A, ',')
+ 1221 format (2x, 2x, 1x,  A, A,    ',')
+ 1122 format (2x, 2x, 1x,     A, A, ',')
+ 1121 format (2x, 2x, 1x,     A,    ',')
+#else /* not OPT_NML_COMPACT */
  2222 format (2x, A,  1x, '=', 1x, A, A, A, ',')
  2221 format (2x, A,  1x, '=', 1x, A, A,    ',')
  2122 format (2x, A,  1x, '=', 1x,    A, A, ',')
@@ -1055,6 +1068,7 @@ c
  1221 format (2x, 2x, 1x, 1x,  1x, A, A,    ',')
  1122 format (2x, 2x, 1x, 1x,  1x,    A, A, ',')
  1121 format (2x, 2x, 1x, 1x,  1x,    A,    ',')
+#endif /* not OPT_NML_COMPACT */
 c
       if      (COND_N(IFP))  then
          if   (lvar.eq.0) then
@@ -1153,12 +1167,26 @@ c
       if (lvar.eq.0) then
          continue
       else
+#if OPT_NML_COMPACT
+         lentry = lvar + 1 + lentry
+#else
          lentry = lvar + 3 + lentry
+#endif
       endif
       lentry = lentry + 2
 c
       lStr   = LEN (STR)
 c
+#if OPT_NML_COMPACT
+ 2222 format (1x, A,  '=',  A, A, A, ',')
+ 2221 format (1x, A,  '=',  A, A,    ',')
+ 2122 format (1x, A,  '=',     A, A, ',')
+ 2121 format (1x, A,  '=',     A,    ',')
+ 1222 format (1x,           A, A, A, ',')
+ 1221 format (1x,           A, A,    ',')
+ 1122 format (1x,              A, A, ',')
+ 1121 format (1x,              A,    ',')
+#else /* not OPT_NML_COMPACT */
  2222 format (1x, A,  1x, '=', 1x, A, A, A, ',')
  2221 format (1x, A,  1x, '=', 1x, A, A,    ',')
  2122 format (1x, A,  1x, '=', 1x,    A, A, ',')
@@ -1167,6 +1195,7 @@ c
  1221 format (1x,                  A, A,    ',')
  1122 format (1x,                     A, A, ',')
  1121 format (1x,                     A,    ',')
+#endif
 c
       if (kPOS + lentry.gt.lStr) then
          iErr = lentry
@@ -1620,7 +1649,7 @@ CCC_   . debug section
       parameter (LDK = 32, LDA = 24)
       integer    KD(LDK)
       character  AD(LDA)*(128)
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 #if HAVE_F77_LEN_TRIM == 0
       integer len_trim
 #endif
@@ -1630,7 +1659,7 @@ CCC_  - Body
 CCC_   . announcement
 #define _ANNOUNCE UNMLEM
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 CCC_   . test invocation
       call UDSbnm('UNMLEM TESTS', '#', 0, iplog)
       call UDSini(iErr, KD, AD, LDK, LDA, iplog)

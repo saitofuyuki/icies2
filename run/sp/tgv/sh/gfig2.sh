@@ -1,7 +1,6 @@
 #!/usr/bin/zsh -f
-# Time-stamp: <2020/09/15 12:51:55 fuyuki gfig2.sh>
-#
-# Copyright: 2019--2020 JAMSTEC, Ayako ABE-OUCHI
+# Time-stamp: <2020/09/17 09:08:11 fuyuki gfig2.sh>
+# Copyright: 2018--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -22,7 +21,7 @@ main ()
   local -A OPTS=([verbose]=-1 [exec]='gen draw fig leg' [dir]='.')
   local -A VSET=() XSET=() GSET=()
   local gset=() vset=()
-  local etag=
+  local etag= extf=
   local DRAW=(0:)
   local a=
   # options
@@ -44,6 +43,7 @@ main ()
 
     (--tex=*)    OPTS[exec]+=" tex"
                  OPTS[tmpl]="${1#*=}";;
+
     (--tex)      OPTS[exec]+=" tex";;
 
     (--view)     OPTS[exec]+=" view";;
@@ -54,6 +54,8 @@ main ()
 
     (--marker)   OPTS[marker]=T;;
 
+    (--list)     OPTS[list]+=" $2"; shift;;  # search
+    (--list=*)   OPTS[list]+=" ${1#*=}";;
     (--dir)      OPTS[dir]+=" $2"; shift;;  # search
     (--dir=*)    OPTS[dir]+=" ${1#*=}";;
 
@@ -78,6 +80,8 @@ main ()
                  [[ ! -e $cfg ]] && logmsg -e "cannot find $cfg." && return 1
                  . $cfg || return $?
                  ;;
+    (--gset=*)   extf=${1#*=};    gset+=($(<$extf));;
+    (--gset)     extf=$2; shift;  gset+=($(<$extf));;
     (+G*)        # +G   GSET ...  -
                  # +G/  GSET ...  /
                  etag=${${1: 2}:--}
@@ -281,7 +285,7 @@ adjust_options ()
   X=(${(uo)X})
   OPTS[exec]="$X"
 
-  local proot=${OPTS[proot]:-.}
+  local proot=${OPTS[proot]:=.}
 
   : ${OPTS[asc]:=$proot/asc}
   : ${OPTS[tps]:=$proot/tps}
@@ -584,7 +588,7 @@ draw_post ()
   do
     epsf=$psf:r.eps
     if [[ ${${OPTS[exec]}[(wI)draw]} -gt 0 ]]; then
-      gmt psconvert -A -Z -Te $psf || return $?
+      gmt psconvert -A -Te $psf || return $?
     fi
     EPSF+=($epsf)
   done
@@ -673,6 +677,7 @@ draw_open ()
   # print -u2 - dsub:$dsub
   # print -u2 - dref:$dref
   # print -u2 - dbase:$dbase
+  # print -u2 - sfx:$sfx
 
   psf=$OPTS[ps]/$dsub/$dref/$dbase/$vpfx$sfx$usfx.ps
   # print -u2 - $psf $PWD
@@ -708,12 +713,21 @@ extract_comdiff ()
   fi
 
   local pprop=() xt=()
+  local k= v=
+  # print -u2 - "$0: $@"
+  # diag -P +p -c XSET
   for xj in "$@"
   do
     cache_pprop pprop OPTS "$XSET[${xj}]" "${XSET[${xj}T]}" "$XSET[${xj}p]" "$XSET[${xj}b]" || return $?
+    # print -u2 - cache_pprop pprop OPTS "$XSET[${xj}]" "${XSET[${xj}T]}" "$XSET[${xj}p]" "$XSET[${xj}b]"
+    # diag -P -p "$xj" -c pprop
     # diag -P +p -c pprop
     xt=(${${=XSET[${xj}t]}%,*})
     pprop+=("t=${(j:,:)xt}")
+    for k in Y
+    do
+      [[ -n ${v::=$XSET[${xj}$k]} ]] && pprop+=("$k=$v")
+    done
     if [[ ! -e $rf ]]; then
       print -l "${(@o)pprop}"> $rf
       pcomm=($pprop) pdiff=()
@@ -725,6 +739,8 @@ extract_comdiff ()
     fi
   done
   rm -rf $tmpd
+  # diag -P +p -c pcomm
+  # diag -P +p -c pdiff
 
   [[ $__pcomm != pcomm ]] && set -A $__pcomm "${(@)pcomm}"
   [[ $__pdiff != pdiff ]] && set -A $__pdiff "${(@)pdiff}"
@@ -1008,7 +1024,9 @@ get_base_flags ()
     logmsg -d "($ax $vi) symlog plot ${VSET[${vi}L]} $R0 $uopr"
     local cmd=($slx ${lprop: :2} "$VSET[${vi}B]" $R0 $uopr[1])
     ## print -u2 - "${(@q-)cmd}"
-    local symx=$tmpd/cL_${vi}
+    # local symx=$tmpd/cL_${vi}
+    local symx=$tmpd/cL_${vi%$psep}
+    # print -u2 - symx: $symx
     "${(@)cmd}" > $symx; err=$?
     [[ $err -ne 0 ]] && logmsg -e "Failed: $cmd" && return $err
     # cat $symx
@@ -1021,7 +1039,7 @@ get_base_flags ()
   extract_bparam 'Bl[lg]' VSET ${vi} l     lg ''
   extract_bparam 'Bl[lt]' VSET ${vi} l  lt lg ''
   extract_bparam 'Bl[ug]' VSET ${vi} u     ug uorg; [[ $Bl[ug] == 1 ]] && Bl[ug]=
-  extract_bparam 'Bl[ut]' VSET ${vi} u  ut ug uorg; [[ $Bl[ut] == 1 ]] && Bl[ut]=
+  extract_bparam 'Bl[ut]' VSET ${vi} ut u  ug uorg; [[ $Bl[ut] == 1 ]] && Bl[ut]=
   extract_bparam 'Bl[pg]' VSET ${vi} lp     lpg
   extract_bparam 'Bl[pt]' VSET ${vi} lp lpt lpg
   # diag -P +p -c Bl
@@ -1210,6 +1228,7 @@ draw_field ()
   local tmpf=$(mktemp)
   local pen= sym= fill=
   local ann=
+  local aval=
   for gj in $GODR
   do
     gk=${gj}$fsep
@@ -1227,7 +1246,6 @@ draw_field ()
       # for ann in ${=GSET[${gk}$xtyp]}
       for ann in ${(s/,/)GSET[${gk}$xtyp]}
       do
-        # print -u2 - "$0 $ann ($xp)($yp)"
         case $ann in
         (line)
           if [[ -n $xp ]]; then
@@ -1262,6 +1280,28 @@ draw_field ()
           if [[ -n $yp ]]; then
             print -l "$R[2] $yp[2] $YP" | wgmt pstext $gopts -N -F+jML+f14p >&4; err=$?
           fi
+        (al*)
+          mark="A:$XP$YP"
+          astr=("${(@kv)XP}" "${(@kv)YP}")
+          astr=${(j/:/)astr}
+          {
+            [[ -n $xp ]] && print "$xp[2] $R[3] CT $mark" 
+            [[ -n $yp ]] && print "$R[1] $yp[2] MR $mark"
+            print
+          } | wgmt pstext $gopts -N -F+j+f14p -Dj0.5c >&4; err=$?
+          wpfx -u4 - "$mark" '' 'A' a "$astr"
+          ;;
+        (au*)
+          mark="A:$XP$YP"
+          astr=("${(@kv)XP}" "${(@kv)YP}")
+          astr=${(j/:/)astr}
+          {
+            [[ -n $xp ]] && print "$xp[2] $R[4] CB $mark" 
+            [[ -n $yp ]] && print "$R[2] $yp[2] ML $mark"
+            print
+          } | wgmt pstext $gopts -N -F+j+f14p -Dj0.5c >&4; err=$?
+          wpfx -u4 - "$mark" '' 'A' a "$astr"
+          ;;
         esac
       done
     elif [[ -n $xf && -n $yf ]]; then
@@ -1621,6 +1661,7 @@ draw_legend ()
   local jx=$GSET[${lk}jx]
 
   rm -f $legb $legl $legt $legs
+  mkdir -p $legb:h
   touch $legb $legl $legt $legs
   local gj=0.0 ge=0
   local k= v=
@@ -1835,11 +1876,11 @@ conv_leg_str ()
     fi
   done
 
-  for p defu in A '' B '' H '' t yr
+  for p defu in A '' B '' H '' t yr Y yr
   do
     vk="$p${psep}lu"
     if [[ -n $GSET[$vk] ]]; then
-      for k in ${dprop[(I)$p*]}
+      for k in ${dprop[(I)$p]} ${dprop[(I)$p[ul]]}
       do
         usfx=("${(@s/:/)GSET[$vk]}")
         utgt=$usfx[1]; shift usfx
@@ -2017,8 +2058,8 @@ expand_entries ()
     xtag="${XSET[$xj]}"
     case $xtag in
     (SOL)  SXJ+=($xj); XSET[${xj}T]=hlp;;  # automatic solution
-    (LEV)  logmsg -f "Discarded feature"; exit 1;;
-    # (LEV)  SXJ+=($xj); XSET[${xj}T]=hlp;;  # automatic exact level
+    # (LEV)  logmsg -f "Discarded feature"; exit 1;;
+    (LEV)  SXJ+=($xj); XSET[${xj}T]=hlp;;  # automatic exact level
     (sol)  ;; # skip at this stage
     (lev)  ;; # skip at this stage
     (*)    expand_xentry OPTS XSET "$xj" || return $?
@@ -2074,25 +2115,41 @@ expand_xentry ()
     XSET[${xj}]="$xdir"
   fi
   [[ -z $xdir   ]] && logmsg -e "${xj} null target directory" && return 1
-  local xh= xd=
-  for xh in $=OPTS[dir]
+  local lf= ls= xp=
+  for lf in $=OPTS[list]
   do
     for xd in ${=xdir}
     do
-      [[ -d $xh/$xd   ]] && xdir=$xh/$xd   && break 2
-      [[ -d $xh/$xd:t ]] && xdir=$xh/$xd:t && break 2
+      ls=(${(f)"$(grep -F -e $xd $lf)"})
+      [[ -z $ls ]] && ls=(${(f)"$(grep -F -e $xd:t $lf)"})
+      if [[ $#ls -ge 1 ]]; then
+        xp=(${=ls[1]}); xp=$xp[-1]
+        [[ $#ls -gt 1 ]] && print -l "Multiple candidates" "${(@)ls}"
+        break 2
+      fi
     done
   done
-  [[ ! -d $xdir ]] && logmsg -e "${xj} target $XSET[$xj] not exist in {$OPTS[dir]}" && return 1
-  # print -u2 - $xdir
-  # ls -d $xdir
+  if [[ -z $xp ]]; then
+    local xh= xd=
+    for xh in $=OPTS[dir]
+    do
+      for xd in ${=xdir}
+      do
+        [[ -d $xh/$xd   ]] && xp=$xh/$xd   && break 2
+        [[ -d $xh/$xd:t ]] && xp=$xh/$xd:t && break 2
+      done
+    done
+  fi
+  [[ ! -e $xp ]] && logmsg -e "${xj} target $xp $XSET[$xj] not exist in {$OPTS[dir]}" && return 1
+  # print -u2 - $xp
+  # ls -d $xp
 
-  XSET[${xj}]="$(realpath -s --relative-to=. $xdir)" || return $?
+  XSET[${xj}]="$(realpath -s --relative-to=. $xp)" || return $?
 
   # not inherit prop:p
   inherit_args XSET $xj "$reftag"  p || return $?
 
-  cache_xprop xprop OPTS $xdir || return $?
+  cache_xprop xprop OPTS $xp || return $?
   # overwrite by cmdline
   local pstr=${XSET[${xj}p]}
   parse_aa_str +xprop ${=pstr}
@@ -2326,7 +2383,7 @@ expand_props ()
     XSET[$pxj]=''
     case $xtag in
     ($fsep)   logmsg -e "No reference experiment for $xj"; return 1;;
-    (sol*)    XSET[${pxj}R]="$sdef $XSET[${pxj}R]"
+    (sol*|lev*) XSET[${pxj}R]="$sdef $XSET[${pxj}R]"
               # print -u2 - "$pxj '$fsep' '$rsep' '${fsep}$rsep$xtag'"
               add_props XSET $pxj "$fsep" "$rsep" "${fsep}$rsep$xtag" || return $?;;
     ([a-zA-Z]*$rsep*)
@@ -2354,7 +2411,7 @@ parse_xall ()
   [[ $__xset != XSET ]] && local -A XSET=("${(@Pkv)__xset}")
 
   local VarsYseq=(a dadp g ginv zn dn alt altm altc)
-  local VarsBpos=($VarsYseq acc)
+  local VarsBpos=($VarsYseq acc bH bHt)
 
   local fsep=$SEP[f]
   local xj= xtag=
@@ -2381,7 +2438,15 @@ parse_xall ()
           done
           ;;
     (lev)
-      xjf+=(-)
+      case $vtgt in
+      (dZs|Zs) 
+          local yres=$XSET[${xj}Y]
+          extract_levels xf $vtgt $OPTS[asc] $xtag ${yres:-10000} || return $?
+          xjf+=($xf)
+          # print -u2 - "[$vtgt $xtag] <$y> $xf"
+          ;;
+      (*) xjf+=(-);;
+      esac
       ;;
     (*)   for y in ${yseq:--}
           do
@@ -2447,6 +2512,43 @@ extract_solution ()
     (d[ns]) [[ ! $xf -nt $srcf ]] && gmt math -bo1$prec -o0 $srcf -C0 $refH MUL = $xf;;
     (z[ns]) [[ ! $xf -nt $srcf ]] && gmt math -bo1$prec -o0 $srcf -C0 1 SUB NEG $refH MUL = $xf;;
     esac
+    # print -u2 - $xf $refH
+  fi
+  [[ -n $flg ]] && xf=$flg$xf
+  [[ $__xf != xf && x$__xf != x- ]] && : ${(P)__xf::=$xf}
+  return $err
+}
+# ----------------------------------------------------------------------
+extract_levels ()
+{
+  local __xf=$1; shift || return $?
+  local vtgt=$1; shift || return $?
+  local ascd=$1 xdir=$2; shift 2 || return $?
+  local yres=$1
+  [[ -z $yres ]] && logmsg -e "Need target resolution" && return 1
+  local prec=$OPTS[pr.V]
+
+  local null=
+  local defu=m flg=
+
+  if [[ x$__xf == x- ]]; then
+    xf=-
+  else
+    local amask=()
+    local k= v=
+    [[ $__xf != xf ]] && local xf=
+    xf=$ascd/$xdir
+    xf=$xf/${vtgt}_$yres
+    mkdir -p $xf:h || exit $?
+
+    local srcf=$xdir/$OPTS[f.levsol] flg=-
+    local tmpf=$(mktemp)
+    gmt sample1d -I$yres -N4 $srcf > $tmpf
+    case $vtgt in
+    (Zs)  [[ ! $xf -nt $srcf ]] && gmt math -bo1$prec -o1 $tmpf -C1 DUP DIFF 2 DIV ADD 1 SUB NEG = $xf;;
+    (dZs) [[ ! $xf -nt $srcf ]] && gmt math -bo1$prec -o1 $tmpf -C1 DIFF = $xf;;
+    esac
+    rm -f $tmpf
     # print -u2 - $xf $refH
   fi
   [[ -n $flg ]] && xf=$flg$xf
@@ -3051,6 +3153,17 @@ filter_bpos ()
     read_cache -a bpos "$ckey" $cache || return $?
     if [[ -z $bpos ]]; then
       extract_bpos bpos $prec $btable $cache $filter || return $?
+      # need to adjust H properties
+      local -A xprop=()
+      parse_aa_str xprop ${=XSET[${xj}p]} || return $?
+      local Hprop=$xprop[H]
+      # if [[ $Hprop && ${Hprop[(I)[a-zA-Z]]} -gt 0 ]]; then
+      if [[ $#Hprop -gt 2 ]]; then
+        : ${bpos[(r)Hl=*]::=Hl=$Hprop}
+        : ${bpos[(r)H=*]::=}
+        bpos=($bpos)
+        logmsg -w "Adjust H properties: {${(@q-)bpos}}"
+      fi
       write_cache -a bpos "$ckey" $cache || return $?
     fi
     XSET[${xj}${id}]="$bpos"
@@ -3498,6 +3611,30 @@ expand_sol_auto ()
 
   local RXJ=(${(n)${XSET[${sxj}$reftag]}})
   [[ -z $RXJ ]] && RXJ=(${(n)${XSET[(I)[0-9]*${fsep}]}})
+  # diag -P +p -c RXJ
+  # diag -c -P -p "$sxj" -k "${sxj}*" XSET
+  local k= jr=0
+  for rxj in $RXJ
+  do
+    # diag -c -P -p "$sxj" -k "${rxj}*" XSET
+    let jr++
+    [[ $XSET[${rxj}T] != hlp ]] && continue
+    # print -u2 - ${XSET[(I)${rxj}*]}
+    for k in ${XSET[(I)${rxj}*]}
+    do
+      k=${k#$rxj}
+      [[ ${k[(I)$fsep]} -gt 0 ]] && continue
+      [[ -z ${XSET[$sxj$k]} ]] && XSET[$sxj$k]="$XSET[$rxj$k]"
+    done
+    XSET[${sxj}R]="$XSET[${rxj}R]"
+    RXJ[$jr]="$XSET[${rxj}R]"
+  done
+  # diag -c -P -p "$sxj" -k "${sxj}*" XSET
+  # diag -P +p -c RXJ
+  [[ -z $cfgA ]] && { nml_value cfgA "$XSET[${sxj}A]" m || return $? }
+  [[ -z $cfgB ]] && { nml_value cfgB "$XSET[${sxj}B]" m || return $? }
+  [[ -z $cfgH ]] && { nml_value cfgH "$XSET[${sxj}H]" m || return $? }
+
 
   local sdef="$XSET[${sxj}]$fsep"
   local stag="${(L)XSET[${sxj}]}"
@@ -3509,12 +3646,15 @@ expand_sol_auto ()
   local -A xprop=()
   for rxj in $RXJ
   do
-    [[ -n $XSET[${rxj}T] ]] && continue
+    # print -u2 - $rxj $XSET[${rxj}T]
+    [[ $XSET[${rxj}T] == hlp ]] && continue
     BX=()
     if [[ x$rxj != x- ]]; then
       BX=(${=XSET[${rxj}b]})
       [[ -n $BX ]] && shift 2 BX
     fi
+    # diag -c -P -k "${rxj}*" XSET
+    # print -u2 - $rxj $XSET[${rxj}T] $BX
     filter_config AA "$cfgA" ${(M)BX##A*} || return 1
     filter_config BB "$cfgB" ${(M)BX##B*} || return 1
     filter_config HH "$cfgH" ${(M)BX##H*} || return 1
@@ -3542,9 +3682,11 @@ expand_sol_auto ()
           XSET[$nxj]=$stag   XSET[${nxj}T]=$stag
           XSET[${nxj}A]=$aa  XSET[${nxj}B]=$bb XSET[${nxj}H]=$hh
           XSET[${nxj}z]=$cfgz
+          XSET[${nxj}Y]=$XSET[${sxj}Y]
           XSET[${nxj}R]="${sxj} ${sdef} ${rxj}"
-          unparse_aa_str pstr "${(@kv)xprop}" A "$aa" B "$bb" k sol
+          unparse_aa_str pstr "${(@kv)xprop}" A "$aa" B "$bb" k sol 
           XSET[${nxj}p]="$pstr"
+          # print -u2 - $sxj "$pstr" unparse_aa_str pstr "${(@kv)xprop}" A "$aa" B "$bb" Y "$XSET[${sxj}Y]" k sol 
           [[ ${+XSET[${sxj}y]} -eq 1 ]] && XSET[${nxj}y]=${XSET[${sxj}y]}
           let subj++
         done
@@ -3558,6 +3700,7 @@ expand_sol_auto ()
 # ----------------------------------------------------------------------
 expand_sentry ()
 {
+  # set -x
   local err=0
   local _opts=$1; shift || return $?
   local __xset=$1; shift || return $?
@@ -3629,7 +3772,13 @@ expand_sentry ()
     [[ $xprop[$k] != ${bprop[$k]} ]] && logmsg -w "Replacement trial[$k] ${bprop[$k]} in solution"
   done
 
+  case "$XSET[${sxj}T]" in
+  (lev) unset 'xprop[Z]';;
+  esac
+
   unparse_aa_str pstr "${(@kv)xprop}" k sol || return $?
+  # diag -c +p -P -k "${sxj}*" XSET
+  # diag -c +p -P              xprop
   XSET[${sxj}p]="$pstr"
 
   local xtag=
@@ -3690,6 +3839,7 @@ gen_sol_source ()
   local prec=$OPTS[pr.V]
   for k v in "$@"
   do
+    # print -u2 - "$k//$v/"
     case $k in
     (A) unit_orig ma "$v" $defu + || return $?;;
     (B) unit_orig mb "$v" $defu - || return $?;;
@@ -3724,9 +3874,10 @@ gen_sol_source ()
   local xcmd=$OPTS[$keyx]
   if [[ -z $xcmd ]]; then
     local t=
-    for t in . ./src/etc/misc
+    for t in . ./src/etc/misc $thisd $thisd/src/etc/misc
     do
       t=$t/$defx
+      # print -u2 - $t
       [[ -e $t ]] && xcmd=$t && break
     done
   fi
@@ -3750,11 +3901,12 @@ gen_sol_source ()
 
     if [[ $styp == sol ]]; then
       local smpf=$srcd/${OPTS[f.sample]}
-      gmt sample1d -Fn $srcf -N$dfa > $smpf
+      gmt sample1d -Fn $srcf -T$dfa > $smpf
     fi
   else
     cmd=($xcmd $AGE[pf] $AGE[o] $AGE[i] $ma $mb $rh ${AGE[r]} $AGE[m] $AGE[e])
     print - "$cmd" > $param
+    cat $param >&2
     logmsg -d "Solution by $cmd"
     "${(@)cmd}" > $srcf
   fi
@@ -3882,6 +4034,7 @@ init_gset ()
   add_gset GSET A   lu cm
   add_gset GSET B   lu cm
   add_gset GSET H   lu m
+  add_gset GSET Y   lu yr
 
   GSET+=([l.font]=12p [l.jym]=1.2 [l.jx]=2c)
 
@@ -4111,6 +4264,7 @@ expand_gsets ()
               cmem=+1
             fi
             if [[ $cmem -gt 0 ]]; then
+              [[ $cmem -le 1 ]] && cmem=2
               cmd=(gmt math --FORMAT_FLOAT_OUT='%.2f'  -T1/$cmem/1 -N1 -C0
                    'T' $cmem SUB 1 $cmem SUB DIV $cend $cini SUB MUL $cend SUB NEG $cend AND =)
             else
@@ -4196,13 +4350,13 @@ gen_prop_gsets ()
     xtyp="${XSET[${xj}T]}"
     [[ $xtyp == hlp ]] && continue
     case $xtyp in
-    (sol) xk=s;;
+    (sol|lev) xk=s;;
     (ann) xk=a;;
     (*)   xk=x;;
     esac
     COUNTS[$xk]=$((${COUNTS[$xk]:-0} + 1))
     e=${xj%%$fsep*}
-    parse_aa_str xprop ${=XSET[${xj}p]} d=1 e=$e k=${xtyp:-def} s= a= x= $xk=$COUNTS[$xk] || return $?
+    parse_aa_str xprop ${=XSET[${xj}p]} d=1 e=$e k=${xtyp:-def} Y=${XSET[${xj}Y]} s= a= x= $xk=$COUNTS[$xk] || return $?
     unparse_aa_str pstr "${(@kv)xprop}"
     XSET[${xj}p]="$pstr"
     unset 'xprop[AL]' 'xprop[BL]' 'xprop[HL]'
@@ -4241,16 +4395,18 @@ parse_common_diff ()
   local psep=$SEP[p] fsep=$SEP[f]
 
   local pcomm=() pdiff=()
-  local xkeys=() skeys=()
+  local xkeys=() skeys=() lkeys=()
   local xt= xj= XJ=(${(n)${XSET[(I)${xpfx}[0-9]*${fsep}]}})
   for xj in "${(@)XJ}"
   do
     case ${XSET[${xj}T]} in
     (sol) skeys+=($xj);;
+    (lev) lkeys+=($xj);;
     (ann) ;;
     ('')  xkeys+=($xj);;
     esac
   done
+  # diag -P +p -c xkeys lkeys skeys
 
   extract_comdiff pcomm pdiff OPTS XSET $xkeys || return $?
 
@@ -4267,9 +4423,9 @@ parse_common_diff ()
 
   local -A psol=()
   local    tsol=
-  extract_comdiff pcomm pdiff OPTS XSET $skeys || return $?
+  extract_comdiff pcomm pdiff OPTS XSET $skeys $lkeys || return $?
   adj_pdiff psol tsol $pdiff || return $?
-  set_pdiff XSET pcomm $skeys || return $?
+  set_pdiff XSET pcomm $skeys $lkeys || return $?
   # diag -P +p -c pcomm pdiff
 
   local -A pref=()
@@ -4291,6 +4447,10 @@ parse_common_diff ()
   unparse_xprop dbase "${(@kv)pbase}"
   unparse_aa_str pstr "${(@kv)pbase}" || return $?
   GSET[${fsep}comm]="$pstr"
+  local DD=(${=GSET[D$psep]})
+  [[ x$GSET[D${psep}f] == x- ]] && dbase=${dbase:t}
+  # [[ $#DD -le 1 && x$GSET[D${psep}f] == x- ]] && dbase=${dbase:t}
+  # diag -P +p -c -k "D*" GSET
   GSET[${psep}base]="$dbase"
   # sub (comparison)
   for k in ${(ok)pexp}
@@ -4302,6 +4462,14 @@ parse_common_diff ()
   [[ -n $dsub ]] && dsub=cmp$dsub
   if [[ -n $skeys ]]; then
     dsub=${dsub:-cmp}sol
+    for k in ${(ok)psol}
+    do
+      [[ x$GSET[${k}${psep}f] == x- ]] && continue
+      [[ $psol[$k] -gt 1 ]] && dsub=$dsub$k$psol[$k]
+    done
+  fi
+  if [[ -n $lkeys ]]; then
+    dsub=${dsub:-cmp}lev
     for k in ${(ok)psol}
     do
       [[ x$GSET[${k}${psep}f] == x- ]] && continue
@@ -4400,8 +4568,10 @@ assign_gsets ()
   # diag -P +p -c xfiles
   # set JGK
   local pk= jgk= JGK=(${=GSET[i]})
+  # diag -P +p -c JGK
   if [[ ${JGK[(I)p]} -gt 0 ]]; then
     local PK=($GSET[(I)*$psep])
+    # diag -P +p -c PK
     PK=("${(@)PK%$psep}")
     # PK=("${(@)PK:#[a-z]}")
     PK=("${(@)PK:|JGK}")
@@ -4496,7 +4666,7 @@ assign_gsets ()
         GSET[${ngj}sym]="$pen[s]$pen[sz] ${pen[sm]:-1},${pen[so]:-+0} $clr"
       fi
       dprop=()
-      parse_aa_str dprop ${XSET[${xj}xd]} k=${XSET[${xj}T]:-def} e=$xprop[e] || return $?
+      parse_aa_str dprop ${XSET[${xj}xd]} k=${XSET[${xj}T]:-def} e=$xprop[e] Y=${XSET[${xj}Y]:--} || return $?
       for k in A B H
       do
         if [[ $dprop[${k}u] == $dprop[${k}l] ]]; then
@@ -4509,6 +4679,7 @@ assign_gsets ()
           unset "dprop[${k}]"
         fi
       done
+      [[ x$dprop[Y] == x- ]] && unset 'dprop[Y]'
       unparse_aa_str dp "${(@kv)dprop}" || return $?
       GSET[${ngj}u]="$dp"
       if [[ x${jt:--} != x- ]]; then
@@ -4554,6 +4725,8 @@ assign_gsets ()
   done
   # legend grouping
   legend_section GSET JP $godr || return $?
+
+  # diag -P +p -c GSET
 
   [[ $__gset != GSET ]] && set -A $__gset "${(@kv)GSET}"
   return $err
@@ -4727,7 +4900,7 @@ expand_annotation ()
   local sp="$fsep$fsep"
   local aspec=${ann%%$sp*}
   local aprop=${${ann#$aspec}#$sp}
-  aspec=(${(ps/$fsep/)aspec})
+  aspec=("${(@ps/$fsep/)aspec}")
   local anv=$aspec[1] arefx=$aspec[2]; shift 2 aspec
   local ANN=()
   expand_ann_auto ANN XSET "$var" "$anv" "$arefx" "${(@)aspec}" || return $?
@@ -4750,7 +4923,9 @@ expand_annotation ()
   local -A xprop=()
   for ann in "${(@)ANN}"
   do
-    parse_aa_str xprop "${(@)ann}" k ann
+    # print -u2 - "$ann"
+    parse_aa_str xprop "${ann}" k ann
+    # diag -P +p -c xprop
     xk="$ja$fsep$js$fsep"
     if [[ -n "${VSET[${vi}opr]}" ]]; then
       logmsg -e "Annotation transformation ($vi) not yet implemented."
@@ -4781,62 +4956,79 @@ expand_ann_auto ()
   [[ $_xset != XSET ]] && local -A XSET=("${(@Pkv)_xset}")
   [[ $_ann  != ANN ]] && local ANN=
 
+  # print -u2 - "$var/$anv/$arefx"
+  # diag -P +p -c aspec
   ANN=()
   local stag=
-  case $var in
-  ([dDzZ]n) case $anv in
-       (a) stag=lev;;
-       (*) logmsg -f "Annotation $var-$anv not implemented."; return 1;;
-       esac;;
-  (*) logmsg -f "Annotation $var not implemented."; return 1;;
-  esac
-  extract_ball BC XSET '' "${(@kv)aspec}" || return $?
+  if [[ ${anv:-self} == self ]]; then
+    anv=$var
+    logmsg -w "Self annotation $var $anv ($arefx)."
+  else
+    case $var in
+    ([dDzZ]n) case $anv in
+         (a) stag=lev;;
+         (*) logmsg -f "Annotation $var-$anv not implemented."; return 1;;
+         esac;;
+    (*) logmsg -f "Annotation $var not implemented."; return 1;;
+    esac
+  fi
   # diag -P +p -c BC aspec
   local sdef=${(U)stag}$fsep
   local bc=
   local a= b= h= y= w=
   local xtag=
 
-  local -A sprop=()
-  local k=
-  for k in P D S
-  do
-    [[ ${+aspec[$k]} -eq 1 ]] && sprop[$k]=$aspec[$k]
-    [[ -z $sprop[$k] ]] && sprop[$k]=$XSET[${sdef}$k]
-  done
+  if [[ $arefx == lsol ]]; then
+    local -A sprop=()
+    local k=
+    for k in P D S
+    do
+      [[ ${+aspec[$k]} -eq 1 ]] && sprop[$k]=$aspec[$k]
+      [[ -z $sprop[$k] ]] && sprop[$k]=$XSET[${sdef}$k]
+    done
 
-  local -A xprop=()
-  local srcf= keyf=f.levsol tyr= defu=yr
-  local knotf=$(mktemp) smpl=() vsol= rh=
-  local pstr=
-  for bc in "${(@)BC}"
-  do
-    bc=("${(@s:/:)bc}")
-    xprop=([A]=$bc[1] [B]=$bc[2] [H]=$bc[3] [W]=$bc[4] [y]=$bc[5])
-    unparse_xprop xtag "${(@kv)sprop}" "${(@kv)xprop}" || return $?
-    srcf=$xtag/${OPTS[$keyf]}
-    if [[ ! -e $srcf ]]; then
-      logmsg -w "Annotation: $var $anv $arefx {$aspec}{$aprop} $srcf"
-      gen_sol_source $stag $srcf - "${(@kv)xprop}" || return $?
-    fi
-    unit_orig rh "$xprop[H]" m + || return $?
-    tyr=$(units -t -1 -- $xprop[y]$defu $defu); err=$?
-    print - "$tyr" > $knotf
-    case $anv in
-    (a) smpl=($(gmt sample1d -Fa $srcf -T4 -N$knotf))
-        case $var in
-        (dn) vsol=$(gmt math -Q $smpl[2] $rh MUL =);;
-        (Dn) vsol=$smpl[2];;
-        (Zn) vsol=$(gmt math -Q 1 $smpl[2] SUB =);;
-        (zn) vsol=$(gmt math -Q 1 $smpl[2] SUB $rh MUL =);;
-        (*)  vsol="$smpl";;
-        esac
-        ;;
-    esac
-    unparse_aa_str pstr "${(@kv)sprop}" "${(@kv)xprop}" val "$var=$vsol:$anv=$tyr" || return $?
-    ANN+=("$pstr")
-  done
-  rm -f $knotf
+    local -A xprop=()
+    local srcf= keyf=f.levsol tyr= defu=yr
+    local knotf=$(mktemp) smpl=() vsol= rh=
+    local pstr=
+    extract_ball BC XSET '' "${(@kv)aspec}" || return $?
+    for bc in "${(@)BC}"
+    do
+      bc=("${(@s:/:)bc}")
+      xprop=([A]=$bc[1] [B]=$bc[2] [H]=$bc[3] [W]=$bc[4] [y]=$bc[5])
+      unparse_xprop xtag "${(@kv)sprop}" "${(@kv)xprop}" || return $?
+      srcf=$xtag/${OPTS[$keyf]}
+      if [[ ! -e $srcf ]]; then
+        logmsg -w "Annotation: $var $anv $arefx {$aspec}{$aprop} $srcf"
+        gen_sol_source $stag $srcf - "${(@kv)xprop}" || return $?
+      fi
+      unit_orig rh "$xprop[H]" m + || return $?
+      tyr=$(units -t -1 -- $xprop[y]$defu $defu); err=$?
+      print - "$tyr" > $knotf
+      case $anv in
+      (a) smpl=($(gmt sample1d -Fa $srcf -N4 -T$knotf))
+          case $var in
+          (dn) vsol=$(gmt math -Q $smpl[2] $rh MUL =);;
+          (Dn) vsol=$smpl[2];;
+          (Zn) vsol=$(gmt math -Q 1 $smpl[2] SUB =);;
+          (zn) vsol=$(gmt math -Q 1 $smpl[2] SUB $rh MUL =);;
+          (*)  vsol="$smpl";;
+          esac
+          ;;
+      esac
+      unparse_aa_str pstr "${(@kv)sprop}" "${(@kv)xprop}" val "$var=$vsol:$anv=$tyr" || return $?
+      ANN+=("$pstr")
+    done
+    rm -f $knotf
+  else
+    local val= ja=0
+    for val in ${(s:,:)arefx}
+    do
+      ANN+=("val=$var=$val:$anv=$ja")
+      let ja++
+    done
+  fi
+  # diag -P +p -c ANN
   [[ $_ann != ANN ]] && set -A $_ann "${(@)ANN}"
   return 0
 }
@@ -5236,8 +5428,9 @@ parse_aa_str ()
       ($krm) a=();;
       (*$ksep*) k=${v%%$ksep*} v=${v#*$ksep}
                 a[$k]="$v";;
-      (*) unset "a[$k]";;
+      (*) unset "a[$v]";;
       esac
+      # print -u2 - "$k $v"
     done
   done
   [[ $__a != a ]] && set -A $__a "${(@kv)a}"
@@ -5532,6 +5725,7 @@ TRAPEXIT ()
 
 
 this=$0
+thisd=$0:h
 zwc=$this.zwc
 err=0
 

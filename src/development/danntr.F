@@ -4,9 +4,9 @@ C Created: Mar 20 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:47:20 fuyuki danntr.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:42:24 fuyuki danntr.F>'
 #define _FNAME 'devel/danntr.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020

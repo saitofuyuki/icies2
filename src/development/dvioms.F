@@ -4,9 +4,9 @@ C Created: Jan 14 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/13 13:01:59 fuyuki dvioms.F>'
+#define _TSTAMP 'Time-stamp: <2020/01/08 14:42:20 fuyuki dvioms.F>'
 #define _FNAME 'development/dvioms.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2012--2020
@@ -2433,6 +2433,9 @@ CCC_  - Declaration
 c
       character TF, TS, TA, TP
       logical   OPND
+#if HAVE_F77_LEN_TRIM == 0
+      integer len_trim
+#endif
 c$$$      character FBF*1024
 CCC_  - Body
       iErr = 0

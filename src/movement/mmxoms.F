@@ -4,9 +4,9 @@ C Created: Dec 22 2011
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/10/24 13:27:31 fuyuki mmxoms.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:46:09 fuyuki mmxoms.F>'
 #define _FNAME 'movement/mmxoms.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2011--2020
@@ -15,8 +15,6 @@ C           Ayako ABE-OUCHI
 C
 C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)
-C Copyright (C) 2011--2020
-C           Japan Agency for Marine-Earth Science and Technology,
 C
 CCC_* Common macros
 #include "ofdlct.h"   /* fortran dialect */

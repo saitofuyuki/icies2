@@ -1,6 +1,6 @@
 #!/usr/bin/zsh -f
 # Maintainer:  SAITO Fuyuki
-# Time-stamp: <2020/09/15 12:20:52 fuyuki oarpkw.sh>
+# Time-stamp: <2020/09/17 08:22:08 fuyuki oarpkw.sh>
 # oarpkw.h, akwopr::akbtbi () generation helper
 
 # Copyright: 2016--2020 JAMSTEC, Ayako ABE-OUCHI
@@ -17,7 +17,7 @@ putdef ()
 {
    local comment="$1"; shift
    if [[ -n $comment ]];then
-     print "CCC_  * $comment"
+     print "/***_  * $comment */"
    fi
    local v
    for v in $@

@@ -1,0 +1,798 @@
+#!@ZSH@ -f
+# Time-stamp: <2020/09/17 09:04:52 fuyuki ax.sh.in>
+# Copyright: 2016--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+###_. templates
+
+@ZUI_INSERT@
+@DEV_INSERT@
+@ARP_INSERT@
+
+###_. ax_run
+ax_run ()
+{
+  zui_init || return $?
+  dev_init || return $?
+  arp_init || return $?
+
+  if [[ $# -eq 0 ]];then
+    zui_help view || exit $?
+    exit 0
+  fi
+
+  CARGS=("$@")
+
+  local pbin=
+  if [[ $1 == [---+]* ]];then
+    pbin=:
+  else
+    pbin=$1; shift
+    if [[ ! -x $pbin ]];then
+      zui_help view || exit $?
+      print -u2 "error: unknown executable: $pbin"
+      exit 1
+    fi
+  fi
+
+  local pbase=$pbin:r:t
+
+  zui_parse do_all ARGS $@
+  [[ $VERBOSE -gt 1 ]] && zui_parse show -u2
+  [[ $VERBOSE -gt 1 ]] && print -u2 XENV: $ZUI_XENV
+
+  if [[ $pbin == : ]];then
+    :
+  else
+    ax_run_standard $pbin $pbase $ARGS || return $?
+  fi
+  # mxi_sysin_all >&2
+  return 0
+
+  if [[ $pbase == aedlra1 ]];then
+    ax_run_$pbase $pbin $ARGS || return $?
+    return 0
+  elif [[ $pbase == agmtry2 ]];then
+    ax_run_$pbase $pbin $ARGS || return $?
+    return 0
+  else
+    ax_run_standard $pbin $pbase $ARGS || return $?
+  fi
+  return 0
+  ## print -u2 ${(kv)AE}
+}
+
+###_. ax_run_standard
+ax_run_standard ()
+{
+  [[ $# -lt 2 ]] && print -u2 "$0: insufficient arguments" && exit 1
+  local pbin=$1 pbase=$2; shift 2
+
+  local DEP; DEP=(sysin run nc fig)
+  local id= aid=
+  arp_ae_get_id aid || return $?
+  id=($aid)
+  id=${(j/_/)id}
+  [[ $VERBOSE -gt 0 ]] && print -u2 "ID: $id"
+
+  local -A ATTR
+
+  ## set default outputs
+  ATTR[d/sysin]=${DEV[dir/i]:-.}/sysin.$id
+  ATTR[d/run]=${DEV[dir/r]:-.}/log.$id
+  ATTR[d/nc]=${DEV[dir/g]:-.}/%s.$id.nc
+  ATTR[d/fig]=${DEV[dir/p]:-.}/%s.$id.ps
+  ## functions
+  ATTR[f/sysin]=arp_create_sysin
+  ATTR[f/run]=arp_create_run
+  ATTR[f/nc]=arp_create_nc
+  ATTR[f/fig]=arp_create_fig
+
+  ## execution sequence
+  zui_sequence_exe ATTR fig $DEP -- $@
+
+  return 0
+
+  ## local DEP; DEP=(sysin run rst nc:run:x asc:nc fig:nc)
+  local seq
+  zui_sequence_parser seq -d nc $DEP -- $@
+
+  ## set attributes
+  local -A ATTR
+  ## get id
+  local aid= id=
+  arp_ae_get_id aid || return $?
+  id=($aid)
+  id=${(j/_/)id}
+  [[ $VERBOSE -gt 0 ]] && print -u2 "ID: $id {$aid}"
+  ## set default outputs
+  ATTR[d/sysin]=${DEV[dir/i]:-.}/sysin.$id
+  ATTR[d/run]=${DEV[dir/r]:-.}/log.$id
+  ATTR[d/nc]=${DEV[dir/g]:-.}/%s.$id.nc
+  ATTR[d/fig]=${DEV[dir/p]:-.}/%s.$id.%s.ps
+  ## functions
+  ATTR[f/sysin]=arp_create_sysin
+  ATTR[f/run]=arp_create_run
+  ATTR[f/nc]=arp_create_nc
+  ATTR[f/fig]=arp_create_fig
+
+  ## execution sequence in DEP order strict
+  local copts= ropts= in= ifile= ofile= f= args=
+  local d= d0= di= dold=-
+  for d in $DEP
+  do
+    d0=${d%%:*}
+    di=${d#*:}
+    [[ $di == $d0 ]] && di=$dold
+    di=${di%%:*}
+    dold=${d0}
+    for c in $seq[(r)$d0*]
+    do
+      ## print -u2 "sequence $c {orig $d}"
+      copts=("${(@s@:@)c}")
+      ropts=("${(@s@.@)copts[1]}")
+      c=$ropts[1]
+      shift copts; shift ropts
+      ifile=$ATTR[u/$di]
+      [[ -z $ifile ]] && ifile=$copts[2]
+      [[ -z $ifile ]] && ifile=$ATTR[d/$di]
+      [[ -z $ifile ]] && ifile=-
+      ofile=
+      [[ -z $ofile ]] && ofile=$copts[1]
+      [[ -z $ofile ]] && ofile=$ATTR[d/$c]
+      print -u2 "<<$c>> {$ropts} {$copts} $ifile $ofile"
+      f=$ATTR[f/$c]
+      [[ -z $f ]] && f=$ATTR[f/$ATTR[f]]
+      args=("$pbin" "$ifile" "$ofile" $copts $ropts)
+      print -u2 $f "${(@)args}" || return $?
+      ATTR[u/$c]=$ofile
+    done
+  done
+
+  return 0
+  for c in $seq
+  do
+    print -u2 "seq:$c"
+    copts=("${(@s@:@)c}")
+    ropts=("${(@s@.@)copts[1]}")
+    c=$ropts[1]
+    shift copts; shift ropts
+    print -u2 "<<$c>> {$ropts} {$copts}"
+    in=$ATTR[i/$c]
+    continue
+    ifile= ofile=
+    if [[ -n $in ]];then
+      ifile=$ATTR[u/$in]
+      [[ -z $ifile ]] && ifile=$copts[2]
+      [[ -z $ifile ]] && ifile=$ATTR[d/$in]
+      [[ -z $ifile ]] && print -u2 "$0[$c] Invalid input" && exit 1
+    fi
+    [[ -z $ofile ]] && ofile=$copts[1]
+    [[ -z $ofile ]] && ofile=$ATTR[d/$c]
+    f=$ATTR[f/$c]
+    [[ -z $f ]] && f=$ATTR[f/$ATTR[f]]
+    args=("$pbin" "$ifile" "$ofile" $copts $ropts)
+    [[ $VERBOSE -gt 0 ]] && print -u2 "SEQ[$c] $f $args"
+    $f "${(@)args}" || return $?
+    ATTR[u/$c]=$ofile
+  done
+
+  return 0
+
+  ## parse sequence
+  local SEQall; SEQall=(sysin run nc fig)
+  local c= cc=
+  local -a seq
+  for c in $@
+  do
+    case $c in
+    all)     seq+=($SEQall);;
+    def)     seq+=(sysin run nc/all);;
+    :sysin*) seq+=($c[2,-1]);;
+    :run*)   seq+=(sysin $c[2,-1]);;
+    :nc*)    seq+=(sysin run $c[2,-1]);;
+    :fig*)   seq+=(sysin run nc $c[2,-1]);;
+    :*)      seq+=(sysin run nc/$c[2,-1]);;
+    *) cc=(${(s@:@)c}); cc=$cc[1]
+       if [[ -z $SEQall[(k)$cc] ]];then
+         seq+=(nc/$c)
+       else
+         seq+=($c)
+       fi;;
+    esac
+  done
+
+  ## Attirubutes cluster
+
+  ## output variable
+  local $SEQall
+  ## input/output relation
+  local i
+  for i in {2..$#SEQall}
+  do
+    ATTR[i/$SEQall[$i]]=$SEQall[$i-1]
+  done
+  [[ $VERBOSE -gt 3 ]] && zui_debug_aa ATTR -u 2
+
+  ## do sequence
+  local copts= ropts= in= ifile= ofile= f= args=
+  for c in $seq
+  do
+    ropts=("${(@s@/@)c}")
+    copts=("${(@s/:/)ropts[1]}"); shift ropts
+    c=$copts[1]; shift copts
+    in=$ATTR[i/$c]
+    ifile= ofile=
+    if [[ -n $in ]];then
+      ifile=$ATTR[u/$in]
+      [[ -z $ifile ]] && ifile=$copts[2]
+      [[ -z $ifile ]] && ifile=$ATTR[d/$in]
+      [[ -z $ifile ]] && print -u2 "$0[$c] Invalid input" && exit 1
+    fi
+    [[ -z $ofile ]] && ofile=$copts[1]
+    [[ -z $ofile ]] && ofile=$ATTR[d/$c]
+    f=$ATTR[f/$c]
+    [[ -z $f ]] && f=$ATTR[f/$ATTR[f]]
+    args=("$pbin" "$ifile" "$ofile" $copts $ropts)
+    [[ $VERBOSE -gt 0 ]] && print -u2 "SEQ[$c] $f $args"
+    $f "${(@)args}" || return $?
+    ATTR[u/$c]=$ofile
+  done
+
+  return 0
+}
+
+###_. arp_create_sysin
+arp_create_sysin ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofile=$2; shift 2
+
+  [[ $# -gt 0 && $VERBOSE -ge 0 ]] && print -u2 "$0: ignored $@"
+
+  if [[ x$ofile == x- ]];then
+    arp_sysin_all $pbin || return $?
+  else
+    arp_sysin_all $pbin $ofile > $ofile || return $?
+  fi
+  return 0
+}
+
+###_. arp_sysin_all
+arp_sysin_all ()
+{
+  local pbin=$1; shift
+  local pbase=$pbin:r:t
+
+  local ofile=$1
+  if [[ -z $ofile ]];then
+    dev_create_sysin $ATTR[d/sysin] "${(@)CARGS}"
+  else
+    dev_create_sysin $ofile "${(@)CARGS}"
+  fi
+  print " &NILOGC CH = 'V', ROOT = 'vrep', &END"
+  arp_ag_create_sysin
+  arp_ae_create_sysin
+  return 0
+}
+
+###_. arp_create_run
+arp_create_run ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofile=$2; shift 2
+
+  [[ $# -gt 0 && $VERBOSE -ge 0 ]] && print -u2 "$0: ignored $@"
+
+  if [[ x$ofile == x- ]];then
+    arp_create_run_all $pbin $ifile
+  else
+    arp_create_run_all $pbin $ifile > $ofile
+  fi
+
+  return 0
+}
+arp_create_run_all ()
+{
+  local exe=$1 sysin=$2; shift 2
+  local f='%Y%m%d %H%M%S'
+  local nr=$AE[p]
+  local base=$exe:r:t
+  [[ $base == aedlra1 ]] && nr=0
+
+  : ${MPITYPE:=@MPITYPE@}
+
+  LANG= date +"start: $f"
+  if [[ $nr -gt 0 ]];then
+    if [[ $MPITYPE == openmpi ]];then
+      zui_mpi_check || return $?
+      ## zui_mpi_exec "${(@)ZUI_XENV}" -- $exe -n $nr < $sysin
+      env "${(@)ZUI_XENV}" $MPIEXEC -n $nr $exe < $sysin
+    else
+      local wrap=$sysin:h/wrap.$sysin:e
+      print "$exe < $sysin" > $wrap
+      chmod +x $wrap
+      zui_mpi_check || return $?
+      ## env $ZUI_XENV $MPIEXEC -l -n $nr $exe < $sysin
+      zui_mpi_exec "${(@)ZUI_XENV}" -- -l -n $nr $wrap
+    fi
+  else
+    env $ZUI_XENV $exe < $sysin
+  fi
+  LANG= date +"end: $f"
+}
+
+###_. arp_create_nc
+arp_create_nc ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofmt=$2; shift 2
+
+  local pbase=$pbin:r:t
+
+  ## [[ $VERBOSE -gt 0 ]] && print -u2 - "$0 args $@ ($pbin $ifile to $ofmt)"
+  if [[ $pbase == aedlra* ]];then
+    ## ascii log to IE attribute complex
+    arp_create_log2nc $pbase $ifile $ofmt $AA[r] "$@"
+  else
+    print -u2 "Unknown pattern for $pbin to create nc"
+    return 1
+  fi
+
+  return 0
+}
+
+###_. arp_create_fig
+arp_create_fig ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofmt=$2; shift 2
+
+  local pbase=$pbin:r:t
+
+  # [[ $VERBOSE -gt 0 ]] && print -u2 - "$0 args $@ ($pbin $ifile to $ofmt)"
+  if [[ $pbase == aedlra* ]];then
+    ## ascii log to IE attribute complex
+    arp_create_nc2fig $pbase $ifile $ofmt $AA[r] "$@"
+  else
+    print -u2 "Unknown pattern for $pbin to create nc"
+    return 1
+  fi
+
+  return 0
+}
+
+###_. arp_create_nc_sav
+arp_create_nc_sav ()
+{
+  local pbin=$1; shift
+  local ifile=$1 ofmt=$2; shift 2
+  local -a vrep
+  vrep=($(sed -ne '/^\(.*\<DVI\> *[0-9]*\>\)/s///p' $ifile | sort | uniq))
+  local opts
+  [[ $VERBOSE -lt 0 ]] && opts+=(+q)
+  opts+=($FORCE)
+
+  zui_finder cnx cnx.sh
+  local ofile
+  for v in $@
+  do
+    ofile=$(printf "$ofmt" $v)
+    env $ZUI_XENV $cnx $opts -G $v -F $ofile $vrep
+    if [[ ! -e $ofile ]];then
+      print -u2 "$0: Failed to create $ofile"
+      return 1
+    fi
+  done
+  return 0
+}
+
+###_. ax_run_aedlra1
+##    ax_run_aedlra1 BIN [CMDS...]
+##       CMDS
+##            sysin FILE ## sysin output to FILE or id-unique file
+##            run
+##            log   FILE ## log output to FILE or id-unique file
+##            fig
+##
+ax_run_aedlra1 ()
+{
+  local pbin=$1; shift
+  local -a seq
+  local c exe
+
+  for c in $@
+  do
+    case $c in
+    all)     seq+=(sysin run nc fig);;
+    :sysin*) seq+=($c[2,-1]);;
+    :run*)   seq+=(sysin $c[2,-1]);;
+    :nc*)    seq+=(sysin run $c[2,-1]);;
+    :fig*)   seq+=(sysin run nc $c[2,-1]);;
+    *)       seq+=($c);;
+    esac
+  done
+
+  local id
+  arp_ae_get_id id; print -u2 "ID: $id"
+  local -A def
+  def[sysin]=${DEV[dir/i]:-.}/sysin.$id
+  def[plog]=${DEV[dir/r]:-.}/log.$id
+  def[nc]=${DEV[dir/g]:-.}/ie.$id.nc
+  def[fig]=${DEV[dir/p]:-.}/ie_%s.$id.ps
+
+  local sysin plog nc fig
+
+  local copts
+  for c in $seq
+  do
+    copts=("${(@s/:/)c}")
+    c=$copts[1]; shift copts
+    case $c in
+    sysin)
+      sysin=$copts[1]
+      if [[ $sysin == - ]];then
+        arp_ae_create_sysin
+      else
+        [[ -z $sysin ]] && sysin=$def[sysin]
+        arp_ae_create_sysin > $sysin
+      fi
+      print -u2 "sysin:${sysin}"
+    ;;
+    run)
+      [[ -z $sysin ]] && sysin=$copts[2]
+      [[ -z $sysin ]] && sysin=$def[sysin]
+      [[ -z $sysin || ! -e $sysin ]] && print -u2 "No sysin" && exit 1
+      plog=$copts[1]
+      if [[ $plog == - ]];then
+        $pbin < $sysin
+      else
+        [[ -z $plog ]] && plog=$def[plog]
+        $pbin < $sysin > $plog
+      fi
+      print -u2 "run:${plog}:${sysin}"
+    ;;
+    nc)
+      [[ -z $plog ]] && plog=$copts[2]
+      [[ -z $plog ]] && plog=$def[plog]
+      [[ -z $plog || ! -e $plog ]] && print -u2 "No log" && exit 1
+      nc=$copts[1]
+      [[ -z $nc ]] && nc=$def[nc]
+      arp_ae_log2nc $nc $AA[r] $plog || return $?
+      print -u2 "nc:${nc}:${plog}"
+    ;;
+    fig)
+      [[ -z $nc ]] && nc=$copts[2]
+      [[ -z $nc ]] && nc=$def[nc]
+      [[ -z $nc || ! -e $nc ]] && print -u2 "No netcdf file." && exit 1
+      fig=$copts[1]
+      [[ -z $fig ]] && fig=$def[fig]
+      arp_ae_figure_wrap $nc $fig || return $?
+      print -u2 "fig:${fig}:${nc}"
+    ;;
+    *)   print -u2 "invalid sub-command $c"; exit 1
+    esac
+  done
+  return $?
+}
+
+###_. ax_run_agmtry2
+##    ax_run_agmtry2 BIN [CMDS...]
+##       CMDS
+##            sysin FILE ## sysin output to FILE or id-unique file
+##            run
+##            log   FILE ## log output to FILE or id-unique file
+##            fig
+##
+ax_run_agmtry2 ()
+{
+  local pbin=$1; shift
+  local -a seq
+  local c exe
+
+  for c in $@
+  do
+    case $c in
+    all)     seq+=(sysin run asc fig);;
+    :sysin*) seq+=($c[2,-1]);;
+    :run*)   seq+=(sysin $c[2,-1]);;
+    :asc*)   seq+=(sysin run $c[2,-1]);;
+    :fig*)   seq+=(sysin run asc $c[2,-1]);;
+    *)       seq+=($c);;
+    esac
+  done
+
+  id=check
+  local -A def
+  def[sysin]=${DEV[dir/i]:-.}/sysin.$id
+  def[plog]=${DEV[dir/r]:-.}/log.$id
+  def[asc]=${DEV[dir/r]:-.}/$id.'%s'.dat
+  def[fig]=${DEV[dir/p]:-.}/$id.'%s'.ps
+
+  local sysin plog ptag
+
+  local copts
+  for c in $seq
+  do
+    copts=("${(@s/:/)c}")
+    c=$copts[1]; shift copts
+    case $c in
+    sysin)
+      sysin=$copts[1]
+      [[ -z $sysin ]] && sysin=$def[sysin]
+      if [[ x$sysin == x- ]];then
+        print - " &NITEST NX=$AE[x/N], &END"
+        arp_ag_create_sysin
+      else
+        print - " &NITEST NX=$AE[x/N], &END" > $sysin
+        arp_ag_create_sysin >> $sysin
+      fi
+      print -u2 "sysin:${sysin}"
+      ;;
+    run)
+      [[ -z $sysin ]] && sysin=$copts[2]
+      [[ -z $sysin ]] && sysin=$def[sysin]
+      [[ -z $sysin || ! -e $sysin ]] && print -u2 "No sysin" && exit 1
+      plog=$copts[1]
+      if [[ $plog == - ]];then
+        $pbin < $sysin
+      else
+        [[ -z $plog ]] && plog=$def[plog]
+        $pbin < $sysin > $plog
+      fi
+      print -u2 "run:${plog}:${sysin}"
+      ;;
+    asc)
+      [[ -z $plog ]] && plog=$copts[2]
+      [[ -z $plog ]] && plog=$def[plog]
+      [[ -z $plog || ! -e $plog ]] && print -u2 "No log" && exit 1
+      asc=$copts[1]
+      [[ -z $asc ]] && asc=$def[asc]
+      local v t cmd f
+      local -a COOR
+      COOR=($(sed -ne '/D *CO */p' $plog | gawk 'NF>8{print $NF}'))
+      for t in $COOR
+      do
+        for v in CP CO DC DP D1 D2
+        do
+          cmd=(arp_ag_extract_geom $t $v $plog)
+          ## print -u2 cmd: $cmd
+          if [[ $asc == - ]]; then
+            $cmd
+          else
+            f=$(printf $asc $t.$v)
+            $cmd > $f
+          fi
+        done
+      done
+      # sed -ne "/S:CP:${AA[r]}.Xa/","/E:CP:${AA[r]}.Xa/p" $plog
+      # sed -ne "/S:CP:${AA[r]}.Xb/","/E:CP:${AA[r]}.Xb/p" $plog
+      print -u2 "asc:${asc}:${plog}:${(j@:@)COOR}"
+    ;;
+    fig)
+      [[ -z $asc ]] && asc=$copts[2]
+      [[ -z $asc ]] && asc=$def[asc]
+      [[ -z $asc ]] && print -u2 "No ascii" && exit 1
+      fig=$copts[1]
+      [[ -z $fig ]] && fig=$def[fig]
+      ptag=$copts[3]
+      if [[ -z $ptag ]];then
+        [[ -n $AG[z] ]] && ptag=z${AG[z]/:/_}
+      fi
+      [[ -z $ptag ]] && ptag=def
+      print -u2 "fig:${fig}:${asc}:${ptag}"
+      cmd=(ax_fig_agmtry2 $asc $fig $ptag)
+      $cmd
+    ;;
+    esac
+  done
+  return $?
+}
+
+ax_fig_agmtry2 ()
+{
+  local asc=$1 fig=$2; shift 2
+  local ptag=$1; shift
+  local c C; C=($@)
+  [[ -z $C ]] && C=(Za Zb)
+  local fc tgt ft
+  ## CO check
+  for c in $C
+  do
+    fc=$(printf "$asc" $c.CO)
+    if [[ ! -e $fc ]];then
+      print -u2 "No $fc ($c/CO)"
+      return 1
+    fi
+  done
+
+  local A af mm pf mo by pen ip
+  local PEN
+  PEN=(red blue)
+
+  for tgt in CP DC DP D1 D2
+  do
+    A=()
+    for c in $C
+    do
+      fc=$(printf "$asc" $c.CO)
+      ft=$(printf "$asc" $c.$tgt)
+      if [[ ! -e $ft ]];then
+        print -u2 "No $ft ($c $tgt)"
+        return 2
+      fi
+      af=$(printf "$asc" $c.$tgt.CO)
+      paste $fc $ft | gawk '{print $2,$4}' > $af
+      A=($A $af)
+    done
+    mm=($(cat $A | GMT minmax -C))
+    if   [[ $mm[3] -gt 0 && $mm[4] -gt 0 ]];then
+      mm[3]=0
+    elif [[ $mm[3] -lt 0 && $mm[4] -lt 0 ]];then
+      mm[4]=0
+    elif [[ $mm[3] -eq 0 && $mm[4] -eq 0 ]];then
+      mm[4]=1
+    fi
+    [[ $mm[3] == $mm[4] ]] && mm[3]=0
+
+    mo=($(GMT gmtmath -Q $mm[4] $mm[3] SUB ABS LOG10 CEIL 2 SUB =))
+    ## print -u2 $mo
+    by=a$((10**($mo+1)))g$((5*10**($mo)))f$((10**($mo)))
+    print -u2 $by
+    ## draw
+    pf=$(printf "$fig" $ptag.$tgt)
+    GMT psbasemap -P -K -JX5i/5i -R${(j:/:)mm} -Bg0.1a0.2::/${by}::WSne > $pf
+    ip=0
+    for af in $A
+    do
+      let ip++
+      pen=$PEN[$ip]
+      GMT psxy -O -K -JX -R -N -Sc0.1i -G$pen $af
+      GMT psxy -O -K -JX -R -N -Wthick,$pen $af
+    done >> $pf
+    GMT psxy -T -O -J -R >> $pf
+  done
+}
+
+
+###_. driver
+ax_run $@
+
+exit 0
+
+
+. $arpeggio/bin/aopts.sh
+parse do ARGS $@
+
+CLASS=(O V L)
+TESTID=-1
+make_dirs $xbase $TESTID - var $CLASS
+
+## sysin
+
+get_xid xid
+sysin=$vari/sysin.$xid
+sysout=$varr/$xid
+exe=./$xbase
+
+# print -u2 - $DRY $ARGS
+# exit 0
+
+if [[ -n $DRY ]]; then
+  print -u2 "Dry run"
+else
+  create_sysin_dev  $sysin $RUN > $sysin
+  create_sysin_aedl $sysin $RUN >> $sysin
+
+  f='%Y%m%d %H%M%S'
+  LANG= date +"start: $f" > $sysout
+  if [[ $NR -gt 0 ]];then
+      $MPIEXEC -l -n $NR $exe < $sysin >> $sysout
+  else
+      $exe < $sysin >> $sysout
+  fi
+  LANG= date +"end: $f" >> $sysout
+fi
+
+create_nc ()
+{
+  local tidx=$1;shift
+  local gf=$1; shift
+  local v=$1 c=$2; shift 2
+  local LOG=; LOG=($@)
+
+  local vc="$v [$c] "
+  local r= Iargs= idx= idy=
+
+  IargsX=($(sed -ne "/AGUGEM:"$CROOT":X:/s///p" $LOG[1]))
+  IargsY=($(sed -ne "/AGUGEM:"$CROOT":Y:/s///p" $LOG[1]))
+  Iargs=($IargsX[1] $IargsY[1] $IargsX[2] $IargsY[2])
+
+  local tmpf=$$.$$
+
+  if test x$tidx = x-;then
+    sed -ne "/^@:$vc/s///p" $LOG
+  else
+    local tz=
+    tz=$(printf "%05d" $tidx)
+    sed -n -e "/^#R $tz/,/^#E $tz/p" $LOG | sed -ne "/^@:$vc/s///p"
+  fi > $tmpf
+
+  r=($(cat $tmpf | GMT minmax -C))
+  if [[ -z $r ]];then
+    print -u2 "skip $v $c $tidx"
+  else
+    print -u2 "create $gf [$v $c] $tidx"
+    if     [[ $c == a  || $c == b  || $c == c || $c == d ]];then
+      idx=$Iargs[1] idy=$Iargs[2]
+    else
+      idx=$Iargs[1] idy=$Iargs[2]
+    fi
+    local Rargs=$r[1]/$r[2]/$r[3]/$r[4]
+    GMT xyz2grd -R$Rargs -I$idx/$idy -G$gf $tmpf
+  fi
+
+  rm -f $tmpf
+}
+
+create_nc_xid ()
+{
+  local _n=$1; shift
+  local v=$1 c=$2; shift 2
+  if test -e $1;then
+    local tidx=-
+  else
+    local tidx=$1; shift
+  fi
+  local sfx=$xid
+  if test x$tidx = x-;then
+    :
+  else
+    sfx=$sfx.$tidx
+  fi
+  local _gf=$varg/$v$c.$sfx.grd
+  create_nc $tidx $_gf $v $c $@
+  : ${(P)_n:=$gf}
+}
+
+draw_1 ()
+{
+   GMTcommon=(--PAPER_MEDIA=a4+)
+
+   local v=$1 d=$2; shift 2
+   local LOG=; LOG=($@)
+   local vd="$v [$d] "
+   local r=
+
+   r=($(sed -ne '/^@:'$vd'/s///p' $LOG | GMT minmax -C))
+
+   if [[ -z $r ]];then
+     print -u2 "skip $v $d"
+   else
+     local Rargs=$r[1]/$r[2]/$r[3]/$r[4]
+     local gf=$gdir/$v$d.$xid.grd
+
+     sed -ne '/^@:'$vd'/s///p' $LOG | GMT xyz2grd -R$Rargs -I$idx/$idy -G$gf
+
+     local pf=$pdir/$v$d.$xid.ps
+
+     local cpt=$odir/$v.cpt
+
+     local Topt=-10/10/2 Copts=
+     Copts=(-C1 -A5)
+     if [[ $v == *[DG]XS* || $v == *[DG]YS* ]];then
+         Topt=-0.5/0.5/0.1
+         Copts=(-C0.1 -A0.2)
+     fi
+
+     [[ -e $cpt ]] || GMT makecpt -Cpolar -Z -T$Topt > $cpt
+     print -u2 $pf
+
+     {
+         GMT grdview    $GMTcommon $gf -P -K -JX5i/5i -Qi -C$cpt
+         # GMT grdview    $gf -P -K -JX5i/5i -T -C$cpt
+         GMT grdcontour $GMTcommon $gf -O -J -Ba500g100f10WSne $Copts
+     } > $pf
+   fi
+}

@@ -4,9 +4,9 @@ C Created: Mar  7 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2013/09/26 06:24:49 fuyuki ueaoms.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/17 08:49:42 fuyuki ueaoms.F>'
 #define _FNAME 'unison/ueaoms.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2010--2020
@@ -123,11 +123,11 @@ CCC_  - Declaration
 #if HAVE_F77_LEN_TRIM == 0
       integer len_trim
 #endif
-#include "orevan.h" /* 0 */
+#include "orevan.F" /* 0 */
 CCC_  - Body
 #define _ANNOUNCE UEAOMS
 #define _LEXT     9999
-#include "orevan.h" /* 1 */
+#include "orevan.F" /* 1 */
 c
  101  format ('[', A, '] ',A, '$')
       E = 'HOME'

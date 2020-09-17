@@ -2,7 +2,7 @@ dnl begleitung/begleitung --- Template for Definition for IcIES/begleitung modul
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Jun 16 2018
 m4_define([TIME_STAMP],
-          ['Time-stamp: <2020/09/15 11:51:42 fuyuki begleitung.m4>'])dnl
+          ['Time-stamp: <2020/09/17 06:52:50 fuyuki begleitung.m4>'])dnl
 C begleitung/begleitung.h --- Definition for IcIES/Begleitung modules
 C Maintainer:  SAITO Fuyuki
 C Created: Jun 16 2018
@@ -12,7 +12,7 @@ C Created: Jun 16 2018
 #ifdef HEADER_PROPERTY
 [#]define _TSTAMP TIME_STAMP
 #define _FNAME 'begleitung/begleitung.h'
-#define _REV   'Snoopy0.9'
+#define _REV   'Snoopy0.97'
 #endif /* HEADER_PROPERTY */
 CCC_! MANIFESTO
 C
