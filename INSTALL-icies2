@@ -4,7 +4,7 @@
 
 :Maintainer: SAITO Fuyuki
 :Created:    Nov 5 2013
-:Time-stamp: <2020/09/17 13:48:35 fuyuki INSTALL-icies2>
+:Time-stamp: <2020/09/26 16:53:07 fuyuki INSTALL-icies2>
 
 Copyright 2013--2020 Japan Agency for Marine-Earth Science and Technology,
                      Ayako ABE-OUCHI
@@ -120,3 +120,30 @@ UV1000/``ifort`` for building `IcIES-2`.
   configure with ``--disable-gnu-extension`` in order to avoid
   Fortran GNU extensions.  This may be automatically resolved in the
   future.
+
+Building `IcIES-2`
+==================
+
+IcIES-2/JP executable can be built as follows:
+::
+
+  % make
+  % make install
+
+`icies_tgv` is installed into $(PREFIX)/bin.
+
+Building `IcIES-2`/cadenza utilities (netcdf conversion)
+========================================================
+::
+
+  % make install-cadenza
+
+`cnx.sh` and other utilities are installed into $(PREFIX)/bin.
+
+Installing `IcIES-2` sample scripts to run
+==========================================
+::
+
+  % make install-run
+
+`xicies2.sh` is installed into $(PREFIX)/bin.

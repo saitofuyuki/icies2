@@ -4,9 +4,9 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/17 13:48:13 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2020/09/15 22:28:13 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
 C Copyright (C) 2018--2020

@@ -2,8 +2,8 @@
 #
 # Maintainer: SAITO Fuyuki
 # Created: Nov 2 2011
-# Revision: Snoopy 0.9
-# Time-stamp: <2020/09/17 13:47:45 fuyuki configure.ac>
+# Revision: JosePeterson0
+# Time-stamp: <2020/09/16 11:55:25 fuyuki configure.ac>
 
 dnl _. health check
 m4_ifndef([ABT_INIT],

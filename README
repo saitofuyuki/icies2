@@ -1,3 +1,25 @@
+====================
+ IcIES-2/JP/README
+====================
+:Maintainer:  SAITO Fuyuki
+:Created:     Sep 15 2020
+:Time-stamp:  <2020/09/26 16:51:46 fuyuki README>
+
+This is IcIES-2/JP, a subset of Ice sheet model for Integrated Earth system Studies II (IcIES-2).
+IcIES-2 is a three-dimensional numerical ice-sheet model, introduced in the following section.
+
+IcIES-2/JP is a 1d numerical ice-sheet dating model, which is developed under the IcIES-2 framework
+and design.  Most subroutines in IcIES-2 are not used in IcIES-2/JP, however, they are included in
+this package to avoid complexity.
+
+IcIES-2/JP is still under development.  Version 0 is somewhat an intermediate stage for
+a major release, however, it is released for recording and archiving purposes.
+In the next revision, it will be more simplified to achieve less dependency on IcIES-2.
+
+See the next section for introduction of IcIES-2.
+See INSTALL-icies2 for specific installation instructions for IcIES-2/JP.
+See HOWTORUN for brief description of experiment scripts and outputs.
+
 ================
  IcIES-2/README
 ================
@@ -23,3 +45,12 @@ See NOTICE for copyright information.
 See AUTHORS for authors and contributors.
 See INSTALL-icies2 for specific installation instructions for IcIES-2.
 See INSTALL for generic installation instructions.
+
+==========
+ Addendum
+==========
+
+Development stages, releases, and distribution of IcIES-2 (and IcIES-1) are codenamed after the
+Peanuts characters.  See https://www.google.com/search?q=Jose+Peterson+Peanuts to learn about JP
+(which stands for Jose Peterson, a player in Peppermint Patty's baseball team).
+

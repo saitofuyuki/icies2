@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2020/09/16 13:46:20 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2020/09/26 16:48:25 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -67,7 +67,7 @@ help ()
 {
   local verbose=$1
   cat << USAGE
-$thisx - IcIES-2(JP) run script
+$thisx - IcIES-2/JP run script
 
 Usage: $thisp [OPTION]... KEY=CONFIGURATION...
 

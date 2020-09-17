@@ -1,0 +1,343 @@
+#+title: HOWTORUN
+#+date: <2020-09-16 Wed>
+#+author: SAITO Fuyuki
+# Time-stamp:  <2020/09/26 16:47:28 fuyuki HOWTORUN>
+
+* Introduction of =xicies_jp.sh=
+** show usage
+   : % ./local/bin/xicies_jp.sh -h -v
+   : xicies_jp.sh - IcIES-2/JP run script
+   :
+   : Usage: ./local/bin/xicies_jp.sh [OPTION]... KEY=CONFIGURATION...
+   :
+   : Options:
+   :    -h          display this help and exit (longer help with multiple -v)
+   :    -v          increase verbose level
+   :    -n          dry-run
+   :    -f          force overwrite (default to preserve)
+   :    -t  [END][:[DT]][:[REC]]
+   :                set integration time (END), time step (DT),
+   :                and/or recording interval (REC)
+   :    -C  PATH    path to conversion script (cnx.sh)
+   :    -X  PATH    path to executable (icies_tgv)
+   :    -x  PREFIX  prefix to output directory
+   :
+   : Configuration keys
+   :  Mandatory
+   :    A   surface mass balance condition  MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
+   :          MAX as id for maximum {v} or value
+   :          MIN as id for minimum {h k l o p b}
+   :          EVOL as id for evolution phasing {f g l 0 c u d e}
+   :          FUNC as id for evolution function {step cosine linear exponential var}
+   :    B   basal mass balance condition    MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
+   :    C   numerical scheme for advection solver {up1 up2 up1n rcip modr}
+   :    H   thickness condition  REF[:MIN[:EVOL[:DUR[:FUNC]]]]
+   :          REF as id for reference {i j m n q a}
+   :    Z   vertical levels  [LEVELS][:[PARAMETER]]
+   :
+   :  Optional
+   :    W   vertical velocity condition (default=vialov) {vialov power const}
+   :
+   : Examples
+   :   ./run/xicies_jp.sh.in -t 1000000:100:100000 Z=129 C=rcip A=3cm:k:c:100000:step B=0 H=m
+
+** options
+   : -t  [END][:[DT]][:[REC]]
+   to set integration time (END), time step (DT), and recording
+   interval (REC) in terms of unit-year.
+
+   : -x PREFIX
+   to append PREFIX before output directory.
+
+** Numerical scheme configuration (key =C=)
+   | set  | id | scheme                              |
+   |------+----+-------------------------------------|
+   | up1  | u  | first-order upwind                  |
+   | up2  | s  | second-order upwind                 |
+   | rcip | r  | RCIP                                |
+   | modr | m  | RCIP with upstream correction       |
+   | up1n | n  | first-order upwind (mid-point rule) |
+
+** Thickness condition (key =H=)
+   | id | reference thickness (m) |
+   |----+-------------------------|
+   | m  | 3000 4000               |
+   | j  | 1000 2000 3000 4000     |
+
+** Vertical levels discretization (key =Z=)
+   | id         | discretization                           |
+   |------------+------------------------------------------|
+   | 33         | uniform 33 levels  (33e)                 |
+   | 129        | uniform 129 levels (129e)                |
+   | 513        | uniform 513 levels (513e)                |
+   | n          | uniform n levels                         |
+   |------------+------------------------------------------|
+   | 513p1p14n5 | smooth non-uniform 513 levels (513p)     |
+   |------------+------------------------------------------|
+   | 477optsbxi | non-smooth non-uniform 477 levels (477o) |
+
+** Surface mass balance condition (key =A=)
+*** Ratio between minimum and maximum values
+    | id | minimum ratio              |
+    |----+----------------------------|
+    | k  | 1 0.5 0.25 0 -0.25 -0.5 -1 |
+    | p  | 1 0.5 0.25                 |
+*** Evolution shape (function)
+    | set    | id |               |
+    |--------+----+---------------|
+    | step   | s  | square-wave   |
+    | linear | l  | triangle-wave |
+    | cos    | c  | cosine-wave   |
+*** Ratio between maximum(H) and minimum(L) value duration
+    | id | ratio | example (total 100kyr) |
+    |----+-------+------------------------|
+    | c  |   1:1 | H 50kyr - L 50kyr      |
+    | e  |   7:1 | H 77.5kyr - L 12.5kyr  |
+    | g  |   1:7 | H 12.5kyr - L 77.5kyr  |
+** Basal mass balance condition (key =B=)
+
+* Brief description of outputs
+  Only netcdf outputs are explained here.
+  You must install conversion program under =cadenza= with enabling
+  netcdf support.
+
+  One experiment contains multiple results under different conditions.
+  They are stored on a virtual 2d plane, e.g., with the axis of
+  reference thickness and that of minimum surface mass balance.
+
+  A standard experiment is performed with the following command:
+
+  : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:100000:step B=0 Z=129 C=modr
+
+  =H=j= denotes four reference thickness {1000 2000 3000 4000}m are adopted.
+  =A=*:k:*= denotes seven minimum surface mass balance {1 0.5 0.25 0
+  -0.25 -0.5 -1} times the maximum (in this case 3cm/yr) are adopted.
+  Totally 4 times 7 = 28 experiments are performed at the same time.
+
+  : % ls -F vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00
+  : L/              iniH_HjAk.dat   vmhb.nc         vmta.nc
+  : O/              msmin_HjAk.dat  vmhi.nc         vmtd.nc
+  : V/              sysin           vmhr.nc         vmti.nc
+  : icies_tgv*      u/              vmhw.nc         vxcfg.nc
+
+** =vxcfg.nc= -  experimental configuration
+
+   You can check experiment configuration by =vxcfg.nc=
+
+   : % ncdump -h  vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00/vxcfg.nc
+   : netcdf vxcfg {
+   : dimensions:
+   :         Xa = 4 ;        // Reference thickness axis
+   :         Ya = 7 ;        // Minimum surface mass balance axis
+   :         time = UNLIMITED ; // (1 currently)
+   : variables:
+   :         double Xa(Xa) ;
+   :         double Ya(Ya) ;
+   :         double time(time) ;
+   :         double msmax.Ha(time, Ya, Xa) ;  // Ms max
+   :         double msmin.Ha(time, Ya, Xa) ;  // Ms min
+   :         double mbmax.Ha(time, Ya, Xa) ;  // Mb max
+   :         double mbmin.Ha(time, Ya, Xa) ;  // Mb min
+   :         double hmax.Ha(time, Ya, Xa) ;   // H max
+   :         double hmin.Ha(time, Ya, Xa) ;   // H min
+
+   : % ncks -Q -C -v msmax.Ha vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00/vxcfg.nc
+   : :
+   :     msmax.Ha =
+   :     0.03, 0.03, 0.03, 0.03,    // uniform maximum surface mass balance (unit m/yr)
+   :     0.03, 0.03, 0.03, 0.03,
+   :     0.03, 0.03, 0.03, 0.03,
+   :     0.03, 0.03, 0.03, 0.03,
+   :     0.03, 0.03, 0.03, 0.03,
+   :     0.03, 0.03, 0.03, 0.03,
+   :     0.03, 0.03, 0.03, 0.03 ;
+
+   : % ncks -Q -C -v msmin.Ha vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00/vxcfg.nc
+   :     :
+   :     msmin.Ha =
+   :     0.03,    0.03,    0.03,    0.03,    // minimum surface mass balance changes along Ya
+   :     0.015,   0.015,   0.015,   0.015,   // unit (m/yr)
+   :     0.0075,  0.0075,  0.0075,  0.0075,
+   :     0,       0,       0,       0,
+   :     -0.0075, -0.0075, -0.0075, -0.0075,
+   :     -0.015,  -0.015,  -0.015,  -0.015,
+   :     -0.03,   -0.03,   -0.03,   -0.03 ;
+
+   : % ncks -Q -C -v hmax.Ha vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00/vxcfg.nc
+   :     :
+   :     hmax.Ha =
+   :     1000, 2000, 3000, 4000,   // reference thickness changes along Xa
+   :     1000, 2000, 3000, 4000,   // unit (m)
+   :     1000, 2000, 3000, 4000,
+   :     1000, 2000, 3000, 4000,
+   :     1000, 2000, 3000, 4000,
+   :     1000, 2000, 3000, 4000,
+   :     1000, 2000, 3000, 4000 ;
+
+** =vmta.nc= - simulated age and age derivatives
+
+   : % ncdump -h  vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00/vmta.nc
+   : netcdf vmta {
+   : dimensions:
+   :         Xa = 4 ;
+   :         Ya = 7 ;
+   :         Za = 130 ;
+   :         time = UNLIMITED ; // (201 currently)
+   : variables:
+   :         double Xa(Xa) ;
+   :         double Ya(Ya) ;
+   :         double Za(Za) ;
+   :         double time(time) ;
+   :         double age.Ta(time, Za, Ya, Xa) ;
+   :         double dad3.Ta(time, Za, Ya, Xa) ;
+   :
+   : // global attributes:
+   :                 :Conventions = "COARDS/CF-1.0" ;
+   : }
+
+   =age.Ta= is (pseudo) 3d-field of simulated age (unit year).
+   =dad3.Ta= is (pseudo) 3d-field of simulated age vertical derivative
+   (unit year/1), which corresponds to dA/dZ (neither dA/dz nor dA/dzeta).
+
+   The leve Za=0 is dummy, and the actual field starts from Za=1.
+
+* Recipes to run IcIES-2/JP
+** Uniform velocity experiment (Figs. 2 and 3)
+   Set the same value for A and B maximum, an uniform velocity
+   experiment can be obtained.  Other A properties are just dummy.
+
+   : xicies_jp.sh -x vii100 -t 30000:100:1000 H=m A=15cm:k:c:100000:cos B=15cm Z=129 C=up1n
+
+   The command above performs an experiment as follows:
+
+   - a 30000-year run (time step and recording interval as 100 and
+     1000 years, respectively)
+   - thickness are 3000, 4000m constant (id /m/)
+   - uniform vertical velocity 15cm/yr (/k:c:100000:cos/ is dummy)
+   - 129 uniform discretization
+   - first-order upwind scheme without the midpoint rule (UP-1n)
+   - outputs are stored under directory =vii100.Wv_Hm_A15cmkc100kc_B15cm_Z129_Cn.00=.
+
+   You can tweak =C=, =Z=, etc for your preference.
+
+** Constant surface mass balance experiment (Fig. 4)
+   This is not an independent experiment, and shares the experiment
+   with transient surface mass balance experiment.
+   The result can be extracted at al/ah = 1 grid point with any
+   evolution property in =A=.
+
+   The command above performs an experiment as follows:
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:100000:step B=0 Z=129 C=modr
+
+   - a 2000000-year run (time step and recording interval as 100 and
+     10000 years, respectively)
+   - thickness are 1000, 2000, 3000, 4000m constant (id /j/)
+   - Maximum surface mass balance is 3cm/yr
+   - The ratios of minimum to maximum surface mass balance are 1, 0.5,
+     0.25, 0, -0.25, -0.5, -1 (id /k/), which correspond to the
+     minimum surface mass balance as 3, 1.5, 0.75, 0, -0.75, -1.5 and
+     -3cm/yr, respectively
+   - Square-wave type surface mass balance evolution (step), with full
+     cycle of 100000yr and the ratio of high/low phase is 1:1 (id /c/)
+   - zero basal melting (B=0)
+   - 129 uniform discretization
+   - RCIP scheme with upstream correction (RCIP+corr)
+   - outputs :: =vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00=
+
+** Non-zero basal melting experiment (Fig. 5)
+   Replace B=0 by B=3mm in the previous command:
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:100000:step B=3mm Z=129 C=modr
+
+   - outputs :: vii100.Wv_Hj_A3cmkc100ks_B3mm_Z129_Cm.00
+
+** Transient surface mass balance (square-wave type) experiment (Figs. 7, 8)
+   As mentioned already, this is not an independent experiment, and
+   shares the experiment with constant surface mass balance experiment.
+   The result can be extracted at al/ah != 1 grid point.
+
+   The command above performs an experiment as follows (identical to
+   constant experiment):
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:100000:step B=0 Z=129 C=modr
+
+** Transient surface mass balance (cosine-wave type) experiment (Fig. 9)
+
+   Replace function id step by cos in the previous command:
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:100000:cos B=0 Z=129 C=modr
+
+   - outputs :: =vii100.Wv_Hj_A3cmkc100kc_B0_Z129_Cm.00=
+
+   The directory is now =A3cmkc100kc=, not =A3cmkc100ks=  (final letter changed).
+
+** Other transient surface mass balance experiments (Figs. 13, 15, and Supplement)
+   Results of zero and negative minimum surface mass balance experiment
+   are also included in the constant/transient experiments.
+
+   In order to modify duration of a full cycle, replace the cycle property:
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:50000:step B=0 Z=129 C=rcip
+
+   - outputs :: =vii100.Wv_Hj_A3cmkc50ks_B0_Z129_Cr.00=
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j A=3cm:k:c:10000:cos B=0 Z=129 C=up2
+
+   - outputs :: =vii100.Wv_Hj_A3cmkc10kc_B0_Z129_Cs.00=
+
+** Non-steady thickness experiment (Fig. 12)
+
+   : xicies_jp.sh -x vii100 -t 2000000:100:10000 H=j:j:c:10000:v A=3cm:p:c:100000:step B=0 Z=129 C=rcip
+
+   - a 2000000-year run (time step and recording interval as 100 and
+     10000 years, respectively)
+   - reference thickness are 1000, 2000, 3000, 4000m constant (id /j/)
+   - exponential response of thickness (id /v/) with time scale 10000 years
+   - dummy property (id /j:c/)
+   - maximum surface mass balance is 3cm/yr
+   - The ratios of minimum to maximum surface mass balance are 1, 0.5,
+     0.25 (id /p/), which correspond to the minimum surface mass
+     balance as 3, 1.5 and  0.75cm/yr, respectively
+   - Square-wave type surface mass balance evolution (step), with full
+     cycle of 100000yr and the ratio of high/low phase is 1:1 (id /c/)
+   - zero basal melting (B=0)
+   - 129 uniform discretization
+   - RCIP scheme without upstream correction (RCIP)
+
+   - outputs :: =vii100.Wv_Hjjc10kv_A3cmpc100ks_B0_Z129_Cs.00=
+
+** High-resolution (uniform spacing) experiment (Figs. 16, 18)
+   Replace Z property as total layer numbers:
+
+   : xicies_jp.sh -x ix25 -t 2000000:25:10000 H=j A=3cm:k:c:100000:step B=0 Z=513 C=rcip
+
+   - outputs :: =ix25.Wv_Hj_A3cmkc100ks_B0_Z513_Cr.00=
+
+** High-resolution (non-uniform spacing) experiment (Figs. 18)
+   Replace Z property as predefined discretization id:
+
+   : xicies_jp.sh -x ix25 -t 2000000:25:10000 H=j A=3cm:k:c:100000:step B=0 Z=513p1p14n5 C=modr
+
+   - Time stepping is 25 years
+   - A smooth non-uniform discretization of 513 levels (id /513p1p14n5/)
+   - outputs :: =ix25.Wv_Hj_A3cmkc100ks_B0_Z513p1p14n5_Cm.00=
+
+   : xicies_jp.sh -x ix25 -t 2000000:25:10000 H=j A=3cm:k:c:100000:step B=0 Z=477optsbxi C=modr
+
+   - Time stepping is 25 years
+   - A non-smooth non-uniform discretization of 477 levels (id /477optsbxi/)
+   - outputs :: =ix25.Wv_Hj_A3cmkc100ks_B0_Z477optsbxi_Cm.00=
+
+** Low-resolution (uniform spacing) experiment (Figs. 17)
+
+   : xicies_jp.sh -x v200 -t 2000000:200:10000 H=j A=3cm:k:c:100000:cos B=0 Z=33 C=up1n
+
+   - Time stepping is 200 years
+   - output:: v200.Wv_Hj_A3cmkc100kc_B0_Z33_Cn.00/
+
+* Copyright and license
+Copyright 2020 Japan Agency for Marine-Earth Science and Technology,
+               Ayako ABE-OUCHI
+Licensed under the Apache License, Version 2.0
+  (https://www.apache.org/licenses/LICENSE-2.0)
