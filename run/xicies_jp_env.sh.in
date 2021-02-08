@@ -1,0 +1,157 @@
+#!@ZSH@ -f
+# Time-stamp: <2021/02/08 10:21:59 fuyuki xicies_jp_env.sh.in>
+#
+# Copyright: 2021 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+this=$0
+base=$0:t
+
+main ()
+{
+  local -A xsets=([T]=a  [A]=m  [B]=m  [H]=r)
+  local refs=()
+  local k= v= high= low= ltp=
+  local odir=.
+  while [[ $# -gt 0 ]]
+  do
+    case $1 in
+    (-o)  odir=$2; shift;;
+    (-o*) odir=${1: 2};;
+    (*)   break;;
+    esac
+    shift
+  done
+  # print -u2 - $odir
+  # KEY=HIGH[/LOW[/TYPE]]
+  #  HIGH  ITEM,....
+  #  ITEM  a  begin:end:step
+  #  TYPE  r  raw
+  #        m  multiplication
+  #        a  addition  
+  [[ $# -eq 0 ]] && usage && return 0
+  for k in "$@"
+  do
+    v=${k#*=}
+    k=${k%%=*}
+    if [[ $refs[(I)$k] -gt 0 ]]; then
+      print -u2 - "$k is already registered."
+      return 1
+    fi
+    refs+=($k)
+    v=("${(@s:/:)v}")
+    high=$v[1] low=$v[2] ltp=$v[3]
+    seq_expand high "${(@s:,:)high}" || return $?
+    seq_expand low "${(@s:,:)low}" || return $?
+    # print -u2 - "[$k] <$high><$low>"
+    xsets[h${k}]="${high:--}"
+    xsets[l${k}]="${low:--}"
+    [[ -n $ltp ]] && xsets[$k]=$ltp
+  done
+  [[ -z $xsets[hB] ]] && xsets[hB]=0      xsets[lB]=-
+  [[ -z $xsets[hH] ]] && xsets[hH]=3000   xsets[lH]=-
+  [[ -z $xsets[hA] ]] && xsets[hA]=0.03   xsets[lA]=-
+  [[ -z $xsets[hT] ]] && xsets[hT]=263.15 xsets[lT]=-
+  for k in H A B T
+  do
+    [[ $refs[(I)$k] -eq 0 ]] && refs+=($k)
+  done
+
+  mkdir -p $odir || return $?
+  gen_envf $odir H $refs || return $?
+  gen_envf $odir A $refs || return $?
+  gen_envf $odir B $refs || return $?
+  gen_envf $odir T $refs || return $?
+
+  local dcfg=(${=xsets[n$refs[1]]})
+  print "$dcfg" > $odir/domain
+}
+
+usage ()
+{
+  local opts=("$@")
+  print $opts - "usage: $base [OPTIONS] [KEY=HIGH[/LOW[/TYPE]]]...."
+  return 0
+}
+
+seq_expand ()
+{
+  local __v=$1; shift
+  local _i=
+  local _a=()
+  local seq=seq
+
+  for _i in "$@"
+  do
+    case $_i in
+    (*:*:*) _i=(${(s/:/)_i})
+            _a+=($($seq $_i[1] $_i[3] $_i[2]));;
+    (*:*) print -u2 - "Need step ($_i)." && return 1;;
+    (*) _a+=($_i);;
+    esac
+  done
+  set -A $__v "${(@)_a}"
+  return 0
+}
+
+gen_envf ()
+{
+  local od=$1; shift || return $?
+  local k=$1; shift || return $?
+  local ni=1 no=1 sw=i
+  local h= l=
+  local j=
+  local hf=$od/max$k lf=$od/min$k
+  for j in "$@"
+  do
+    [[ $j == $k ]] && sw=o && continue
+    h=(${=xsets[h$j]})
+    l=(${=xsets[l$j]})
+    # print -u2 - "$k:$j $#h $#l"
+    if [[ $sw == i ]];then
+      ni=$((ni * $#h * $#l))
+    else
+      no=$((no * $#h * $#l))
+    fi
+  done
+  local hk=(${=xsets[h$k]})
+  local lk=(${=xsets[l$k]})
+  local nk=$(($#hk * $#lk))
+  xsets[n$k]="$no $nk $ni"
+  # print -u2 - "$k $ni * ($#hk $#lk) * $no"
+  local ji= jo=
+  local hv= lv=
+  local eseqh=() eseql=()
+  for hv in ${hk}
+  do
+    for lv in ${lk}
+    do
+      if [[ x$lv == x- ]] ;then
+        lv=$hv
+      else
+        case $xsets[$k] in
+        (m)  lv=$((hv * lv));;
+        (a)  lv=$((hv + lv));;
+        esac
+      fi
+      for jo in {1..$no}
+      do
+        eseqh+=("$hv")
+        eseql+=("$lv")
+      done
+    done
+  done
+  for ji in {1..$ni}
+  do
+    print -l - "${(@)eseqh}"
+  done > $hf
+  for ji in {1..$ni}
+  do
+    print -l - "${(@)eseql}"
+  done > $lf
+  return 0
+}
+
+main "$@"; err=$?
+exit $err

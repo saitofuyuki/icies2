@@ -3,7 +3,7 @@
 # Maintainer: SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision: JosePeterson0
-# Time-stamp: <2020/09/16 11:55:25 fuyuki configure.ac>
+# Time-stamp: <2021/02/08 15:11:44 fuyuki configure.ac>
 
 dnl _. health check
 m4_ifndef([ABT_INIT],
@@ -21,8 +21,8 @@ AC_INIT(AI_PACKAGE, AI_VERSION, [saitofuyuki@jamstec.go.jp], AI_TARNAME)
 
 dnl _ , notice
 AC_COPYRIGHT([dnl
-Copyright (C) 2011--2020 Japan Agency for Marine-Earth Science and Technology
-                         Ayako ABE-OUCHI
+Copyright (C) 2011-2021 Japan Agency for Marine-Earth Science and Technology
+                        Ayako ABE-OUCHI
 
 Ice sheet model for Integrated Earth system Studies-II (IcIES-2) is developed by
 Japan Agency for Marine-Earth Science and Technology (JAMSTEC) and
@@ -331,8 +331,9 @@ AC_SUBST_FILE([ZUI_INSERT])
 DEV_INSERT=$etc_helper/dev_insert.sh
 AC_SUBST_FILE([DEV_INSERT])
 
-AC_CONFIG_FILES([src/cadenza/cnx.sh])
-AC_CONFIG_FILES([run/xicies_jp.sh])
+AC_CONFIG_FILES([src/cadenza/cnx.sh], [chmod +x src/cadenza/cnx.sh])
+AC_CONFIG_FILES([run/xicies_jp.sh], [chmod +x run/xicies_jp.sh])
+AC_CONFIG_FILES([run/xicies_jp_env.sh], [chmod +x run/xicies_jp_env.sh])
 
 dnl _. Fine
 AC_OUTPUT

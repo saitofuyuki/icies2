@@ -4,14 +4,14 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 22:28:13 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/02/07 14:13:34 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2018--2020
+C Copyright (C) 2018-2021
 C           Japan Agency for Marine-Earth Science and Technology,
-C           Ayako ABE-OUCHI
+C           Ayako ABE-OUCHI, Takashi OBASE
 C
 C Licensed under the Apache License, Version 2.0
 C   (https://www.apache.org/licenses/LICENSE-2.0)
@@ -31,42 +31,47 @@ CCC_ + Domain size
 #  define OPT_MOVEMENT_LVZ_MAX 4100
 CCC_ + TGV test parameter
 #define ITGV_MSPATTERN   1 /* ms pattern */
-#  define SW_MSPAT_DEF    0
-#  define SW_MSPAT_STEP   1
-#  define SW_MSPAT_COS    2
-#  define SW_MSPAT_LINEAR 3
-#  define SW_MSPAT_EXP    4
-#  define SW_MSPAT_XFILE  5
 #define ITGV_MBPATTERN   2 /* mb pattern */
 #define ITGV_DHPATTERN   3 /* dH pattern */
+#define ITGV_TSPATTERN   4 /* Ts pattern */
+#  define SW_BCPAT_DEF         0
+#  define SW_BCPAT_STEP        1
+#  define SW_BCPAT_COS         2
+#  define SW_BCPAT_LINEAR      3
+#  define SW_BCPAT_EXP         4
 #  define SW_DHPAT_EXP_VIALOV  5 /* exponential evolution toward vialov solution */
-#define ITGV_WTYPE       4 /* w pattern */
+#define ITGV_WTYPE       5 /* w pattern */
 #  define WTYPE_CONST    0
 #  define WTYPE_VIALOV   1
 #  define WTYPE_POWER    2
-#define ITGV_XFILE_MS    5 /* surface mass balance history */
-#define ITGV_MAX         5
+#define ITGV_XFILE_MS    6 /* unit of surface mass balance history */
+#define ITGV_XFILE_TS    7 /* unit of surface temperature history */
+#define ITGV_XFILE_MB    -1
+#define ITGV_XFILE_DH    -1
+#define ITGV_MAX         7
 
 #define PTGV_WPOWER      1   /* power parameter for w */
 
-#define PTGV_S_TDECR     2   /* surface: decrement period */
-#define PTGV_S_TINCR     3   /* surface: increment period */
-#define PTGV_S_TLSTD     4   /* surface: steady low period */
-#define PTGV_S_THSTD     5   /* surface: steady high period */
-#define PTGV_S_DURATION  6   /* surface: total duration */
-#define PTGV_S_PHASE     7   /* surface: phase offset */
+#define PTGV_S_TDECR     2   /* smb: decrement period */
+#define PTGV_S_TINCR     3   /* smb: increment period */
+#define PTGV_S_TLSTD     4   /* smb: steady low period */
+#define PTGV_S_THSTD     5   /* smb: steady high period */
+#define PTGV_S_DURATION  6   /* smb: total duration */
+#define PTGV_S_PHASE     7   /* smb: phase offset */
 
-#define PTGV_S_XTPREV   20   /* surface: xfile last time */
-#define PTGV_S_XTNEXT   21   /* surface: xfile next time */
-#define PTGV_S_VPREV    22   /* surface: xfile last value */
-#define PTGV_S_VNEXT    23   /* surface: xfile next value */
+#define PTGV_S_XTPREV   20   /* smb: xfile last time */
+#define PTGV_S_XTNEXT   21   /* smb: xfile next time */
+#define PTGV_S_VPREV    22   /* smb: xfile last value */
+#define PTGV_S_VNEXT    23   /* smb: xfile next value */
 
-#define PTGV_B_TDECR     8   /* base: decrement period */
-#define PTGV_B_TINCR     9   /* base: increment period */
-#define PTGV_B_TLSTD     10  /* base: steady low period */
-#define PTGV_B_THSTD     11  /* base: steady high period */
-#define PTGV_B_DURATION  12  /* base: total duration */
-#define PTGV_B_PHASE     13  /* base: phase offset */
+#define PTGV_B_TDECR     8   /* bmb: decrement period */
+#define PTGV_B_TINCR     9   /* bmb: increment period */
+#define PTGV_B_TLSTD     10  /* bmb: steady low period */
+#define PTGV_B_THSTD     11  /* bmb: steady high period */
+#define PTGV_B_DURATION  12  /* bmb: total duration */
+#define PTGV_B_PHASE     13  /* bmb: phase offset */
+#define PTGV_B_XTPREV    -1
+#define PTGV_B_XTNEXT    -1
 
 #define PTGV_H_TDECR     14  /* thickness: decrement period */
 #define PTGV_H_TINCR     15  /* thickness: increment period */
@@ -74,8 +79,22 @@ CCC_ + TGV test parameter
 #define PTGV_H_THSTD     17  /* thickness: steady high period */
 #define PTGV_H_DURATION  18  /* thickness: total duration */
 #define PTGV_H_PHASE     19  /* thickness: phase offset */
+#define PTGV_H_XTPREV    -1
+#define PTGV_H_XTNEXT    -1
 
-#define PTGV_MAX          19
+#define PTGV_TS_TDECR    24   /* Ts: decrement period */
+#define PTGV_TS_TINCR    25   /* Ts: increment period */
+#define PTGV_TS_TLSTD    26   /* Ts: steady low period */
+#define PTGV_TS_THSTD    27   /* Ts: steady high period */
+#define PTGV_TS_DURATION 28   /* Ts: total duration */
+#define PTGV_TS_PHASE    29   /* Ts: phase offset */
+
+#define PTGV_TS_XTPREV   30   /* Ts: xfile last time */
+#define PTGV_TS_XTNEXT   31   /* Ts: xfile next time */
+#define PTGV_TS_VPREV    32   /* Ts: xfile last value */
+#define PTGV_TS_VNEXT    33   /* Ts: xfile next value */
+
+#define PTGV_MAX          33
 CCC_ + TGV test field
 #define VXCFG_MSMAX     1
 #define VXCFG_MSMIN     2
@@ -83,9 +102,14 @@ CCC_ + TGV test field
 #define VXCFG_MBMIN     4
 #define VXCFG_HMAX      5
 #define VXCFG_HMIN      6
-#define VXCFG_MAX       6
+#define VXCFG_TSMAX     7
+#define VXCFG_TSMIN     8
+#define VXCFG_MAX       8
 
 #define VGRPX_VXCFG     1
+CCC_ + evolution chocie
+#define XOPR_MUL 1
+#define XOPR_ADD 0
 CCC_@ TGVdrv  ## IcIES/TGV driver
       program TGVdrv
 CCC_ + Declaration
@@ -201,7 +225,6 @@ CCC_  - work
       integer    LCK
       parameter (LCK = LZref + 16)
       _REALSTD   CW (LHPref * LCK)
-      _REALSTD   GW (LHGref)
 CCC_  - Parameters
       logical    OMM (OMM_MAX)
       integer    IMM (IMM_MAX)
@@ -243,7 +266,7 @@ CCC_  - Coordinate
 CCC_  - Time
       integer    ITstp
       _REALSTD   T,    TNXT
-      _REALSTD   TSSA, TBBT
+      _REALSTD   TSSA
       _REALSTD   DTI
       _REALSTD   TINI, TEND, DT
       _REALSTD   TBINI
@@ -337,9 +360,11 @@ CCC_   . initialization suite
      I        icF,  MH,   LH,  CSW,  CLS,  CRR,  CR, IE, iMA, ipA, ipFI)
       endif
       if (iErr.eq.0) then
-         call TGVcfg(iErr, ITGV, PTGV, PMM, ipP, ipC, ipL)
-         PTGV(PTGV_S_XTPREV) = TINI - 1.0d0
-         PTGV(PTGV_S_XTNEXT) = TINI - 1.0d0
+         call TGVenv
+     $        (iErr, ITGV, PTGV, PMM, (TINI - 1.0d0), ipP,  ipC, ipL)
+c$$$         call TGVcfg(iErr, ITGV, PTGV, PMM, ipP, ipC, ipL)
+c$$$         PTGV(PTGV_S_XTPREV) = TINI - 1.0d0
+c$$$         PTGV(PTGV_S_XTNEXT) = TINI - 1.0d0
       endif
       if (iErr.eq.0) then
          call TGVrgc
@@ -356,6 +381,15 @@ CCC_   . Initialization
          T0 = 0.0d0
          call UV0stc (VMTA, MH, LH, LZ,   LZ,  1, VMTA_age,  T0)
          call UV0stc (VMTA, MH, LH, LZ,   LZ,  1, VMTA_dad3, T0)
+         call UV0stc (VMTA, MH, LH, LZ,   LZ,  1, VMTA_dad1, T0)
+         call UV0stc (VMTA, MH, LH, LZ,   LZ,  1, VMTA_dad2, T0)
+      endif
+      if (iErr.eq.0) then
+         T0 = 0.0d0
+         call UV0sta (VMHI, MH, LH, VMHI_ADVYn, T0)
+         call UV0sta (VMHI, MH, LH, VMHI_ADVYs, T0)
+         call UV0sta (VMHI, MH, LH, VMHI_ADVXe, T0)
+         call UV0sta (VMHI, MH, LH, VMHI_ADVXw, T0)
       endif
       if (iErr.eq.0) then
          T0 = 0.0d0
@@ -474,7 +508,6 @@ c
                call AFBwmp (jedmy, VMHB, idGM (VGRP_VMHB), TI, IE)
                call AFBwmp (jedmy, VMHI, idGM (VGRP_VMHI), TI, IE)
                call AFBwmp (jedmy, VMHW, idGM (VGRP_VMHW), TI, IE)
-c
 c
                call AFBwmr
      $             (jedmy,
@@ -680,8 +713,6 @@ CCC_   . dH/dt
       KSWEV = ITGV(ITGV_DHPATTERN)
       TNXT  = T + DT
 c
-c$$$      write(*, *) 'MS', 21, VMHB(:, VMHB_MS)
-c
       if (KSWEV.eq. SW_DHPAT_EXP_VIALOV) then
          XP = 1.0d0 / (2.0d0 * PMD(PMD_PF) + 2.0d0)
          do jh = 1, MH
@@ -831,16 +862,35 @@ CCC   _   . misc properties
       call UV0sta (VMHB, MH, LH, VMHB_TBI,   0.0d0)
       call UV0sta (VMHB, MH, LH, VMHB_TBFLG, 0.0d0)
 CCC_   . surface temperature
-      call UV0sta(VMHB, MH, LH, VMHB_TSI, 210.d0)
+c$$$      call UV0sta(VMHB, MH, LH, VMHB_TSI, 210.d0)
+      KSWEV = ITGV(ITGV_TSPATTERN)
+      if (ITGV(ITGV_XFILE_TS).gt.0) then
+         call TGVxev
+     O       (iErr,
+     O        VMHB(1, VMHB_TSI),
+     M        PTGV(PTGV_TS_VPREV),    PTGV(PTGV_TS_VNEXT),
+     M        PTGV(PTGV_TS_XTPREV),   PTGV(PTGV_TS_XTNEXT),
+     I        VXCFG(1, VXCFG_TSMAX), VXCFG(1, VXCFG_TSMIN),
+     I        ITGV(ITGV_XFILE_TS),
+     I        KSWEV, XOPR_ADD,
+     I        T,    MH,   LH, IFPl)
+      else
+         TDUR  = PTGV(PTGV_TS_DURATION)
+         TINC  = PTGV(PTGV_TS_TINCR)
+         TDEC  = PTGV(PTGV_TS_TDECR)
+         TLST  = PTGV(PTGV_TS_TLSTD)
+         THST  = PTGV(PTGV_TS_THSTD)
+         PHS   = PTGV(PTGV_TS_PHASE)
+         call TGVtev
+     O       (iErr,
+     O        VMHB(1, VMHB_TSI),
+     I        VXCFG(1, VXCFG_TSMAX), VXCFG(1, VXCFG_TSMIN),
+     I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
+     I        T,    MH,   LH)
+      endif
 CCC_   . surface mass balance
-      TDUR  = PTGV(PTGV_S_DURATION)
-      TINC  = PTGV(PTGV_S_TINCR)
-      TDEC  = PTGV(PTGV_S_TDECR)
-      TLST  = PTGV(PTGV_S_TLSTD)
-      THST  = PTGV(PTGV_S_THSTD)
-      PHS   = PTGV(PTGV_S_PHASE)
       KSWEV = ITGV(ITGV_MSPATTERN)
-      if (KSWEV.eq. SW_MSPAT_XFILE) then
+      if (ITGV(ITGV_XFILE_MS).gt.0) then
          call TGVxev
      O       (iErr,
      O        VMHB(1, VMHB_MS),
@@ -848,9 +898,15 @@ CCC_   . surface mass balance
      M        PTGV(PTGV_S_XTPREV),   PTGV(PTGV_S_XTNEXT),
      I        VXCFG(1, VXCFG_MSMAX), VXCFG(1, VXCFG_MSMIN),
      I        ITGV(ITGV_XFILE_MS),
-     I        KSWEV,
+     I        KSWEV, XOPR_MUL,
      I        T,    MH,   LH, IFPl)
       else
+         TDUR  = PTGV(PTGV_S_DURATION)
+         TINC  = PTGV(PTGV_S_TINCR)
+         TDEC  = PTGV(PTGV_S_TDECR)
+         TLST  = PTGV(PTGV_S_TLSTD)
+         THST  = PTGV(PTGV_S_THSTD)
+         PHS   = PTGV(PTGV_S_PHASE)
          call TGVtev
      O       (iErr,
      O        VMHB(1, VMHB_MS),
@@ -901,6 +957,206 @@ c$$$      write(*, *) 'MS', 9, VMHB(:, VMHB_MS)
 CCC_ + Begl./Climate Ts
 CCC_ + Begl./Climate Ms
 CCC_ + Begl./Bedrock Heat flux
+CCC_ + TGVenv - experiment configuration
+      subroutine TGVenv
+     O    (iErr,
+     O     ITGV, PTGV,
+     I     PMD,  TINI,
+     I     ipP,  ipC, ipL)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)  iErr
+      _INTENT(OUT,integer)  ITGV(*)
+      _INTENT(OUT,_REALSTD) PTGV(*)
+      _INTENT(IN, _REALSTD) PMD (*)
+      _INTENT(IN, _REALSTD) TINI
+      _INTENT(IN, integer)  ipP, ipC, ipL
+CCC_   . interior
+      integer  IOS
+      logical  OEOF
+CCC_   . Configuration
+      integer  KWTYP
+      _REALSTD POWW
+      namelist /NITGVW/ KWTYP,  POWW
+CCC_  - Body
+      iErr = 0
+c
+      POWW  = PMD(PMD_PF)
+      KWTYP = WTYPE_VIALOV
+c
+      if (ipP.ge.0) then
+         call UUrwnd (iErr, ipP)
+         READ(ipP, NITGVW, IOSTAT=IOS)
+      else if (ipP.eq.-1) then
+         READ(*,   NITGVW, IOSTAT=IOS)
+      else
+         IOS = 0
+      endif
+      if (IOS.ne.0) then
+         call UUieof(OEOF, IOS)
+         if (OEOF) IOS = 0
+      endif
+c
+      if (COND_N(ipC)) then
+         WRITE(ipC, NITGVW, IOSTAT=iErr)
+      else if (COND_S(ipC)) then
+         WRITE(*,   NITGVW, IOSTAT=iErr)
+      endif
+CCC_   . Packing
+      PTGV(PTGV_WPOWER)       = POWW
+      ITGV(ITGV_WTYPE)        = KWTYP
+CCC_   . other environments
+      if (ierr.eq.0) then
+         call TGVecf
+     O       (iErr, ITGV, PTGV,
+     I        ITGV_MSPATTERN, ITGV_XFILE_MS,
+     I        PTGV_S_TINCR,   PTGV_S_TDECR,    PTGV_S_THSTD,
+     I        PTGV_S_TLSTD,   PTGV_S_DURATION, PTGV_S_PHASE,
+     I        PTGV_S_XTPREV,  PTGV_S_XTNEXT,
+     I        'MS',  TINI,  ipP, ipC, ipL)
+      endif
+      if (ierr.eq.0) then
+         call TGVecf
+     O       (iErr, ITGV, PTGV,
+     I        ITGV_MBPATTERN, ITGV_XFILE_MB,
+     I        PTGV_B_TINCR,   PTGV_B_TDECR,    PTGV_B_THSTD,
+     I        PTGV_B_TLSTD,   PTGV_B_DURATION, PTGV_B_PHASE,
+     I        PTGV_B_XTPREV,  PTGV_B_XTNEXT,
+     I        'MB',  TINI,  ipP, ipC, ipL)
+      endif
+      if (ierr.eq.0) then
+         call TGVecf
+     O       (iErr, ITGV, PTGV,
+     I        ITGV_DHPATTERN, ITGV_XFILE_DH,
+     I        PTGV_H_TINCR,   PTGV_H_TDECR,    PTGV_H_THSTD,
+     I        PTGV_H_TLSTD,   PTGV_H_DURATION, PTGV_H_PHASE,
+     I        PTGV_H_XTPREV,  PTGV_H_XTNEXT,
+     I        'DH',  TINI,  ipP, ipC, ipL)
+      endif
+      if (ierr.eq.0) then
+         call TGVecf
+     O       (iErr, ITGV, PTGV,
+     I        ITGV_TSPATTERN, ITGV_XFILE_TS,
+     I        PTGV_TS_TINCR,   PTGV_TS_TDECR,    PTGV_TS_THSTD,
+     I        PTGV_TS_TLSTD,   PTGV_TS_DURATION, PTGV_TS_PHASE,
+     I        PTGV_TS_XTPREV,  PTGV_TS_XTNEXT,
+     I        'TS',  TINI,  ipP, ipC, ipL)
+      endif
+c
+      if (IOS.ne.0) iErr = IOS
+      call DAtrcU (ipL, iErr, 'R', 'TGVENV')
+c
+      return
+      END
+CCC_ + TGVecf - configuration bc general
+      subroutine TGVecf
+     O    (iErr,
+     O     ITGV,  PTGV,
+     I     KPAT,  KFILEU,
+     I     KINCR, KDECR, KHSTD, KLSTD, KDUR, KPHASE,
+     I     KTPREV,KTNEXT,
+     I     TagBC, TINI,  ipP, ipC, ipL)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)   iErr
+      _INTENT(OUT,integer)   ITGV(*)
+      _INTENT(OUT,_REALSTD)  PTGV(*)
+      _INTENT(IN, _REALSTD)  TINI
+      _INTENT(IN, character) TagBC*(*)
+      _INTENT(IN, integer)   ipP, ipC, ipL
+c
+      _INTENT(IN, integer) KPAT,  KFILEU
+      _INTENT(IN, integer) KINCR, KDECR, KHSTD, KLSTD, KDUR, KPHASE
+      _INTENT(IN, integer) KTPREV,KTNEXT
+c
+      integer   KSWPAT
+      _REALSTD  TDECR, TINCR, TLSTD, THSTD, TDUR, TPHASE, TXINI
+      character Tag*(16)
+      character FILE*(OPT_FILENAME_MAX)
+c
+      integer   jfp, LR
+c
+      namelist /NITGVC/
+     $     TAG,  KSWPAT, TDECR, TINCR, TLSTD, THSTD, TPHASE,
+     $     FILE, TXINI
+c
+      iErr = 0
+      if (ipP.ge.0) call UUrwnd (iErr, ipP)
+      do
+         KSWPAT = SW_BCPAT_STEP
+         TDECR  = 0.0d0
+         TINCR  = 0.0d0
+         TLSTD  = 0.0d0
+         THSTD  = 0.0d0
+         TPHASE = 0.0d0
+         FILE   = ' '
+         TAG    = ' '
+         TXINI  = TINI
+         if (iErr.ne.0) goto 100
+         if (ipP.ge.0) then
+            READ(ipP, NITGVC, IOSTAT=iErr)
+         else if (ipP.eq.-1) then
+            READ(*,   NITGVC, IOSTAT=iErr)
+         else
+            iErr = -1
+         endif
+         if (iErr.ne.0) goto 100
+         if (Tag.eq.TagBC) goto 100
+      enddo
+ 100  continue
+      if (iErr.ne.0) then
+         KSWPAT = SW_BCPAT_STEP
+         TDECR  = 0.0d0
+         TINCR  = 0.0d0
+         TLSTD  = 0.0d0
+         THSTD  = 0.0d0
+         TPHASE = 0.0d0
+         FILE   = ' '
+         TXINI  = TINI
+      endif
+
+      if (COND_N(ipC)) then
+         WRITE(ipC, NITGVC, IOSTAT=iErr)
+      else if (COND_S(ipC)) then
+         WRITE(*,   NITGVC, IOSTAT=iErr)
+      endif
+
+      if (TDECR.eq.0.0d0 .and. TINCR.eq.0.0d0
+     $     .and. TLSTD.eq.0.0d0 .and. THSTD.eq.0.0d0) then
+         THSTD = 1.0d0
+      endif
+      TDUR = THSTD + TDECR + TLSTD + TINCR
+
+      ITGV(KPAT)   = KSWPAT
+      PTGV(KINCR)  = TINCR
+      PTGV(KDECR)  = TDECR
+      PTGV(KHSTD)  = THSTD
+      PTGV(KLSTD)  = TLSTD
+      PTGV(KDUR)   = TDUR
+      PTGV(KPHASE) = TPHASE
+      if (KTPREV.gt.0) PTGV(KTPREV) = TXINI
+      if (KTNEXT.gt.0) PTGV(KTNEXT) = TXINI
+
+      if (KFILEU.gt.0) then
+         ITGV(KFILEU) = -1
+         if (FILE.eq.' ') then
+            continue
+         else
+            if (iErr.eq.0) call UUMCnu (iErr, jfp)
+            if (iErr.eq.0) then
+               LR = -1
+               call UUopen (iErr, jfp, FILE, LR, 'F', 'O', 'R', ' ')
+            endif
+            if (iErr.eq.0) ITGV(KFILEU) = jfp
+         endif
+      else if (FILE.ne.' ') then
+ 109     format('external file disabled for ', A, ':', A)
+         write(ipL, 109) Trim(Tag), Trim(FILE)
+         iErr = -1
+      endif
+      call DAtrcU (ipL, iErr, 'R', 'TGVECF')
+      return
+      end
 CCC_ + TGVcfg  ## initialization
       subroutine TGVcfg
      O    (iErr,
@@ -918,47 +1174,58 @@ CCC_   . interior
       integer  IOS
       logical  OEOF
 CCC_   . Configuration
-      integer  KSWMSP, KSWMBP, KSWDHP
+      integer  KSWMSP, KSWMBP, KSWDHP, KSWTSP
       integer  KWTYP
       _REALSTD TDECRS, TINCRS, TLSTDS, THSTDS, TDURS, TPHSS
       _REALSTD TDECRB, TINCRB, TLSTDB, THSTDB, TDURB, TPHSB
       _REALSTD TDECRH, TINCRH, TLSTDH, THSTDH, TDURH, TPHSH
+      _REALSTD TDECRT, TINCRT, TLSTDT, THSTDT, TDURT, TPHST
       _REALSTD POWW
       character FILEMS*(OPT_FILENAME_MAX)
+      character FILETS*(OPT_FILENAME_MAX)
       namelist /NITGVB/
      $     KSWMSP, TDECRS, TINCRS, TLSTDS, THSTDS, TPHSS,
      $     KSWMBP, TDECRB, TINCRB, TLSTDB, THSTDB, TPHSB,
      $     KSWDHP, TDECRH, TINCRH, TLSTDH, THSTDH, TPHSH,
-     $     KWTYP,  POWW,   FILEMS
+     $     KSWTSP, TDECRT, TINCRT, TLSTDT, THSTDT, TPHST,
+     $     KWTYP,  POWW,   FILEMS, FILETS
       integer jfpMS, LR
 CCC_  - Body
       iErr = 0
 c
-      KSWMSP = SW_MSPAT_STEP
+      KSWMSP = SW_BCPAT_STEP
       TDECRS = 0.0d0
       TINCRS = 0.0d0
       TLSTDS = 0.0d0
       THSTDS = 0.0d0
       TPHSS  = 0.0d0
 
-      KSWMBP = SW_MSPAT_STEP
+      KSWMBP = SW_BCPAT_STEP
       TDECRB = 0.0d0
       TINCRB = 0.0d0
       TLSTDB = 0.0d0
       THSTDB = 0.0d0
       TPHSB  = 0.0d0
 
-      KSWDHP = SW_MSPAT_STEP
+      KSWDHP = SW_BCPAT_STEP
       TDECRH = 0.0d0
       TINCRH = 0.0d0
       TLSTDH = 0.0d0
       THSTDH = 0.0d0
       TPHSH  = 0.0d0
 
+      KSWTSP = SW_BCPAT_STEP
+      TDECRT = 0.0d0
+      TINCRT = 0.0d0
+      TLSTDT = 0.0d0
+      THSTDT = 0.0d0
+      TPHST  = 0.0d0
+
       POWW  = PMD(PMD_PF)
       KWTYP = WTYPE_VIALOV
 c
       FILEMS = ' '
+      FILETS = ' '
 c
       if (ipP.ge.0) then
          call UUrwnd (iErr, ipP)
@@ -994,6 +1261,11 @@ CCC_   . Packing
          THSTDH = 1.0d0
       endif
       TDURH = THSTDH + TDECRH + TLSTDH + TINCRH
+      if (TDECRT.eq.0.0d0 .and. TINCRT.eq.0.0d0
+     $     .and. TLSTDT.eq.0.0d0 .and. THSTDT.eq.0.0d0) then
+         THSTDT = 1.0d0
+      endif
+      TDURT = THSTDT + TDECRT + TLSTDT + TINCRT
 c
       ITGV(ITGV_MSPATTERN)    = KSWMSP
       PTGV(PTGV_S_TINCR)      = TINCRS
@@ -1016,11 +1288,19 @@ c
       PTGV(PTGV_H_TLSTD)      = TLSTDH
       PTGV(PTGV_H_DURATION)   = TDURH
       PTGV(PTGV_H_PHASE)      = TPHSH
+      ITGV(ITGV_TSPATTERN)   = KSWTSP
+      PTGV(PTGV_TS_TINCR)     = TINCRT
+      PTGV(PTGV_TS_TDECR)     = TDECRT
+      PTGV(PTGV_TS_THSTD)     = THSTDT
+      PTGV(PTGV_TS_TLSTD)     = TLSTDT
+      PTGV(PTGV_TS_DURATION)  = TDURT
+      PTGV(PTGV_TS_PHASE)     = TPHST
       PTGV(PTGV_WPOWER)       = POWW
       ITGV(ITGV_WTYPE)        = KWTYP
 c
+      ITGV(ITGV_XFILE_MS) = -1
       if (FILEMS.eq.' ') then
-         ITGV(ITGV_XFILE_MS) = -1
+         continue
       else
          if (iErr.eq.0) call UUMCnu (iErr, jfpMS)
          if (iErr.eq.0) then
@@ -1029,8 +1309,21 @@ c
          endif
          if (iErr.eq.0) ITGV(ITGV_XFILE_MS) = jfpMS
       endif
+      ITGV(ITGV_XFILE_TS) = -1
+      if (FILETS.eq.' ') then
+         continue
+      else
+         if (iErr.eq.0) call UUMCnu (iErr, jfpMS)
+         if (iErr.eq.0) then
+            LR = -1
+            call UUopen (iErr, jfpMS, FILETS, LR, 'F', 'O', 'R', ' ')
+         endif
+         if (iErr.eq.0) ITGV(ITGV_XFILE_TS) = jfpMS
+      endif
 c
-      if (IOS.ne.0) iErr = IOS
+      if (iErr.eq.0) then
+         if (IOS.ne.0) iErr = IOS
+      endif
       call DAtrcU (ipL, iErr, 'R', 'TGVCFG')
 c
       return
@@ -1074,6 +1367,8 @@ c
       call AFBrgi(iErr, jg, VXCFG_MBMIN,  icG (1), 'mbmin')
       call AFBrgi(iErr, jg, VXCFG_HMAX,   icG (1), 'hmax')
       call AFBrgi(iErr, jg, VXCFG_HMIN,   icG (1), 'hmin')
+      call AFBrgi(iErr, jg, VXCFG_TSMAX,  icG (1), 'Tsmax')
+      call AFBrgi(iErr, jg, VXCFG_TSMIN,  icG (1), 'Tsmin')
 c
       if (iErr.eq.0) call AFBgmf(iErr, jg, ' ', ' ', IE, ipFI)
       if (iErr.ne.0) jg = -1
@@ -1117,7 +1412,7 @@ c      hstd decr lstd incr
       TK32 = TLST
       TK43 = TINC
       TMDL = MOD(T + (1.0d0 + PHS) * TDUR, TDUR)
-      if (KSWEV.eq. SW_MSPAT_STEP) then
+      if (KSWEV.eq. SW_BCPAT_STEP) then
          if (TMDL.lt.TK20) then
             do jh = 1, MH
                VX(jh) = VVU(jh)
@@ -1127,7 +1422,7 @@ c      hstd decr lstd incr
                VX(jh) = VVL(jh)
             enddo
          endif
-      else if (KSWEV.eq. SW_MSPAT_COS) then
+      else if (KSWEV.eq. SW_BCPAT_COS) then
          pi4 = atan2(1.0d0, 1.0d0)
          if (TMDL.lt.TK20) then
             TCH = MAX(0.0d0, TMDL - TK10)
@@ -1144,7 +1439,7 @@ c      hstd decr lstd incr
      $                + ((VVU(jh) - VVL(jh)) * 0.5d0) * CO
             enddo
          endif
-      else if (KSWEV.eq. SW_MSPAT_LINEAR) then
+      else if (KSWEV.eq. SW_BCPAT_LINEAR) then
          if (TMDL.lt.TK20) then
             TCH = MAX(0.0d0, TMDL - TK10)
             CO  = TCH / TK21
@@ -1158,7 +1453,7 @@ c      hstd decr lstd incr
                VX(jh) = VVL(jh) * (1.0d0 - CO) + VVU(jh) * CO
             enddo
          endif
-      else if (KSWEV.eq. SW_MSPAT_EXP) then
+      else if (KSWEV.eq. SW_BCPAT_EXP) then
          if (TMDL.ge.TK10.and.TMDL.lt.TK30) then
             TCH = TMDL - TK10
             CO  = 1.0d0 - EXP(- TCH / TK21)
@@ -1180,7 +1475,7 @@ c      hstd decr lstd incr
                VX(jh) = MAX(ZL,VVL(jh) * (1.0d0 - CO) + VVU(jh) * CO)
             enddo
          endif
-      else if (KSWEV.eq. SW_MSPAT_DEF) then
+      else if (KSWEV.eq. SW_BCPAT_DEF) then
          do jh = 1, MH
             VX(jh) = VVU(jh)
          enddo
@@ -1198,7 +1493,7 @@ CCC_ & TGVxev  ## time-evolution (external file)
      M     TPREV, TNEXT,
      I     VVU,   VVL,
      I     jfpU,
-     I     KSWEV,
+     I     KSWEV, KOPR,
      I     T,     MH,     LH, IFPl)
       implicit none
       _INTENT(OUT,  integer)  iErr
@@ -1211,6 +1506,7 @@ CCC_ & TGVxev  ## time-evolution (external file)
       _INTENT(IN, _REALSTD) T
       _INTENT(IN, integer)  KSWEV
       _INTENT(IN, integer)  jfpU
+      _INTENT(IN, integer)  KOPR
       _INTENT(IN, integer)  IFPl
 c
       _REALSTD TF, DF
@@ -1218,7 +1514,7 @@ c
 c
       integer  jh
 c
-      iErr = 0
+      iErr = 0 * KSWEV
       do
          if (T.ge.TPREV.and.T.lt.TNEXT) goto 100
          VPREV = VNEXT
@@ -1229,23 +1525,31 @@ c
          if (iErr.ne.0) goto 100
       enddo
  100  continue
-      if (iErr.ne.0) then
-         WT = VPREV
-         ierr = 0
-      else if (KSWEV .eq. SW_MSPAT_XFILE) then
-         WT = VPREV
-      else
-         WT = VPREV
-      endif
+c$$$      if (iErr.ne.0) then
+c$$$         WT = VPREV
+c$$$         ierr = 0
+c$$$      else if (KSWEV .eq. SW_BCPAT_XFILE) then
+c$$$         WT = VPREV
+c$$$      else
+c$$$         WT = VPREV
+c$$$      endif
+      WT = VPREV
+      ierr = 0
  101  format('XEV: ', F9.1, 1x, F9.3, 2(1x, E9.3), 2(1x, F9.1))
       if (COND_N(ifpl)) then
          write(ifpl,101) T, WT, VPREV, VNEXT, TPREV, TNEXT
       else if (COND_S(ifpl)) then
          write(*,   101) T, WT, VPREV, VNEXT, TPREV, TNEXT
       endif
-      do jh = 1, MH
-         VX(jh) = VVU(jh) * WT
-      enddo
+      if (KOPR.eq.XOPR_MUL) then
+         do jh = 1, MH
+            VX(jh) = VVU(jh) * WT
+         enddo
+      else
+         do jh = 1, MH
+            VX(jh) = VVU(jh) + WT
+         enddo
+      endif
       RETURN
       END
 CCC_& IcIESa  ## Announcement

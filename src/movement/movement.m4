@@ -2,7 +2,7 @@ dnl movement/movement.m4 --- Template for Definition for IcIES/Movement modules
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Jan 17 2012
 m4_define([TIME_STAMP],
-          ['Time-stamp: <2020/09/15 12:15:50 fuyuki movement.m4>'])dnl
+          ['Time-stamp: <2021/02/08 11:00:20 fuyuki movement.m4>'])dnl
 C movement/movement.h --- Definition for IcIES/Movement modules
 C Maintainer:  SAITO Fuyuki
 C Created: Dec 20 2011
@@ -1156,8 +1156,6 @@ c_xincr([dTdYc], [dT/dY],                       [dTdY], [ca])
 
 c_xincr([sh],    [strain heating],              [sh],   [aa])
 
-c_xincr([age],   [age],                         [age],  [aa])
-
 c_xkeep([MAX])
 
 CCC_  * [VMTW] 3d others
@@ -1283,6 +1281,7 @@ c_xincr([age],     [age],                       [age],  [aa])
 c_xincr([dad3],    [dage/dC3],                  [dad3], [aa])
 c_xincr([dad1],    [dage/dC1],                  [dad1], [aa])
 c_xincr([dad2],    [dage/dC2],                  [dad2], [aa])
+c_xincr([dadz],    [dage/dz],                   [dadz], [aa])
 
 CCc_xincr([Wadv],    [wadv],                    [wadv],   [aa])
 CCc_xincr([Uadv],    [uadv],                    [uadv],   [aa])

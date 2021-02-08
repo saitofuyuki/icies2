@@ -4,7 +4,7 @@ C Created: Oct 3 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2019/09/04 22:13:52 fuyuki muvcio.F>'
+#define _TSTAMP 'Time-stamp: <2021/02/08 11:01:44 fuyuki muvcio.F>'
 #define _FNAME 'movement/muvcio.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
@@ -524,7 +524,6 @@ c
       call AFBrgi (iErr, idVG, VMTI_dTdXb, icG (2), 'dTdX')
       call AFBrgi (iErr, idVG, VMTI_dTdYc, icG (3), 'dTdY')
       call AFBrgi (iErr, idVG, VMTI_sh,   icG (1), 'sh')
-      call AFBrgi (iErr, idVG, VMTI_age,  icG (1), 'age')
 c
       if (iErr.eq.0) call AFBgmf (iErr, idVG, ' ', ' ', IE, IFPa)
 c
@@ -1277,6 +1276,7 @@ c
       call AFBrgi (iErr, idVG, VMTA_dad3, icG (1), 'dad3')
       call AFBrgi (iErr, idVG, VMTA_dad1, icG (1), 'dad1')
       call AFBrgi (iErr, idVG, VMTA_dad2, icG (1), 'dad2')
+      call AFBrgi (iErr, idVG, VMTA_dadz, icG (1), 'dadz')
 c
       if (iErr.eq.0) call AFBgmf (iErr, idVG, ' ', ' ', IE, IFPa)
 c

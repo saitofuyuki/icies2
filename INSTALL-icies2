@@ -4,10 +4,10 @@
 
 :Maintainer: SAITO Fuyuki
 :Created:    Nov 5 2013
-:Time-stamp: <2020/09/26 16:53:07 fuyuki INSTALL-icies2>
+:Time-stamp: <2021/02/05 20:30:03 fuyuki INSTALL-icies2>
 
-Copyright 2013--2020 Japan Agency for Marine-Earth Science and Technology,
-                     Ayako ABE-OUCHI
+Copyright 2013-2021 Japan Agency for Marine-Earth Science and Technology,
+                    Ayako ABE-OUCHI
 Licensed under the Apache License, Version 2.0
   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -128,9 +128,14 @@ IcIES-2/JP executable can be built as follows:
 ::
 
   % make
+
+Installing `IcIES-2` executable and sample scripts
+===================================================
+::
+
   % make install
 
-`icies_tgv` is installed into $(PREFIX)/bin.
+`icies_tgv` (binary executable) and `xicies2.sh` (script) is installed into $(PREFIX)/bin.
 
 Building `IcIES-2`/cadenza utilities (netcdf conversion)
 ========================================================
@@ -139,11 +144,3 @@ Building `IcIES-2`/cadenza utilities (netcdf conversion)
   % make install-cadenza
 
 `cnx.sh` and other utilities are installed into $(PREFIX)/bin.
-
-Installing `IcIES-2` sample scripts to run
-==========================================
-::
-
-  % make install-run
-
-`xicies2.sh` is installed into $(PREFIX)/bin.

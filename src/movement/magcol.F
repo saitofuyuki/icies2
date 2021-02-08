@@ -1,15 +1,15 @@
-C movement/magcol.F --- IcIES/Movement/Age collection
+C movement/magcol.F - IcIES/Movement/Age collection
 C Maintainer:  SAITO Fuyuki
 C Created: Nov 1 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2019/09/04 23:02:02 fuyuki magcol.F>'
+#define _TSTAMP 'Time-stamp: <2021/02/08 11:27:08 fuyuki magcol.F>'
 #define _FNAME 'movement/magcol.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2018--2020
+C Copyright (C) 2018-2021
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -199,7 +199,7 @@ CCC_   . off
       else
          continue
       endif
-CCC_  - outputs
+CCC_  - outputs (update after output)
       call AFBwmp (jedmy, VMTA, idGM (VGRP_VMTA), T, IE)
       call AFBwmp (jedmy, VMTD, idGM (VGRP_VMTD), T, IE)
 CCC_  - post processing
@@ -222,6 +222,13 @@ CCC_  - post processing
      I           VMTD,  VMTD_W2,
      I           KTB,   NHt, MH, LH, NZ, LZ, KZ0)
          endif
+      endif
+      if (iErr.eq.0) then
+         call MACdaz
+     O       (iErr,
+     M        VMTA,
+     I        WZV, VMHW,
+     I        MH,   LH,   NZ,   LZ,  KZ0)
       endif
 CCC_   . return
 c$$$      call DAtrcU (IFPl, iErr, 'R', 'MABstp')
@@ -434,6 +441,42 @@ CCC_   . Gamma
      $            * VMHW(jh, VMHW_Hinv)
             DZW1 = BZ * DDZDP * (DPDZ * DPDZ)
             VMTD(jh, jz, VMTD_dw3d3) = DZW0 + DZW1
+         enddo
+      enddo
+      RETURN
+      END
+CCC_ & MACdaz  ## diag dA/dz
+      subroutine MACdaz
+     O    (iErr,
+     M     VMTA,
+     I     WZV, VMHW,
+     I     MH,   LH,   NZ,   LZ,  KZ0)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)  iErr
+      _INTENT(IN,   integer)  MH, LH
+      _INTENT(IN,   integer)  NZ, LZ, KZ0
+c
+      _INTENT(INOUT,_REALSTD) VMTA (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VMHW (LH, *)
+      _INTENT(IN,   _REALSTD) WZV  (LZ, *)
+c
+      integer   jh
+      integer   jzz, jz
+c
+      _REALSTD  DZDZ, DPDZ
+CCC   _  - Body
+      iErr = 0
+c
+      do    jzz = 1, NZ
+         jz = KZ0 + jzz - 1
+CCC_   . transformation factors (Z-[Z])
+         DPDZ  = WZV (jz, VMVZ_dXa)
+         do jh = 1, MH
+CCC_   . transformation factors (z-Z)
+            DZDZ = VMHW (jh, VMHW_Hinv)
+            VMTA(jh, jz, VMTA_dadz) =
+     $           VMTA(jh, jz, VMTA_dad3) * DPDZ * DZDZ
          enddo
       enddo
       RETURN

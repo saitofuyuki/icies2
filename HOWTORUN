@@ -1,14 +1,16 @@
 #+title: HOWTORUN
 #+date: <2020-09-16 Wed>
 #+author: SAITO Fuyuki
-# Time-stamp:  <2020/09/26 16:47:28 fuyuki HOWTORUN>
+# Time-stamp:  <2021/02/08 17:12:38 fuyuki HOWTORUN>
+
+* Introduction of =xicies_jp_env.sh=
 
 * Introduction of =xicies_jp.sh=
 ** show usage
    : % ./local/bin/xicies_jp.sh -h -v
    : xicies_jp.sh - IcIES-2/JP run script
    :
-   : Usage: ./local/bin/xicies_jp.sh [OPTION]... KEY=CONFIGURATION...
+   : Usage: ./local/bin/xicies_jp.sh [OPTION] REFERENCE[:ID] KEY=CONFIGURATION...
    :
    : Options:
    :    -h          display this help and exit (longer help with multiple -v)
@@ -22,24 +24,32 @@
    :    -X  PATH    path to executable (icies_tgv)
    :    -x  PREFIX  prefix to output directory
    :
+   :  REFERENCE[:ID]
+   :    Reference configuration.
+   :    DIRECTORY/{domain,*max,*min} are used for the inputs
+   :
    : Configuration keys
    :  Mandatory
-   :    A   surface mass balance condition  MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
-   :          MAX as id for maximum {v} or value
-   :          MIN as id for minimum {h k l o p b}
-   :          EVOL as id for evolution phasing {f g l 0 c u d e}
-   :          FUNC as id for evolution function {step cosine linear exponential var}
-   :    B   basal mass balance condition    MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
-   :    C   numerical scheme for advection solver {up1 up2 up1n rcip modr}
-   :    H   thickness condition  REF[:MIN[:EVOL[:DUR[:FUNC]]]]
-   :          REF as id for reference {i j m n q a}
-   :    Z   vertical levels  [LEVELS][:[PARAMETER]]
+   :    C=SCHEME
+   :       Numerical scheme for advection solver {up1 up2 up1n rcip modr}
+   :    Z=[LEVELS][:[PARAMETER]]
+   :       Vertical levels.
    :
    :  Optional
-   :    W   vertical velocity condition (default=vialov) {vialov power const}
+   :    [ABHT]=FUNC:DUR:HIGH:LOW[:SHIFT]
+   :       Regular evolution for surface mass balance(A), basal mass balance(B),
+   :       thickness(H), surface temperature(T).
+   :       FUNC as id for evolution function {step cosine linear exponential var}.
+   :       DUR as duration of one cycle.
+   :       HIGH,LOW as ratio of duration for high,low phase.
+   :       SHIFT as offset of phase (in ratio).
+   :    [ABHT]=FILE
+   :      Evolution by external file FILE.
+   :    W=TYPE
+   :       Vertical velocity condition (default=vialov) {vialov power const}
    :
    : Examples
-   :   ./run/xicies_jp.sh.in -t 1000000:100:100000 Z=129 C=rcip A=3cm:k:c:100000:step B=0 H=m
+   :   ./local/bin/xicies_jp.sh -t 1000000:100:100000 Z=129 C=rcip R=cfg/exp000 A=step:100000:1:1
 
 ** options
    : -t  [END][:[DT]][:[REC]]
@@ -58,12 +68,6 @@
    | modr | m  | RCIP with upstream correction       |
    | up1n | n  | first-order upwind (mid-point rule) |
 
-** Thickness condition (key =H=)
-   | id | reference thickness (m) |
-   |----+-------------------------|
-   | m  | 3000 4000               |
-   | j  | 1000 2000 3000 4000     |
-
 ** Vertical levels discretization (key =Z=)
    | id         | discretization                           |
    |------------+------------------------------------------|
@@ -76,25 +80,13 @@
    |------------+------------------------------------------|
    | 477optsbxi | non-smooth non-uniform 477 levels (477o) |
 
-** Surface mass balance condition (key =A=)
-*** Ratio between minimum and maximum values
-    | id | minimum ratio              |
-    |----+----------------------------|
-    | k  | 1 0.5 0.25 0 -0.25 -0.5 -1 |
-    | p  | 1 0.5 0.25                 |
+** Environment evolution (key =A=, =B=, =T=, =H=)
 *** Evolution shape (function)
     | set    | id |               |
     |--------+----+---------------|
     | step   | s  | square-wave   |
     | linear | l  | triangle-wave |
     | cos    | c  | cosine-wave   |
-*** Ratio between maximum(H) and minimum(L) value duration
-    | id | ratio | example (total 100kyr) |
-    |----+-------+------------------------|
-    | c  |   1:1 | H 50kyr - L 50kyr      |
-    | e  |   7:1 | H 77.5kyr - L 12.5kyr  |
-    | g  |   1:7 | H 12.5kyr - L 77.5kyr  |
-** Basal mass balance condition (key =B=)
 
 * Brief description of outputs
   Only netcdf outputs are explained here.
@@ -190,6 +182,7 @@
    :         double time(time) ;
    :         double age.Ta(time, Za, Ya, Xa) ;
    :         double dad3.Ta(time, Za, Ya, Xa) ;
+   :         double dadz.Ta(time, Za, Ya, Xa) ;
    :
    : // global attributes:
    :                 :Conventions = "COARDS/CF-1.0" ;
@@ -198,10 +191,15 @@
    =age.Ta= is (pseudo) 3d-field of simulated age (unit year).
    =dad3.Ta= is (pseudo) 3d-field of simulated age vertical derivative
    (unit year/1), which corresponds to dA/dZ (neither dA/dz nor dA/dzeta).
+   =dadZ.Ta= is simulated age vertical derivative in terms of z
+   coordinate, i.e., unit year/m.  The annual layer thickness
+   corresponds to the inverse of =dadZ.Ta=
 
-   The leve Za=0 is dummy, and the actual field starts from Za=1.
+   The level Za=0 is dummy, and the actual field starts from Za=1.
 
-* Recipes to run IcIES-2/JP
+* Recipes to run IcIES-2/JP 0.1
+
+* (Obsolete) Recipes to run IcIES-2/JP 0
 ** Uniform velocity experiment (Figs. 2 and 3)
    Set the same value for A and B maximum, an uniform velocity
    experiment can be obtained.  Other A properties are just dummy.
@@ -337,7 +335,7 @@
    - output:: v200.Wv_Hj_A3cmkc100kc_B0_Z33_Cn.00/
 
 * Copyright and license
-Copyright 2020 Japan Agency for Marine-Earth Science and Technology,
-               Ayako ABE-OUCHI
+Copyright 2020,2021 Japan Agency for Marine-Earth Science and Technology,
+                    Ayako ABE-OUCHI
 Licensed under the Apache License, Version 2.0
   (https://www.apache.org/licenses/LICENSE-2.0)

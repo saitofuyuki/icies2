@@ -2,7 +2,7 @@
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision:  Snoopy0.9
-# Time-stamp: <2020/09/16 15:44:12 fuyuki Makefile.tmpl>
+# Time-stamp: <2021/02/05 20:12:57 fuyuki Makefile.tmpl>
 
 # Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -11,8 +11,8 @@
 ACLOCAL_AMFLAGS = -I build-aux/m4
 
 BUILD_AUX	  = build-aux
-SUBDIRS       = src ##%% t
-DIST_SUBDIRS  = $(SUBDIRS) etc doc run
+SUBDIRS       = src run ##%% t
+DIST_SUBDIRS  = $(SUBDIRS) etc doc
 TREEID		  = TreeID
 DOC_DIST      = INSTALL-icies2 NOTICE LICENSE HOWTORUN
 EXTRA_DIST    = $(TREEID) $(BUILD_AUX) $(DOC_DIST) ##%% a

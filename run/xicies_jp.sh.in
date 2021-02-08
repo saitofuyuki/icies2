@@ -1,61 +1,37 @@
 #!@ZSH@ -f
-# Time-stamp: <2020/09/26 16:48:25 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/02/08 17:01:12 fuyuki xicies_jp.sh.in>
 #
-# Copyright: 2019--2020 JAMSTEC, Ayako ABE-OUCHI
+# Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
 #---------------------------------------------------------------------- predefined
-typeset -A CFGH CFGM CFGA CFGE CFGW CFGC
+typeset -A CFGW CFGC CFGE
 setopt nullglob
 
 thisd=$0:h
 thisx=$0:t
 thisp=$0
 
-## H (thickness m)
-CFGH[a]='1500 1600 1700 1800 1900 2000 2100 2200 2300 2400 2500 2600 2700 2800 2900 3000 3100 3200 3300 3400 3500'
-CFGH[i]='1000 2000 3000'
-CFGH[j]='1000 2000 3000 4000'
-CFGH[m]='3000 4000'
-CFGH[n]='3000 3000'
-CFGH[q]='2200 3000'
-
-## M (min mass balance ratio)
-CFGM[b]='1 0.75 0.5 0.25 0 -0.25 -0.5 -0.75 -1'
-CFGM[h]='1 0 -1'
-CFGM[k]='1 0.5 0.25 0 -0.25 -0.5 -1'
-CFGM[l]='1 0.5'
-
-CFGM[o]='1 0.5 0.25 0'
-CFGM[p]='1 0.5 0.25'
-
-## A (max mass balance)
-CFGA[v]='0.03 0.024'
-
-##     HSTD:LSTD[:PHASE]  when step
-##     DECR:INCR[:PHASE]  otherwise
-##     HSTD+DECR:LSTD+INCR:DECR:INCR[:PHASE]
-# CFGE=(c 1:1  d 3:1  e 7:1  f 1:3  g 1:7   0  0:1   1 1:0)
-CFGE=(c 1:1  d 3:1  e 7:1  f 1:3  g 1:7   0 1:0 l  0:1   u 1:0)
-
 ## W
 CFGW=(const 0   vialov 1  power 2)
 
-## Age
+## Advection scheme
 CFGC=(up1 1:u   rcip 2:r  up2 4:s  modr 5:m   up1n 1:n:0)
 
 typeset -A RECG
 RECG=(VMTI  : VMTA : VMTD : VMHB 100
-      VMHI  : VMHW :
+      VMHI  : VMHW : VBBI : VBBT :
       VXCFG - VMHR -)
 
 typeset -A GFILV
-GFILV=(VMHB Ms:Mb
-       VMTA age:dad3
+GFILV=(VMHB Ms:Mb:Tsi:Tbi:gh
+       VMTA age:dad3:dadz
        VMHI oH:oS:oB:nH:nS:nB
        VMHW Hinv:dHdt:dBdt
-       VMTI wadv:wh:dwdZ)
+       VMTI T:wadv:wh:dwdZ
+       VBBT T
+       VBBI Tu:hR:gh)
 
 bpath=($thisd)
 cbase=cnx.sh
@@ -69,7 +45,7 @@ help ()
   cat << USAGE
 $thisx - IcIES-2/JP run script
 
-Usage: $thisp [OPTION]... KEY=CONFIGURATION...
+Usage: $thisp [OPTION] REFERENCE[:ID] KEY=CONFIGURATION...
 
 Options:
    -h          display this help and exit (longer help with multiple -v)
@@ -87,30 +63,33 @@ USAGE
   if [[ $verbose -gt 0 ]]; then
     cat <<CONFIG
 
+ REFERENCE[:ID]
+   Reference configuration.
+   DIRECTORY/{domain,*max,*min} are used for the inputs
+
 Configuration keys
  Mandatory
-   A   surface mass balance condition  MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
-         MAX as id for maximum {${(k)CFGA}} or value
-         MIN as id for minimum {${(k)CFGM}}
-         EVOL as id for evolution phasing {${(k)CFGE}}
-         FUNC as id for evolution function {step cosine linear exponential var}
-   B   basal mass balance condition    MAX[:MIN[:EVOL[:DUR[:FUNC]]]]
-   C   numerical scheme for advection solver {${(k)CFGC}}
-   H   thickness condition  REF[:MIN[:EVOL[:DUR[:FUNC]]]]
-         REF as id for reference {${(k)CFGH}}
-   Z   vertical levels  [LEVELS][:[PARAMETER]]
+   C=SCHEME
+      Numerical scheme for advection solver {${(k)CFGC}}
+   Z=[LEVELS][:[PARAMETER]]
+      Vertical levels.
 
  Optional
-   W   vertical velocity condition (default=vialov) {${(k)CFGW}}
+   [ABHT]=FUNC:DUR:HIGH:LOW[:SHIFT]
+      Regular evolution for surface mass balance(A), basal mass balance(B),
+      thickness(H), surface temperature(T).
+      FUNC as id for evolution function {step cosine linear exponential var}.
+      DUR as duration of one cycle.
+      HIGH,LOW as ratio of duration for high,low phase.
+      SHIFT as offset of phase (in ratio).
+   [ABHT]=FILE[:id]
+     Evolution by external file FILE.
+   W=TYPE
+      Vertical velocity condition (default=vialov) {${(k)CFGW}}
 
 Examples
-  $thisp -t 1000000:100:100000 Z=129 C=rcip A=3cm:k:c:100000:step B=0 H=m
+  $thisp -t 1000000:100:100000 Z=129 C=rcip R=cfg/exp000 A=step:100000:1:1
 CONFIG
-  fi
-  if [[ $verbose -gt 1 ]]; then
-    help_config CFGM "id for minimum value (ratio to maximum value)"
-    help_config CFGE "id for evolution phasing (duration ratio to full cycle)"
-    help_config CFGH "id for reference thickness"
   fi
   return 0
 }
@@ -134,12 +113,13 @@ main ()
 {
   local tmpa=
   local tcfg=3000000
-  local GRPS=VMTA:VMTD:VXCFG:VMHB:VMTI:VMHR:VMHI:VMHW
-  local xpfx=
+  local GRPS=VMTA:VMTD:VXCFG:VMHB:VMTI:VMHR:VMHI:VMHW:VBBI:VBBT
+  local xpfx= xsfx=
   local force=
   local args=("$@")
   local dry=
   local verbose=0 help=
+  local ecfg=./cfg/evolution.cfg
   while [[ $# -gt 0 ]]
   do
     case $1 in
@@ -159,6 +139,10 @@ main ()
     (-X*) xicies=${1: 2};;
     (-x)  xpfx=$2; shift;;
     (-x*) xpfx=${1: 2};;
+    (+x)  xsfx=$2; shift;;
+    (+x*) xsfx=${1: 2};;
+    (-E)  ecfg=$2; shift;;
+    (-E*) ecfg=${1: 2};;
     (-A)  ADIR+=($2); shift;;
     (-A*) ADIR+=(${1: 2});;
     (*) break;;
@@ -166,6 +150,11 @@ main ()
     shift
   done
   [[ $# -eq 0 || -n $help ]] && help $verbose && return 0
+  local REFD=$1; shift
+  local REFID=${REFD%%*:}; REFID=${REFID:t}
+  REFD=${REFD:A}
+  local rdom=$REFD/domain
+  [[ ! -e $rdom ]] && print -u2 - "Not found reference domain $rdom." && return 1
 
   local p=
   if [[ -z $xicies ]]; then
@@ -217,7 +206,7 @@ main ()
   GRPS=($gtmp)
 
   ########## parse configuration
-  local cfgw=vialov cfba= cfgb= cfgh= cfgz= cfgc=
+  local cfgw=vialov cfba= cfgb= cfgh= cfgz= cfgc= cfgt=
 
   local k= v=
   while [[ $# -gt 0 ]]
@@ -227,12 +216,10 @@ main ()
       k=${1%=*}
       v=${1#*=}
       case $k in
-      (H) cfgh=$v;;
       (Z) cfgz=$v;;
-      (A) cfga=$v;;
-      (B) cfgb=$v;;
       (C) cfgc=$v;;
       (W) cfgw=$v;;
+      ([HABT]) CFGE[$k]="$v";;
       (*) print -u2 - "$thisx: unknown config key $k"; return 1;;
       esac
       ;;
@@ -262,86 +249,6 @@ main ()
     idz=$k
   fi
 
-  # parse H  REFid[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
-  local idh= iddur= cfgdur=
-  [[ -z $cfgh ]] && print -u2 "$thisx: need H configuration." && return 1
-  v=("${(@s/:/)cfgh}"); k=$v[1]; shift v
-  if [[ -z $CFGH[$k] ]];then
-    print -u2 "$thisx: unknown configuration (H) $cfgh"
-    return 1
-  fi
-  idh=${k}${v[1]}
-  gen_durid iddur cfgdur ${v: 1} || return $?
-  idh=${idh}$iddur
-  cfgh=${k}:${v[1]:-$k}:${cfgdur}
-
-  # parse A  MAX[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
-  #          MAXid[:file[:EFUNC[:id]]]]
-  local ida= maxm=
-  [[ -z $cfga ]] && print -u2 "$thisx: need A configuration." && return 1
-  v=("${(@s/:/)cfga}" '' '' '' ''); k=$v[1]; shift v
-  ida=$k
-  if [[ -n $CFGA[$k] ]]; then
-    cfga=$k
-  else
-    maxm=$(units -t -- $k m) || return $?
-    cfga=${maxm}
-  fi
-  k=$v[1]; shift v
-  if [[ -e $k ]]; then
-    afile=$k
-    efunc=$v[1]; shift v
-    k=$v[1]
-    [[ -z $k ]] && k=x
-    ida=$ida$k
-    iddur= cfgdur=
-    case $efunc in
-    (s*) iddur=s cfgdur=5;;
-    (*) print -u2 - "$thisx: unknown efunc $efunc"; exit 1;;
-    esac
-    ida=$ida$iddur
-    cfga=$cfga:${afile:a}:0:0:$cfgdur
-  else
-    ida=$ida$k
-    if [[ -z $k ]];then
-      cfga=${cfga}:$maxm
-    elif [[ -z $CFGM[$k] ]];then
-      print -u2 "$thisx: unknown configuration (A) $cfga"
-      return 1
-    else
-      cfga=${cfga}:$k
-    fi
-    gen_durid iddur cfgdur ${v} || return $?
-    ida=${ida}$iddur
-    cfga=$cfga:${cfgdur}
-  fi
-
-  # parse B MAX[:MINid[:ETYPE[:EDUR[:EFUNC]]]]
-  local idb= maxm=
-  [[ -z $cfgb ]] && cfgb=0
-  v=("${(@s/:/)cfgb}" '' '' '' ''); k=$v[1]; shift v
-  if [[ $k == 0 ]]; then
-    maxm=0
-  else
-    maxm=$(units -t -- $k m) || return $?
-    maxm=-$maxm
-  fi
-  idb=$k
-  cfgb=${maxm}
-  k=$v[1]; shift v
-  idb=$idb$k
-  if [[ -z $k ]]; then
-    cfgb=${cfgb}:${maxm}
-  elif [[ -z $CFGM[$k] ]];then
-    print -u2 "$thisx: unknown configuration (B) $cfgb"
-    return 1
-  else
-    cfgb=$cfgb:${k}
-  fi
-  gen_durid iddur cfgdur ${v} || return $?
-  idb=${idb}$iddur
-  cfgb=$cfgb:${cfgdur}
-
   # parse C
   [[ -z $cfgc ]] && print -u2 "$thisx: need C configuration." && return 1
   v=("${(@s/:/)cfgc}"); k=$v[1]; shift v
@@ -353,16 +260,23 @@ main ()
   local idc=$cfgc[2] cadv=$cfgc[3]
   cfgc=$cfgc[1]
 
+  # parse evolution
+  for k in H A B T
+  do
+    parse_evolution id$k cfg$k $ecfg "${(@s/:/)CFGE[$k]}"
+  done
+
   # diag
   print -u2 - "##  Configuration"
   print -u2 - "W: $idw $cfgw"
   print -u2 - "Z: $idz $cfgz"
-  print -u2 - "H: $idh $cfgh"
-  print -u2 - "A: $ida $cfga"
-  print -u2 - "B: $idb $cfgb"
   print -u2 - "C: $idc $cfgc $cadv"
+  print -u2 - "H: $idH $cfgH"
+  print -u2 - "A: $idA $cfgA"
+  print -u2 - "B: $idB $cfgB"
+  print -u2 - "T: $idT $cfgT"
 
-  local xdir=${xpfx:-ox}.W${idw}_H${idh}_A${ida}_B${idb}_Z${idz}_C${idc}.${xsfx:-00}
+  local xdir=${xpfx:-ox}.R${REFID}_W${idw}_Z${idz}_C${idc}_H${idH}_A${idA}_B${idB}_T${idT}.${xsfx:-00}
   print -u2 - "output: $xdir"
 
   for a in $ADIR
@@ -383,7 +297,7 @@ main ()
   cd $xdir
   local sysin=sysin
 
-  gen_sysin $sysin "$cfgw" "$cfgz" "$cfgh" "$cfga" "$cfgb" "$cfgc:$cadv" || return $?
+  gen_sysin ${REFD} $sysin "$cfgw" "$cfgz" "$cfgH" "$cfgA" "$cfgB" "$cfgT" "$cfgc:$cadv" || return $?
 
   if [[ -n $dry ]]; then
     print -u2 - "$thisx: dry-run: ${xdir}"
@@ -406,48 +320,79 @@ main ()
   return 0
 }
 
-gen_durid ()
+parse_evolution ()
 {
   local __vi=$1; shift
   local __vc=$1; shift
-  if [[ $# -eq 0 ]];then
-    : ${(P)__vi::=}
-    : ${(P)__vc::=0:0:0}
-    return 0
+  local ecfg=$1; shift
+  local _vi= _vc=
+  local func=$1 dur=$2 high=$3 low=$4 off=$5
+  if [[ -z $func ]]; then
+    _vi=0 _vc=(step 0 0 0 0)
+  elif [[ -e $func ]]; then
+    func=${func:A}
+    _vi=$2
+    [[ -z $_vi ]] && _vi=$func:t
+    _vc=($func)
+  else
+    [[ ! -e $ecfg ]] && mkdir -p $ecfg:h && touch $ecfg
+    off=${off:-0}
+    nml_units dur $dur yr || return $?
+    local k=$func:$dur:$high:$low:$off
+    _vi=($(sed -ne "/^$k /s///p" $ecfg))
+    if [[ -z $_vi ]]; then
+      _vi=${func: :1}
+      local did=
+      nml_units did $dur yr M k || return $?
+      local pk=$high:$low:$off
+      local pid=($(sed -ne "/^@E:$pk /s///p" $ecfg))
+      if [[ -z $pid ]]; then
+        pid=$(grep -c '^@E:' $ecfg)
+        print - "@E:$high:$low:$off $pid" >> $ecfg
+      fi
+      _vi=$pid$_vi${did}
+      print - "$k $_vi" >> $ecfg
+    fi
+    _vc=($func $dur $high $low $off)
   fi
-  if [[ $# -ne 3 ]];then
-    print -u2 "$thisx: invalid duration setting $@."; return 1
+  : ${(P)__vi::=$_vi}
+  set -A $__vc "${(@)_vc}"
+  return 0
+}
+
+nml_units ()
+{
+  local __v=$1; shift
+  local _d=$1; shift
+  local ru=$1; shift
+  local _v= _u= _x=
+  if _x=$(units -t -- $_d $ru 2> /dev/null); then
+    :
+  elif _x=$(units -t -- ${_d}$ru $ru 2> /dev/null); then
+    :
+  else
+    print -u2 - "cannot parse $_d in terms of $ru"
+    return 1
   fi
-  local k=$1 d=$2 t=$3
-  [[ -z $CFGE[$k] ]] && print -u2 "$thisx: unknown evolution switch $k" && return 1
-  local __id=$k
-  local __d=$d
-  for yu yf in m 1000000  k 1000
+  for _u in "$@" ''
   do
-    if [[ $((d % yf)) -eq 0 ]];then
-      __d=$((d / yf))$yu
+    _v=$(units -t -- ${_u}$ru $ru) || return $?
+    if [[ $((_x % _v)) -eq 0 ]]; then
+      _v=$(units -t -- $_x$ru $_u$ru) || return $?
+      _v=$_v$_u
       break
     fi
   done
-  __id=${k}${__d}$t[1]
-  case $t in
-  (s*) t=1;;
-  (c*) t=2;;
-  (l*) t=3;;
-  (e*) t=4;;
-  (v*) t=5;;
-  (*)    print -u2 - "$thisx: invalid evolution pattern $t"; return 1;;
-  esac
-  : ${(P)__vi::=$__id}
-  : ${(P)__vc::=$k:$d:$t}
+  : ${(P)__v::=$_v}
   return 0
 }
 
 gen_sysin ()
 {
+  local refd=$1; shift || return $?
   local sysin=$1; shift || return $?
   local k= v=
-  for k in cfgw cfgz cfgh cfga cfgb cfgc
+  for k in cfgw cfgz cfgh cfga cfgb cfgt cfgc
   do
     v=$1
     local $k=
@@ -477,32 +422,11 @@ gen_sysin ()
   print -u3 - " &NITMMD CROOT='$CROOT', TINI=0, TEND=$TEND, DT=$dt, TSSA=$TEND, &END"
 
   # geometry
-  local htag=$cfgh[1] atag=$cfga[2] btag=$cfgb[2]
-  local htagm=$cfgh[2]
-  local H=(${=CFGH[$htag]})
-  local mbu=$cfgb[1] mbl= msu=$cfga[1] msl=
-  local A=
-  local isfx= axfile=
-  if [[ -e $atag ]]; then
-    [[ -z $CFGA[$msu] ]] && return 1
-    axfile=$atag
-    A=(${=CFGA[$msu]})
-    isfx=A$msu
-    mbl= msl=
-  elif [[ -n $CFGM[$btag] ]]; then
-    mbl=$cfgb[2]
-    A=(${=CFGM[$btag]})
-    isfx=B$btag
-  elif [[ -n $CFGM[$atag] ]]; then
-    msl=$cfga[2]
-    A=(${=CFGM[$atag]})
-    isfx=A$atag
-  else
-    print -u2 "$thisx: either a($atag) or b($btag) can be set as transient."
-    return 1
-  fi
+  local rdom=$refd/domain
+  [[ ! -e $rdom ]] && print -u2 - "Not found reference domain $rdom." && return 1
+  local NYG=($(cat $rdom))
+  local NXG=$NYG[1]; NYG=$NYG[2]
 
-  local NXG=$#H NYG=$#A
   local WX=$((NXG-1)) WY=$((NYG-1))
 
   print -u3 - " &NIGEOM CROOT='$CROOT', CKIND='X', O=0.0d0, T='R', W=$WX, WN=-1, &END"
@@ -528,85 +452,32 @@ gen_sysin ()
     print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='*', COOR='*', FMT='SKIP', &END"
   done
 
-  local iniH=./iniH_H${htag}${isfx}.dat
-  local vm= vh=
-  for vm in $A
+
+  local bf= def= k= t= m=
+  for k t def in H h 0.0d0  A ms 0.0d0   B mb 0.0d0   T Ts  0.0d0
   do
-    print -l $H
-  done > $iniH
-  local hmaxf=$iniH hminf=
-  if [[ $htag == $htagm ]];then
-    hminf=$hmaxf
-  else
-    hminf=./iniH_H${htagm}${isfx}.dat
-    for vm in $A
+    for m in max min
     do
-      print -l ${=CFGH[$htagm]}
-    done > $hminf
-  fi
+      bf=$refd/$m$k
+      [[ ! -e $bf ]] && print -u2 - "Cannot found $bf" && return 1
+      nml_input $CROOT VXCFG ${t}${m} ID.Ha $def $bf $DIMS || return $?
+    done
+  done
 
-  local msminf= mbminf= msmaxf=
-  if [[ -z $mbl$msl ]]; then
-    msmaxf=./msmax_H${htag}${isfx}.dat
-    for vm in $A
-    do
-      for vh in $H
-      do
-        print "$vm"
-      done
-    done > $msmaxf
-  elif [[ -z $mbl ]]; then
-    msminf=./msmin_H${htag}${isfx}.dat
-    for vm in $(print -l $A | gmt math STDIN -Ca $msu MUL =)
-    do
-      for vh in $H
-      do
-        print "$vm"
-      done
-    done > $msminf
-  elif [[ -z $msl ]]; then
-    mbminf=./mbmin_H${htag}${isfx}.dat
-    for vm in $(print -l $A | gmt math STDIN -Ca $mbu MUL =)
-    do
-      for vh in $H
-      do
-        print "$vm"
-      done
-    done > $mbminf
-  fi
-
+  local iniH=$refd/maxH
   nml_input $CROOT VMHI  oH    ID.Ha 0.0d0 $iniH   $DIMS || return $?
-  nml_input $CROOT VMHI  oB    ID.Ha 0.0d0              || return $?
-  # nml_input $CROOT VMHR  refMs ID.Ha $msu               || return $?
-
-  nml_input $CROOT VXCFG hmax  ID.Ha 0.0d0 $hmaxf  $DIMS || return $?
-  nml_input $CROOT VXCFG hmin  ID.Ha 0.0d0 $hminf  $DIMS || return $?
-  if [[ -n $msmaxf ]]; then
-    nml_input $CROOT VXCFG msmax ID.Ha 0.0d0 $msmaxf $DIMS || return $?
-    nml_input $CROOT VXCFG msmin ID.Ha 0.0d0 || return $?
-    nml_input $CROOT VXCFG mbmax ID.Ha $mbu || return $?
-    nml_input $CROOT VXCFG mbmin ID.Ha $mbu || return $?
-  elif [[ -z $mbl ]]; then
-    nml_input $CROOT VXCFG msmax ID.Ha $msu                || return $?
-    nml_input $CROOT VXCFG msmin ID.Ha 0.0d0 $msminf $DIMS || return $?
-    nml_input $CROOT VXCFG mbmax ID.Ha $mbu || return $?
-    nml_input $CROOT VXCFG mbmin ID.Ha $mbu || return $?
-  elif [[ -z $msl ]]; then
-    nml_input $CROOT VXCFG msmax ID.Ha $msu || return $?
-    nml_input $CROOT VXCFG msmin ID.Ha $msu || return $?
-    nml_input $CROOT VXCFG mbmax ID.Ha $mbu || return $?
-    nml_input $CROOT VXCFG mbmin ID.Ha 0.0d0 $mbminf $DIMS || return $?
-  fi
+  nml_input $CROOT VMHI  oB    ID.Ha 0.0d0               || return $?
 
   # experiment setting
-  print -u3 - " &NITGVB"
-  nml_tgvb -u3 MS "${(@)cfga: 2}" || return $?
-  nml_tgvb -u3 MB "${(@)cfgb: 2}" || return $?
-  nml_tgvb -u3 DH "${(@)cfgh: 2}" || return $?
-  print -u3 -n " KWTYP=$cfgw[1],"
-  [[ x${cfgw[2]:--} != x- ]] && print -u3 -n " WPOWER=$cfgw[2],"
-  [[ -n $axfile ]] && print -u3 -n " FILEMS='$axfile',"
+
+  print -u3 -n - " &NITGVW"
+  print -u3 -n - " KWTYP=$cfgw[1],"
+  [[ x${cfgw[2]:--} != x- ]] && print -u3 -n - " WPOWER=$cfgw[2],"
   print -u3 - " &END"
+  nml_tgvc -u3 MS "${(@)cfgA}" || return $?
+  nml_tgvc -u3 MB "${(@)cfgB}" || return $?
+  nml_tgvc -u3 DH "${(@)cfgH}" || return $?
+  nml_tgvc -u3 TS "${(@)cfgT}" || return $?
 
   # output
   print -u3 - " &NIAFWR CROOT='$CROOT', GROUP=' ', DT=$rect, KSW=-9, &END"
@@ -635,50 +506,48 @@ gen_sysin ()
   return 0
 }
 
-nml_tgvb ()
+nml_tgvc ()
 {
   local opts=$1; shift || return $?
   local vtag=$1;  shift || return $?
-  local etag=$1 dur=$2 type=$3
+  local func=$1 dur=$2 high=$3 low=$4 off=$5
+  local file=
 
-  local evt=(${(s/:/)CFGE[$etag]})
-  local hdec= decr= linc= incr= hstd= lstd= phs=
-  local yd= yi=
-  if [[ $#evt -le 3 ]]; then
-    chk_unit_dim yd $evt[1] yr
-    chk_unit_dim yi $evt[2] yr
-    if [[ -z $yd && -z $yi ]];then
-      decr=$(gmt math -Q $dur $evt[1] MUL $evt[1] $evt[2] ADD DIV =) || return $?
-      incr=$(gmt math -Q $dur $evt[2] MUL $evt[1] $evt[2] ADD DIV =) || return $?
-      phs=$(gmt math -Q $dur ${evt[3]:-0} MUL $evt[1] $evt[2] ADD DIV =) || return $?
-      hstd=0 lstd=0
-    elif [[ -z $yd ]];then
-      print -u2 "$thisx: not implemented yet $evt"
-      return 1
-    elif [[ -z $yi ]];then
-      print -u2 "$thisx: not implemented yet $evt"
-      return 1
-    else
-      print -u2 "$thisx: not implemented yet $evt"
-      return 1
-    fi
+  local hdec=0 decr=0 linc=0 incr=0 hstd=0 lstd=0 phs=0 type=
+
+  if [[ -e $func ]]; then
+    file=$func type=0
   else
-    hdec=$evt[1] linc=$evt[2] decr=$evt[3] incr=$evt[4]
+    case $func in
+    (s*) type=1;;  # step
+    (c*) type=2;;  # cosine
+    (l*) type=3;;  # linear
+    (e*) type=4;;  # exponential
+    (v*) type=5;;  # variation
+    (*)  print -u2 - "$thisx: invalid evolution pattern $vtag"; return 1;;
+    esac
+
+    if [[ $dur -eq 0 ]]; then
+      decr=0 incr=0 phs=0
+    else
+      decr=$(gmt math -Q $dur $high MUL $high $low ADD DIV =) || return $?
+      incr=$(gmt math -Q $dur $low  MUL $high $low ADD DIV =) || return $?
+      phs=$(gmt  math -Q $dur $off  MUL $high $low ADD DIV =) || return $?
+    fi
+    hstd=0 lstd=0
   fi
 
-  local vtag2=
-  case $vtag in
-  (MS) vtag2=S;;
-  (MB) vtag2=B;;
-  (DH) vtag2=H;;
-  esac
-  print -n $opts - " KSW${vtag}P=$type,"
-  print -n $opts - " TDECR${vtag2}=$decr,"
-  print -n $opts - " TINCR${vtag2}=$incr,"
-  print -n $opts - " THSTD${vtag2}=$hstd,"
-  print -n $opts - " TLSTD${vtag2}=$lstd,"
-  print -n $opts - " TPHS${vtag2}=$phs,"
-  print    $opts -
+  print -n $opts - " &NITGVC"
+  print -n $opts - " TAG='$vtag',"
+  print -n $opts - " KSWPAT=$type,"
+  print -n $opts - " TDECR=$decr,"
+  print -n $opts - " TINCR=$incr,"
+  print -n $opts - " THSTD=$hstd,"
+  print -n $opts - " TLSTD=$lstd,"
+  print -n $opts - " TPHASE=$phs,"
+  [[ -n $file ]] && print -n $opts - " FILE='$file',"
+  print    $opts - " &END"
+
   return 0
 }
 
@@ -707,6 +576,8 @@ nml_input ()
   elif [[ -z $dims ]];then
     print -u2 - "$thisx: need dimension for namelist $croot/$grp/$var/$coor."
     return 1
+  elif [[ ! -e $inif ]]; then
+    print -u2 - "$thisx: cannot find $inif."
   else
     print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='$var', COOR='$coor',"
     print -u3 - "         VAL=$val, FNM='$inif', DIMS=$dims, "
