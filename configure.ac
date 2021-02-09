@@ -3,7 +3,7 @@
 # Maintainer: SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision: JosePeterson0
-# Time-stamp: <2021/02/08 15:11:44 fuyuki configure.ac>
+# Time-stamp: <2021/02/09 18:25:39 fuyuki configure.ac>
 
 dnl _. health check
 m4_ifndef([ABT_INIT],
@@ -230,6 +230,7 @@ AC_PATH_PROGS(GPROF,   [gprof],   :)
 
 AC_PATH_PROGS(ZSH,     [zsh])
 AC_PATH_PROGS(MPIEXEC, [mpiexec])
+AC_PATH_PROGS(UNITS,   [units],   :)
 
 AC_PATH_PROGS(AUTOM4TE, [autom4te])
 

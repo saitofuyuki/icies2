@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/02/08 17:01:12 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/02/09 19:30:49 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -12,6 +12,9 @@ setopt nullglob
 thisd=$0:h
 thisx=$0:t
 thisp=$0
+
+UNITS=@UNITS@
+GMT=@GMT@
 
 ## W
 CFGW=(const 0   vialov 1  power 2)
@@ -180,9 +183,12 @@ main ()
 
   ########## parse times  -t [END][:[DT][:[REC]]]
   tcfg=("${(@s/:/)tcfg}" '' '')
-  local tend=$tcfg[1]; shift tcfg
-  local dt=${tcfg[1]:-10}; shift tcfg
-  local rect=$tcfg[1]
+  local tend= dt=
+  nml_units tend $tcfg[1] yr || return $?
+  shift tcfg
+  nml_units dt ${tcfg[1]:-10} yr || return $?
+  shift tcfg
+  local rect=${tcfg[1]}
   if [[ -z $rect ]];then
     local odr=$((tend / 1000))
     rect=1
@@ -192,6 +198,8 @@ main ()
     done
   elif [[ $rect[1] == '@' ]];then
     rect=$((tend / ${rect: 1} ))
+  else
+    nml_units rect ${tcfg[1]} yr || return $?
   fi
   [[ $rect -lt $dt ]] && rect=$dt
   local TEND=$((tend+dt))
@@ -263,7 +271,7 @@ main ()
   # parse evolution
   for k in H A B T
   do
-    parse_evolution id$k cfg$k $ecfg "${(@s/:/)CFGE[$k]}"
+    parse_evolution id$k cfg$k $ecfg "${(@s/:/)CFGE[$k]}" || return $?
   done
 
   # diag
@@ -365,24 +373,33 @@ nml_units ()
   local __v=$1; shift
   local _d=$1; shift
   local ru=$1; shift
-  local _v= _u= _x=
-  if _x=$(units -t -- $_d $ru 2> /dev/null); then
-    :
-  elif _x=$(units -t -- ${_d}$ru $ru 2> /dev/null); then
-    :
-  else
-    print -u2 - "cannot parse $_d in terms of $ru"
-    return 1
-  fi
-  for _u in "$@" ''
-  do
-    _v=$(units -t -- ${_u}$ru $ru) || return $?
-    if [[ $((_x % _v)) -eq 0 ]]; then
-      _v=$(units -t -- $_x$ru $_u$ru) || return $?
-      _v=$_v$_u
-      break
+  if [[ x$UNITS == x: ]];then 
+    if let _d=$_d > /dev/null 2>&1; then
+      _v=$_d
+    else
+      print -u2 - "unit conversion failed.  use raw value for $_d."
+      return 1
     fi
-  done
+  else
+    local _v= _u= _x=
+    if _x=$($UNITS -t -- $_d $ru 2> /dev/null); then
+      :
+    elif _x=$($UNITS -t -- ${_d}$ru $ru 2> /dev/null); then
+      :
+    else
+      print -u2 - "cannot parse $_d in terms of $ru"
+      return 1
+    fi
+    for _u in "$@" ''
+    do
+      _v=$($UNITS -t -- ${_u}$ru $ru) || return $?
+      if [[ $((_x % _v)) -eq 0 ]]; then
+        _v=$($UNITS -t -- $_x$ru $_u$ru) || return $?
+        _v=$_v$_u
+        break
+      fi
+    done
+  fi
   : ${(P)__v::=$_v}
   return 0
 }
@@ -530,9 +547,9 @@ nml_tgvc ()
     if [[ $dur -eq 0 ]]; then
       decr=0 incr=0 phs=0
     else
-      decr=$(gmt math -Q $dur $high MUL $high $low ADD DIV =) || return $?
-      incr=$(gmt math -Q $dur $low  MUL $high $low ADD DIV =) || return $?
-      phs=$(gmt  math -Q $dur $off  MUL $high $low ADD DIV =) || return $?
+      decr=$($GMT math -Q $dur $high MUL $high $low ADD DIV =) || return $?
+      incr=$($GMT math -Q $dur $low  MUL $high $low ADD DIV =) || return $?
+      phs=$($GMT  math -Q $dur $off  MUL $high $low ADD DIV =) || return $?
     fi
     hstd=0 lstd=0
   fi
@@ -549,19 +566,6 @@ nml_tgvc ()
   print    $opts - " &END"
 
   return 0
-}
-
-chk_unit_dim ()
-{
-  local __v=$1 __i=$2 __u=$3
-  local __x=
-  if __x=$(units -t -- $__i $__u > /dev/null 2>&1); then
-    : ${(P)__v::=$__x}
-    return 0
-  else
-    ${(P)__v::=}
-    return 1
-  fi
 }
 
 nml_input ()
