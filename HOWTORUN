@@ -3,7 +3,102 @@
 #+author: SAITO Fuyuki
 # Time-stamp:  <2021/02/08 17:12:38 fuyuki HOWTORUN>
 
-* Introduction of =xicies_jp_env.sh=
+* IcIES-2/JP execution
+** Experiment configuration (aka =SYSIN=)
+*** example
+    : &NIDMBS KCHECK=1, FILE='sysin' &END
+    : &NICARG X=' -f -t 1000000:100:10000 cfg/comHmA3cmkB0 Z=129 C=rcip A=step:100k:1:1', &END
+    : &NIDPTV TAG='TOP', VALUE='.', &END
+    : &NIDPTV TAG='SUB', VALUE='%[S3]', &END
+    : &NILOGC CH='V', ROOT='vrep', &END
+    : &NITPMS KTEST=-1, WLX=100, WLY=0, DGL=, &END
+    : &NITPMI CROOT='ID', KSW=0, ACC=0.3d0, HINI=0.0d0, &END
+    : &NIPRMD &END
+    : &NIPRMS &END
+    : &NITMMD CROOT='ID', TINI=0, TEND=1000100, DT=100, TSSA=1000100, &END
+    : &NIGEOM CROOT='ID', CKIND='X', O=0.0d0, T='R', W=1, WN=-1, &END
+    : &NIGEOM CROOT='ID', CKIND='Y', O=0.0d0, T='R', W=6, WN=-1, &END
+    : &NIEDLA CROOT='ID', KDL=3,
+    :         NXG=2, NYG=7, NR=1,
+    :         LXB=1, LYB=1, LXO=0, LYO=0, LXW=0, LYW=0, ISH=1, &END
+    : &NICOOR CROOT='ID', NZ=129, &END
+    : &NIMSWD MSW=0, MINI=0, KAGEC=2, &END
+    : &NIDATA CROOT='ID', GROUP='VMI', VAR='*', COOR='*', FMT='SKIP', &END
+    : &NIDATA CROOT='ID', GROUP='VMTI', VAR='*', COOR='*', FMT='SKIP', &END
+    : &NIDATA CROOT='ID', GROUP='VMHI', VAR='*', COOR='*', FMT='SKIP', &END
+    : &NIDATA CROOT='ID', GROUP='VMHB', VAR='*', COOR='*', FMT='SKIP', &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='*', COOR='*', FMT='SKIP', &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='hmax', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/maxH', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='hmin', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/minH', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='msmax', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/maxA', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='msmin', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/minA', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='mbmax', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/maxB', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='mbmin', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/minB', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='Tsmax', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/maxT', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VXCFG', VAR='Tsmin', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/minT', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VMHI', VAR='oH', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM='cfg/comHmA3cmkB0/maxH', DIMS=2,7,
+    :         FMT=' ', LB=-1, IR=0, &END
+    : &NIDATA CROOT='ID', GROUP='VMHI', VAR='oB', COOR='ID.Ha',
+    :         VAL=0.0d0, FNM=' ',
+    :         FMT='CONST', LB=-1, IR=0, &END
+    : &NITGVW KWTYP=1, &END
+    : &NITGVC TAG='MS', KSWPAT=1, TDECR=50000, TINCR=50000, THSTD=0, TLSTD=0, TPHASE=0, &END
+    : &NITGVC TAG='MB', KSWPAT=1, TDECR=0, TINCR=0, THSTD=0, TLSTD=0, TPHASE=0, &END
+    : &NITGVC TAG='DH', KSWPAT=1, TDECR=0, TINCR=0, THSTD=0, TLSTD=0, TPHASE=0, &END
+    : &NITGVC TAG='TS', KSWPAT=1, TDECR=0, TINCR=0, THSTD=0, TLSTD=0, TPHASE=0, &END
+    : &NIAFWR CROOT='ID', GROUP=' ', DT=10000, KSW=-9, &END
+    : &NIAFWR CROOT='ID', GROUP='VMTA',  KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTA', VAR='age', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTA', VAR='dad3', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTA', VAR='dadz', KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VMTD',  KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VXCFG', DT=1000100, KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VMHB', DT=100, KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHB', VAR='Ms', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHB', VAR='Mb', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHB', VAR='Tsi', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHB', VAR='Tbi', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHB', VAR='gh', KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VMTI',  KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTI', VAR='T', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTI', VAR='wadv', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTI', VAR='wh', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMTI', VAR='dwdZ', KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VMHR', DT=1000100, KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VMHI',  KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHI', VAR='oH', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHI', VAR='oS', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHI', VAR='oB', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHI', VAR='nH', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHI', VAR='nS', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHI', VAR='nB', KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VMHW',  KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHW', VAR='Hinv', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHW', VAR='dHdt', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VMHW', VAR='dBdt', KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VBBI',  KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VBBI', VAR='Tu', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VBBI', VAR='hR', KSW=+1, &END
+    : &NIAVFL CROOT='ID', GROUP='VBBI', VAR='gh', KSW=+1, &END
+    : &NIAFWR CROOT='ID', GROUP='VBBT',  KSW=-1, &END
+    : &NIAVFL CROOT='ID', GROUP='VBBT', VAR='T', KSW=+1, &END
 
 * Introduction of =xicies_jp.sh=
 ** show usage
@@ -23,10 +118,11 @@
    :    -C  PATH    path to conversion script (cnx.sh)
    :    -X  PATH    path to executable (icies_tgv)
    :    -x  PREFIX  prefix to output directory
+   :    +x  SUFFIX  suffix to output directory
    :
    :  REFERENCE[:ID]
    :    Reference configuration.
-   :    DIRECTORY/{domain,*max,*min} are used for the inputs
+   :    REFERENCE/{domain,*max,*min} are used for the inputs
    :
    : Configuration keys
    :  Mandatory
@@ -49,7 +145,7 @@
    :       Vertical velocity condition (default=vialov) {vialov power const}
    :
    : Examples
-   :   ./local/bin/xicies_jp.sh -t 1000000:100:100000 Z=129 C=rcip R=cfg/exp000 A=step:100000:1:1
+   :   ./local/bin/xicies_jp.sh -t 1000000:100:100000 cfg/exp000 Z=129 C=rcip A=step:100000:1:1
 
 ** options
    : -t  [END][:[DT]][:[REC]]
@@ -81,12 +177,38 @@
    | 477optsbxi | non-smooth non-uniform 477 levels (477o) |
 
 ** Environment evolution (key =A=, =B=, =T=, =H=)
-*** Evolution shape (function)
+   Evolution and distribution of surface mass balance, basal mass
+   balance, thickness and surface temperature fields are needed to
+   specify.  The spatial patterns (hearafter references) are
+   configured using external files or constants, while the temporal
+   patterns (evolution) are configured using functions or an external
+   file.
+
+*** Reference
+    One or two references are used for each field, depending on the
+    evolution function styles.  Typically two fields are used as
+    maximum and minimum values. All the fields must be stored under
+    REFERENCE directory such as =maxA=, =maxB=, =maxH=, =maxT=,
+    =minA=, so on. The suffix =A= =B= =H= =T= correspond to the
+    surface mass balance, basal mass balance, thickness, surface
+    temperature, respectively.  If evolution required only one
+    reference, the maximum fields are only used.
+
+*** Evolution
+    Three simple evolution types are prepare: step, linear, cosine.
     | set    | id |               |
     |--------+----+---------------|
     | step   | s  | square-wave   |
     | linear | l  | triangle-wave |
     | cos    | c  | cosine-wave   |
+    Total duration and ratio between maximum(H) and minimum(L) value
+    duration are needed to specify.
+
+    =A=step:100000:1:1=  100kyr-cycle evolution between maximum and
+    minimum, where it keeps maximum during 50kyr and then keeps
+    minimum during 50kyr (1:1).
+
+* Introduction of =xicies_jp_env.sh=
 
 * Brief description of outputs
   Only netcdf outputs are explained here.
@@ -123,15 +245,17 @@
    :         Ya = 7 ;        // Minimum surface mass balance axis
    :         time = UNLIMITED ; // (1 currently)
    : variables:
-   :         double Xa(Xa) ;
+   : double Xa(Xa) ;
    :         double Ya(Ya) ;
    :         double time(time) ;
-   :         double msmax.Ha(time, Ya, Xa) ;  // Ms max
-   :         double msmin.Ha(time, Ya, Xa) ;  // Ms min
-   :         double mbmax.Ha(time, Ya, Xa) ;  // Mb max
-   :         double mbmin.Ha(time, Ya, Xa) ;  // Mb min
-   :         double hmax.Ha(time, Ya, Xa) ;   // H max
-   :         double hmin.Ha(time, Ya, Xa) ;   // H min
+   :         double msmax.Ha(time, Ya, Xa) ; // Ms max
+   :         double msmin.Ha(time, Ya, Xa) ; // Ms min
+   :         double mbmax.Ha(time, Ya, Xa) ; // Mb max
+   :         double mbmin.Ha(time, Ya, Xa) ; // Mb min
+   :         double hmax.Ha(time, Ya, Xa) ;  // H max
+   :         double hmin.Ha(time, Ya, Xa) ;  // H min
+   :         double Tsmax.Ha(time, Ya, Xa) ; // Ts max
+   :         double Tsmin.Ha(time, Ya, Xa) ; // Ts min
 
    : % ncks -Q -C -v msmax.Ha vii100.Wv_Hj_A3cmkc100ks_B0_Z129_Cm.00/vxcfg.nc
    : :

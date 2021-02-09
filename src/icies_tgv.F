@@ -1,4 +1,4 @@
-C icies_tgv.F --- IcIES/TGV (1d thermodynamics/age)
+C icies_tgv.F - IcIES/TGV (1d thermodynamics/age)
 C Author: SAITO Fuyuki
 C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
@@ -26,7 +26,7 @@ CCC_ + Switches
 #  define OPT_VERBOSE 0
 #endif
 CCC_ + Domain size
-#  define OPT_MOVEMENT_LHP_MAX 512
+#  define OPT_MOVEMENT_LHP_MAX 640
 #  define OPT_MOVEMENT_LHG_MAX OPT_MOVEMENT_LHP_MAX
 #  define OPT_MOVEMENT_LVZ_MAX 4100
 CCC_ + TGV test parameter
@@ -242,7 +242,7 @@ CCC_  - Table
       character  CRX*8
       data       CRX /'XD'/
       integer    LIE
-      parameter (LIE = (LHPref * 10))
+      parameter (LIE = (LHPref * 15))
       integer    IE   (LIE)
       integer    ipKW (IPKW_FULL_DECL)
 CCC_   . global/private stencils
