@@ -181,9 +181,3 @@ end program ageni
 !!!_ + Local variables
 ! Local Variables:
 ! End:
-# Copyright: 2016--2020 JAMSTEC
-# Licensed under the Apache License, Version 2.0
-#   (https://www.apache.org/licenses/LICENSE-2.0)
-# Copyright: 2016--2020 JAMSTEC
-# Licensed under the Apache License, Version 2.0
-#   (https://www.apache.org/licenses/LICENSE-2.0)
