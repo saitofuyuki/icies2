@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/02/09 19:30:49 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/02/10 21:53:42 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -123,6 +123,7 @@ main ()
   local dry=
   local verbose=0 help=
   local ecfg=./cfg/evolution.cfg
+  local np=1
   while [[ $# -gt 0 ]]
   do
     case $1 in
@@ -132,6 +133,7 @@ main ()
     (-n)  dry=$1;;
     (-h)  help=T;;
     (-f)  force=T;;
+    (-np) np=$2; shift;;
     (-t)  tcfg=$2; shift;;
     (-t*) tcfg=${1: 2};;
     (-G)  GRPS=$2; shift;;
@@ -305,7 +307,7 @@ main ()
   cd $xdir
   local sysin=sysin
 
-  gen_sysin ${REFD} $sysin "$cfgw" "$cfgz" "$cfgH" "$cfgA" "$cfgB" "$cfgT" "$cfgc:$cadv" || return $?
+  gen_sysin ${np:-1} ${REFD} $sysin "$cfgw" "$cfgz" "$cfgH" "$cfgA" "$cfgB" "$cfgT" "$cfgc:$cadv" || return $?
 
   if [[ -n $dry ]]; then
     print -u2 - "$thisx: dry-run: ${xdir}"
@@ -314,14 +316,23 @@ main ()
   local udir=u
   mkdir $udir
   mkdir O V L
-  ( time ./${xicies:t} < $sysin > $udir/output ) 2> $udir/error
+  if [[ $np -gt 1 ]]; then
+    mpirun -np $np ./${xicies:t} < $sysin > $udir/output 2> $udir/error
+  else
+    ( time ./${xicies:t} < $sysin > $udir/output ) 2> $udir/error
+  fi
 
   if [[ -n $xcnx ]]; then
-    local grp= ncf=
+    local grp= ncf= logs=
     for grp in $GRPS
     do
       ncf=${grp:l}.nc
-      $xcnx -f -G $grp -F $ncf L/vrep.000*
+      logs=L/vrep
+      if [[ -e $logs ]]; then
+        $xcnx -f -G $grp -F $ncf $logs
+      else
+        $xcnx -f -G $grp -F $ncf $logs.000*
+      fi
     done > $udir/log.cnx 2>&1
   fi
 
@@ -406,6 +417,7 @@ nml_units ()
 
 gen_sysin ()
 {
+  local np=$1; shift || return $?
   local refd=$1; shift || return $?
   local sysin=$1; shift || return $?
   local k= v=
@@ -449,7 +461,7 @@ gen_sysin ()
   print -u3 - " &NIGEOM CROOT='$CROOT', CKIND='X', O=0.0d0, T='R', W=$WX, WN=-1, &END"
   print -u3 - " &NIGEOM CROOT='$CROOT', CKIND='Y', O=0.0d0, T='R', W=$WY, WN=-1, &END"
   print -u3 - " &NIEDLA CROOT='$CROOT', KDL=3,"
-  print -u3 - "         NXG=$NXG, NYG=$NYG, NR=${NR:-1},"
+  print -u3 - "         NXG=$NXG, NYG=$NYG, NR=${np:-1},"
   print -u3 - "         LXB=1, LYB=1, LXO=0, LYO=0, LXW=0, LYW=0, ISH=1, &END"
 
   # geometry Z
