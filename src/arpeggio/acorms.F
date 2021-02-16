@@ -4,7 +4,7 @@ C Created: Jan 27 2010
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:55:43 fuyuki acorms.F>'
+#define _TSTAMP 'Time-stamp: <2021/02/16 09:51:52 fuyuki acorms.F>'
 #define _FNAME 'arpeggio/acorms.F'
 #define _REV   'Arpeggio 1.0'
 CCC_! MANIFESTO
@@ -552,6 +552,20 @@ CCC_  - Body
       Mdim      = 1
       IV (Mdim) = IV0
       call ACCrgI (iErr, idC, IV, idCbas, Mdim, Tag, IFPl)
+      RETURN
+      END
+CCC_ & ACCqid  ## Arpeggio/Coordinate/Core reference id (pass to acwqit)
+      subroutine ACCqid
+     O    (iErr,
+     O     idC,
+     I     Tag)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)   iErr
+      _INTENT(OUT,integer)   idC
+      _INTENT(IN, character) Tag *(*)
+CCC_  - Body
+      call ACWqit(iErr, idC, Tag)
       RETURN
       END
 CCC_ & ACCrfI  ## Arpeggio/Coordinate/Core reference [Attr I]
@@ -3299,6 +3313,12 @@ c
       call ACCsV1 (iErr, 321, 2, ivA3, ipL)
 CCC_  - reference tests
       call UDTbni (ITEST, 'REF', ' ', ipL)
+CCC_   . id
+      call UDTbni (ITEST, 'REF/id', ' ', ipL)
+      call ACCqid(iErr, jcdmy, 'Null')
+      write(*, *) 'Null', jcdmy, ierr
+      call ACCqid(iErr, jcdmy, 'M11')
+      write(*, *) 'M11', jcdmy, ierr
 CCC_   . I attributes a
       call UDTbni (ITEST, 'REF/I/AX0', ' ', ipL)
       call ACCrfI
