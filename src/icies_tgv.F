@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/02/07 14:13:34 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/02/18 08:31:44 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -945,8 +945,8 @@ C     G = k dT/dz = k dT/dp dP/dZ dZ/dz
 c$$$      GH = -42.0d-3 * 31556926.d0
 c$$$      call UV0sta (VMHB, MH, LH, VMHB_GH,  GH)
 CCC_   . rock bc
-      GH = -42.0d-3 * 31556926.d0
-      call UV0sta (VBBI, MH, LH, VBBI_GH,  GH)
+c$$$      GH = -42.0d-3 * 31556926.d0
+c$$$      call UV0sta (VBBI, MH, LH, VBBI_GH,  GH)
       do jh = 1, MH
          VBBI(jh, VBBI_TU) = VMTI(jh, KZ0, VMTI_T)
       enddo
