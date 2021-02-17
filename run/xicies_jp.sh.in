@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/02/10 21:53:42 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/02/18 08:31:17 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -476,7 +476,7 @@ gen_sysin ()
   local DIMS="$NXG,$NYG"
 
   local grp=
-  for grp in VMI VMTI VMHI VMHB VXCFG
+  for grp in VMI VMTI VMHI VMHB VXCFG VBBI
   do
     print -u3 - " &NIDATA CROOT='$CROOT', GROUP='$grp', VAR='*', COOR='*', FMT='SKIP', &END"
   done
@@ -496,6 +496,9 @@ gen_sysin ()
   local iniH=$refd/maxH
   nml_input $CROOT VMHI  oH    ID.Ha 0.0d0 $iniH   $DIMS || return $?
   nml_input $CROOT VMHI  oB    ID.Ha 0.0d0               || return $?
+
+  local iniG=$refd/maxG
+  nml_input $CROOT VBBI  gh    ID.Ha 0.0d0 $iniG   $DIMS || return $?
 
   # experiment setting
 
