@@ -1,13 +1,13 @@
-!!!_! zetani.F90 --- zeta integral with simpson method.
+!!!_! zetani.F90 - zeta integral with simpson method
 ! Maintainer:  SAITO Fuyuki
 ! Created: Nov 22 2018
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:48:24 fuyuki zetani.F90>'
+#define TIME_STAMP 'Time-stamp: <2021/02/17 21:20:22 fuyuki zetani.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
 !!!_! MANIFESTO
 !
-! Copyright (C) 2018--2020
+! Copyright (C) 2018-2021
 !           Japan Agency for Marine-Earth Science and Technology
 !
 ! Licensed under the Apache License, Version 2.0

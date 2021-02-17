@@ -3,7 +3,7 @@
 # Maintainer: SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision: JosePeterson0
-# Time-stamp: <2021/02/09 18:25:39 fuyuki configure.ac>
+# Time-stamp: <2021/02/17 21:21:25 fuyuki configure.ac>
 
 dnl _. health check
 m4_ifndef([ABT_INIT],
@@ -282,6 +282,7 @@ AC_CONFIG_FILES([Makefile
                  doc/r/Makefile
                  etc/Makefile
                  etc/helper/Makefile
+                 etc/misc/Makefile
                  run/Makefile
                  src/Makefile
                  src/ostinato/Makefile

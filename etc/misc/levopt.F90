@@ -1,13 +1,13 @@
-!!!_! levopt.F90 --- level optimization for age integral
+!!!_! levopt.F90 - level optimization for age integral
 ! Maintainer:  SAITO Fuyuki
 ! Created: Jan 9 2019
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:47:59 fuyuki levopt.F90>'
+#define TIME_STAMP 'Time-stamp: <2021/02/17 21:22:59 fuyuki levopt.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
 !!!_! MANIFESTO
 !
-! Copyright (C) 2019--2020
+! Copyright (C) 2019-2021
 !           Japan Agency for Marine-Earth Science and Technology
 !
 ! Licensed under the Apache License, Version 2.0
@@ -59,7 +59,7 @@ program levopt
 109  format('Not enough arguments.')
      write(*, 109)
 301  format('USAGE:')
-302  format('  ageni PF POWER-OUTER POWER-INNER MS MB HREF TRES MSTP [TTOL [YEND]]')
+302  format('  levopt PF POWER-OUTER POWER-INNER MS MB HREF TRES MSTP [TTOL [YEND]]')
      write(*, 301)
      write(*, 302)
      stop

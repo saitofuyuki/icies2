@@ -1,13 +1,13 @@
-!!!_! ageni.F90 --- age integral with simpson method.
+!!!_! ageni.F90 - age integral with simpson method
 ! Maintainer:  SAITO Fuyuki
 ! Created: Nov 14 2018
-#define TIME_STAMP 'Time-stamp: <2020/09/15 12:48:04 fuyuki ageni.F90>'
+#define TIME_STAMP 'Time-stamp: <2021/02/17 21:19:44 fuyuki ageni.F90>'
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
 !!!_! MANIFESTO
 !
-! Copyright (C) 2018--2020
+! Copyright (C) 2018-2021
 !           Japan Agency for Marine-Earth Science and Technology
 !
 ! Licensed under the Apache License, Version 2.0
