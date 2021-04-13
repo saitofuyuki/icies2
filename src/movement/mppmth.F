@@ -1,15 +1,15 @@
-C movement/mppmth.F --- IcIES/Movement/Pressure-melting point (constant density)
+C movement/mppmth.F - IcIES/Movement/Pressure-melting point (constant density)
 C Maintainer:  SAITO Fuyuki
 C Created: Jan 5 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/08/19 15:06:37 fuyuki mppmth.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/14 10:15:46 fuyuki mppmth.F>'
 #define _FNAME 'movement/mppmth.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2012--2020
+C Copyright (C) 2012-2021
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -23,7 +23,7 @@ CCC_* Parameter cluster
 #define MPP_T0 1
 #define MPP_CC 2
 CCC_* Primitives
-CCC_ & MPPstp  ## Pressure-melting set parameter clusters
+CCC_ & MPPstp - Pressure-melting set parameter clusters
       subroutine MPPstp
      O    (iErr,
      O     PG,
@@ -53,7 +53,7 @@ c
 c
       RETURN
       END
-CCC_ & MPPdef  ## Pressure-melting point get default parameters
+CCC_ & MPPdef - Pressure-melting point get default parameters
       subroutine MPPdef
      O    (T0, UT0,
      O     CC, UCC)
@@ -69,7 +69,7 @@ c
 c
       RETURN
       END
-CCC_ & MPPpmt  ## Pressure melting point (with parameters)
+CCC_ & MPPpmt - Pressure melting point (with parameters)
       subroutine MPPpmt
      M    (VMT,
      I     VMH,  ZC,
@@ -96,7 +96,32 @@ CC   Tc = T + CC H (1-z)
       enddo
       RETURN
       END
-CCC_ & MPPdtc  ## Temperature correction (and set adjustment)
+CCC_ & MPPmsk - Mask by pressure melting (reset if frozen)
+      subroutine MPPmsk
+     M    (VMH, KHV, KHH,
+     I     P0,
+     I     VMT, KTT,
+     I     ZC,  T0, CC,
+     I     NH,  LH, JZ, LZ)
+      implicit none
+      _INTENT(IN,   integer)  NH,  LH, LZ
+      _INTENT(INOUT,_REALSTD) VMH (LH, *)
+      _INTENT(IN,   _REALSTD) P0
+      _INTENT(IN,   _REALSTD) VMT (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) ZC (*)
+      _INTENT(IN,   integer)  KHV
+      _INTENT(IN,   integer)  KHH, KTT
+      _INTENT(IN,   _REALSTD) T0,  CC
+      integer jh, jz, jz0
+      _REALSTD HLD, PMT
+      do jh = 1, NH
+         HLD = VMH (jh, KHH) * ZC (JZ)
+         PMT = T0 - CC * HLD
+         if (VMT(jh, jz, KTT).lt.PMT) VMH(jh, KHV) = P0
+      enddo
+      RETURN
+      END
+CCC_ & MPPdtc - Temperature correction (and set adjustment)
       subroutine MPPdtc
      M    (VMT, VMW,
      I     VMH, ZC,
@@ -118,8 +143,8 @@ c$$$            Tpmt = Ptrpl - PClcl * BAthik(ij) * TKZTRV(k)
 c$$$            AOtemp(ij,k) = MIN( AOtemp(ij,k), Tpmt )
 c$$$            AOThmo(ij,k) = AOtemp(ij,k) - Tpmt + Ptrpl
 CC   Tc = T + CC H (1-z)
-      do jz0 = 0, NZ - 1
-         jz = KZ0 + jz0
+      do jz0 = 0, NZ
+         jz = KZ0 + jz0 - 1
          do jh = 1, NH
             HLD = VMH (jh, KHH) * ZC (jz)
             PMT = T0 - CC * HLD
@@ -129,7 +154,7 @@ CC   Tc = T + CC H (1-z)
       enddo
       RETURN
       END
-CCC_ & MPPptc  ## Temperature correction (with parameters)
+CCC_ & MPPptc - Temperature correction (with parameters)
       subroutine MPPptc
      M    (VMV,
      I     VMD,  ZC,
@@ -155,17 +180,13 @@ CC   Tc = T + CC H (1-z)
          do jh = 1, NH
             HLD = VMD (jh, KDH) * ZC (jz)
             PMT = CC * HLD
-c$$$            write (*, *) 'TC', ZC (jz)
-c$$$            write (*, *) 'TC', jh, jz0,
-c$$$     $           PMT, T0, HLD,
-c$$$     $           VMV (jh, jz, KVT)
             VMV (jh, jz, KVTC)
      $           = min ((VMV (jh, jz, KVT) + PMT), T0)
          enddo
       enddo
       RETURN
       END
-CCC_ & MPPtcr  ## Temperature correction
+CCC_ & MPPtcr - Temperature correction
       subroutine MPPtcr
      M    (VMV,
      I     VMD, ZC,
@@ -200,7 +221,7 @@ CC   Tc = T + CC H (1-z)
       enddo
       RETURN
       END
-CCC_ & MPPtcc  ## Temperature correction with cluster
+CCC_ & MPPtcc - Temperature correction with cluster
       subroutine MPPtcc
      M    (VTO,
      I     VTI, VH, ZC,
@@ -230,8 +251,8 @@ CC   Tc = T + CC H (1-z)
       enddo
       RETURN
       END
-CCC_ & MPPprH  ## Pressure melting point by H (constant density) 2d
-CCC_& MPPMTH  ## Movement/Pressure-melting point announcement
+CCC_ & MPPprH - Pressure melting point by H (constant density) 2d
+CCC_& MPPMTH - Movement/Pressure-melting point announcement
       subroutine MPPMTH (STRA, STRB, IOP)
 CCC_ + Declaration
       implicit none
@@ -253,7 +274,7 @@ CCC_ + Body
       endif
       RETURN
       END
-CCC_@ MPPTST  ## not implemented
+CCC_@ MPPTST - not implemented
 CCC_ + Test suites
 CC::   KINDS 0
 CCC_! FOOTER

@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/02/18 08:31:44 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/13 17:17:02 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -390,6 +390,7 @@ CCC_   . Initialization
          call UV0sta (VMHI, MH, LH, VMHI_ADVYs, T0)
          call UV0sta (VMHI, MH, LH, VMHI_ADVXe, T0)
          call UV0sta (VMHI, MH, LH, VMHI_ADVXw, T0)
+         call UV0sta (VMHI, MH, LH, VMHI_frd,   T0)
       endif
       if (iErr.eq.0) then
          T0 = 0.0d0
@@ -454,14 +455,37 @@ c
 CCC_    * loop break
             if (TNXT.gt.TEND) goto 900
 CCC_    * suspend
-CCC_    * Environment update
+CCC_    * MTBuvs (Thermodynamics preparation)
+CCC_     + thermal conductivity
+            if (iErr.eq.0) then
+               CONDI  = PMM (PMT_COND)
+               CONDIP = PMM (PMT_CONDP)
+               call MTBthc
+     O             (iErr,
+     O              VMTW,
+     I              VMTI, CONDI, CONDIP,
+     I              MH,   LH,    NZ,  LZ, KZ0)
+            else
+               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSTHC')
+            endif
+CCC_     + heat capacity
+            if (iErr.eq.0) then
+               call MTShcs
+     O             (iErr,
+     O              VMTW,
+     I              VMTI,  PMM,
+     I              MH,    LH,   NZ,  LZ, KZ0)
+            else
+               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSHCS')
+            endif
+CCC_    * Environment computation
             if (iErr.eq.0) then
                call TGVubc
      O             (iErr,
      O              VMHB,  VBBI,
      M              PTGV,
-     I              VXCFG, VMHR,  VMHI, VMTI, VBBT,
-     I              T,     DTI,  ITGV, PMM, IMM, WW, IMTI, PMTI,
+     I              VXCFG, VMHR, VMHI, VMTI, VBBT,
+     I              T,     DTI,  ITGV, PMM,  IMM, WW, IMTI, PMTI,
      I              PBB,   IBB,  WZR,
      I              MH,    LH,   NZ,   LZ,   KZ0,
      I              NZR,   LZR,  KZ0R,
@@ -469,6 +493,19 @@ CCC_    * Environment update
             else
                call DAtrcU (ipL, iErr, 'R', 'TGV/TGVUBC')
             endif
+CCC_     + basal melting
+            call UV3naa
+     $          (VMHW, VMHI, VMHB, MH, LH,
+     $           VMHW_HSB,   VMHI_frd, VMHB_GH)
+            if (iErr.eq.0) then
+               call MTBdbm
+     O             (iErr,
+     M              VMHI, VMHW,
+     I              VMTI, VMTW,
+     I              WZV,  PMM,  IMM,
+     I              MH,   LH,   NZ,   LZ,  KZ0)
+            endif
+CCC_    * Environment update
             call BBTupd
      O          (iErr,
      M           VBBT,  VBBW,
@@ -519,29 +556,6 @@ c
      $              VMTW_MAXD+1, VMTW_MAX, TI, 'VMTWt', IE)
             endif
 CCC_     + MTBuvs
-CCC_      - thermal conductivity
-            if (iErr.eq.0) then
-               CONDI  = PMM (PMT_COND)
-               CONDIP = PMM (PMT_CONDP)
-               call MTSthc
-     O             (iErr,
-     O              VMTW,
-     I              VMHW, VMTI,  CONDI, CONDIP,
-     I              WZV,
-     I              MH,   LH,    NZ,  LZ, KZ0)
-            else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSTHC')
-            endif
-CCC_      - heat capacity
-            if (iErr.eq.0) then
-               call MTShcs
-     O             (iErr,
-     O              VMTW,
-     I              VMTI,  PMM,
-     I              MH,    LH,   NZ,  LZ, KZ0)
-            else
-               call DAtrcU (ipL, iErr, 'R', 'TGV/MTSHCS')
-            endif
 CCC_    * MDstpT
 CCC_     + MTButp
             if (iErr.eq.0) then
@@ -565,6 +579,14 @@ CCC_     + MTButp
      I              KHH,   KTB,   NHt, MH,    LH)
             else
                call DAtrcU (ipL, iErr, 'R', 'TGV/MTSPJC')
+            endif
+            if (iErr.eq.0) then
+               call MTStcg
+     O             (iErr,
+     O              VMTW,
+     I              VMHW,
+     I              KTB,  WZV,
+     I              NHt,  LH,   NZ,  LZ, KZ0)
             endif
             if (iErr.eq.0) then
                if (IMM(IMD_WADV).eq. SW_WADV_RAW) then
@@ -700,9 +722,6 @@ CCC_   . log
          write (*,    101) T, DT
       endif
 #endif /* OPT_VERBOSE */
-CCC_   . heating
-      call UV3naa
-     $     (VMHW, VMHI, VMHB, MH, LH, VMHW_HSB, VMHI_frd, VMHB_GH)
 CCC_   . dH/dt
       TDUR  = PTGV(PTGV_H_DURATION)
       TINC  = PTGV(PTGV_H_TINCR)
