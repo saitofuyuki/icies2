@@ -1,15 +1,15 @@
-C begleitung/bglbrt.F --- IcIES/Begleitung/Rock tempearture
+C begleitung/bglbrt.F - IcIES/Begleitung/Rock tempearture
 C Maintainer:  SAITO Fuyuki
 C Created: Jun 16 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/13 10:30:05 fuyuki bglbrt.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/14 10:42:34 fuyuki bglbrt.F>'
 #define _FNAME 'begleitung/bglbrt.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2018--2020
+C Copyright (C) 2018-2021
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -27,7 +27,7 @@ CCC_* Common macros
 #  define  OPT_NAMELIST_OUTPUT_EMULATION _UNMLEM_LEVEL_END
 #endif
 CCC_* Initialization
-CCC_ & BBinit  ## initialization
+CCC_ & BBinit - initialization
       subroutine BBinit
      O    (iErr,
      O     NZR,  LZR,  KZ0R, LZrefR,
@@ -151,7 +151,7 @@ c$$$     I        CSW,  CLS, CRR, ipFI, IE, iMA)
 c$$$      endif
       return
       END
-CCC_ & BBTpnm  ## Parameters initialization by namelist
+CCC_ & BBTpnm - Parameters initialization by namelist
       subroutine BBTpnm
      O    (iErr,
      O     IBB,  PBB,
@@ -229,7 +229,7 @@ c
       call DAtrcU (IFPl, iErr, 'R', 'BBTPNM')
       RETURN
       END
-CCC_ & BBitim  ## Time initialization batch
+CCC_ & BBitim - Time initialization batch
       subroutine BBitim
      O    (iErr,
      O     TBBT,
@@ -267,7 +267,7 @@ CCC_   . reset error
       iErr = 0
       RETURN
       END
-CCC_ & BBictm  ## Time initialization by namelist
+CCC_ & BBictm - Time initialization by namelist
       subroutine BBictm
      O    (iErr,
      M     TINI,  TEND,  DT,
@@ -311,6 +311,12 @@ c
          if (iErr.ne.0) goto 100
       ENDDO
  100  continue
+      if (iErr.ne.0) then
+         TINI = dTINI
+         TEND = dTEND
+         DT   = dDT
+         iErr = 0
+      endif
       if (iErr.eq.0) then
          if (LVEML.gt.0) then
             call UNBbgn (iErr, 'NIBTIM',       ipC, LVEML)
@@ -328,15 +334,11 @@ c
                write (*,   NIBTIM)
             endif
          endif
-      else
-         TINI = dTINI
-         TEND = dTEND
-         DT   = dDT
       endif
 c
       RETURN
       END
-CCC_ & BBTvgt  ## geometry and integral table
+CCC_ & BBTvgt - geometry and integral table
       subroutine BBTvgt
      O    (iErr,
      O     VZ,
@@ -476,7 +478,7 @@ CCC_   . geometry
       endif
       RETURN
       END
-CCC_ & BBVrgt  ## Set VBBT attributes
+CCC_ & BBVrgt - Set VBBT attributes
       subroutine BBVrgt
      O    (iErr, idVG,
      I     CGRP, icG,  MH,  LH, MZ, LZ, CSW,  CLS, CRT, IFPa, IE,  iMA)
@@ -507,7 +509,7 @@ c
 c
       RETURN
       END
-CCC_ & BBVrgi  ## Set VBBI attributes
+CCC_ & BBVrgi - Set VBBI attributes
       subroutine BBVrgi
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -539,7 +541,7 @@ c
 c
       RETURN
       END
-CCC_ & BBTupd  ## temperature update (solver)
+CCC_ & BBTupd - temperature update (solver)
       subroutine BBTupd
      O    (iErr,
      M     VBBT,  VBBW,
@@ -639,7 +641,7 @@ CCC_  - Body
 
       endif
       END
-CCC_ & BBTcxs  ## equation coefficients  (temperature independent)
+CCC_ & BBTcxs - equation coefficients  (temperature independent)
       subroutine BBTcxs
      O    (iErr,
      M     VBBW,
@@ -735,7 +737,7 @@ CCC_   . E33 = D33 [d[Z]/dZ]^2
       enddo
       RETURN
       END
-CCC_ & BBTbld  ## matrix builder core (temperature dependent)
+CCC_ & BBTbld - matrix builder core (temperature dependent)
       subroutine BBTbld
      O    (iErr,
      M     VBBW,
@@ -847,7 +849,7 @@ CCC_   . surface
       enddo
       RETURN
       END
-CCC_ & BBTslv  ## matrix solver core (z outer)
+CCC_ & BBTslv - matrix solver core (z outer)
       subroutine BBTslv
      O    (iErr,
      M     VX,
