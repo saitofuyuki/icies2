@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/04/13 17:17:02 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/14 13:53:20 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -46,9 +46,9 @@ CCC_ + TGV test parameter
 #  define WTYPE_POWER    2
 #define ITGV_XFILE_MS    6 /* unit of surface mass balance history */
 #define ITGV_XFILE_TS    7 /* unit of surface temperature history */
-#define ITGV_XFILE_MB    -1
+#define ITGV_XFILE_MB    8 /* unit of basal mass balance history */
 #define ITGV_XFILE_DH    -1
-#define ITGV_MAX         7
+#define ITGV_MAX         8
 
 #define PTGV_WPOWER      1   /* power parameter for w */
 
@@ -70,31 +70,33 @@ CCC_ + TGV test parameter
 #define PTGV_B_THSTD     11  /* bmb: steady high period */
 #define PTGV_B_DURATION  12  /* bmb: total duration */
 #define PTGV_B_PHASE     13  /* bmb: phase offset */
-#define PTGV_B_XTPREV    -1
-#define PTGV_B_XTNEXT    -1
+#define PTGV_B_XTPREV    14
+#define PTGV_B_XTNEXT    15
+#define PTGV_B_VPREV     16
+#define PTGV_B_VNEXT     17
 
-#define PTGV_H_TDECR     14  /* thickness: decrement period */
-#define PTGV_H_TINCR     15  /* thickness: increment period */
-#define PTGV_H_TLSTD     16  /* thickness: steady low period */
-#define PTGV_H_THSTD     17  /* thickness: steady high period */
-#define PTGV_H_DURATION  18  /* thickness: total duration */
-#define PTGV_H_PHASE     19  /* thickness: phase offset */
+#define PTGV_H_TDECR     18  /* thickness: decrement period */
+#define PTGV_H_TINCR     19  /* thickness: increment period */
+#define PTGV_H_TLSTD     20  /* thickness: steady low period */
+#define PTGV_H_THSTD     21  /* thickness: steady high period */
+#define PTGV_H_DURATION  22  /* thickness: total duration */
+#define PTGV_H_PHASE     23  /* thickness: phase offset */
 #define PTGV_H_XTPREV    -1
 #define PTGV_H_XTNEXT    -1
 
-#define PTGV_TS_TDECR    24   /* Ts: decrement period */
-#define PTGV_TS_TINCR    25   /* Ts: increment period */
-#define PTGV_TS_TLSTD    26   /* Ts: steady low period */
-#define PTGV_TS_THSTD    27   /* Ts: steady high period */
-#define PTGV_TS_DURATION 28   /* Ts: total duration */
-#define PTGV_TS_PHASE    29   /* Ts: phase offset */
+#define PTGV_TS_TDECR    28   /* Ts: decrement period */
+#define PTGV_TS_TINCR    29   /* Ts: increment period */
+#define PTGV_TS_TLSTD    30   /* Ts: steady low period */
+#define PTGV_TS_THSTD    31   /* Ts: steady high period */
+#define PTGV_TS_DURATION 32   /* Ts: total duration */
+#define PTGV_TS_PHASE    33   /* Ts: phase offset */
 
-#define PTGV_TS_XTPREV   30   /* Ts: xfile last time */
-#define PTGV_TS_XTNEXT   31   /* Ts: xfile next time */
-#define PTGV_TS_VPREV    32   /* Ts: xfile last value */
-#define PTGV_TS_VNEXT    33   /* Ts: xfile next value */
+#define PTGV_TS_XTPREV   34   /* Ts: xfile last time */
+#define PTGV_TS_XTNEXT   35   /* Ts: xfile next time */
+#define PTGV_TS_VPREV    36   /* Ts: xfile last value */
+#define PTGV_TS_VNEXT    37   /* Ts: xfile next value */
 
-#define PTGV_MAX          33
+#define PTGV_MAX          37
 CCC_ + TGV test field
 #define VXCFG_MSMAX     1
 #define VXCFG_MSMIN     2
@@ -935,19 +937,31 @@ CCC_   . surface mass balance
       endif
 c$$$      write(*, *) 'MS', VMHB(:, VMHB_MS)
 CCC_   . basal mass balance
-      TDUR  = PTGV(PTGV_B_DURATION)
-      TINC  = PTGV(PTGV_B_TINCR)
-      TDEC  = PTGV(PTGV_B_TDECR)
-      TLST  = PTGV(PTGV_B_TLSTD)
-      THST  = PTGV(PTGV_B_THSTD)
-      PHS   = PTGV(PTGV_B_PHASE)
       KSWEV = ITGV(ITGV_MBPATTERN)
-      call TGVtev
-     O    (iErr,
-     O     VMHB(1, VMHB_MB),
-     I     VXCFG(1, VXCFG_MBMAX), VXCFG(1, VXCFG_MBMIN),
-     I     TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
-     I     T,    MH,   LH)
+      if (ITGV(ITGV_XFILE_MS).gt.0) then
+         call TGVxev
+     O       (iErr,
+     O        VMHB(1, VMHB_MB),
+     M        PTGV(PTGV_B_VPREV),    PTGV(PTGV_B_VNEXT),
+     M        PTGV(PTGV_B_XTPREV),   PTGV(PTGV_B_XTNEXT),
+     I        VXCFG(1, VXCFG_MBMAX), VXCFG(1, VXCFG_MBMIN),
+     I        ITGV(ITGV_XFILE_MB),
+     I        KSWEV, XOPR_ADD,
+     I        T,    MH,   LH, IFPl)
+      else
+         TDUR  = PTGV(PTGV_B_DURATION)
+         TINC  = PTGV(PTGV_B_TINCR)
+         TDEC  = PTGV(PTGV_B_TDECR)
+         TLST  = PTGV(PTGV_B_TLSTD)
+         THST  = PTGV(PTGV_B_THSTD)
+         PHS   = PTGV(PTGV_B_PHASE)
+         call TGVtev
+     O       (iErr,
+     O        VMHB(1, VMHB_MB),
+     I        VXCFG(1, VXCFG_MBMAX), VXCFG(1, VXCFG_MBMIN),
+     I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
+     I        T,    MH,   LH)
+      endif
 CCC_   . geothermal heat flux
 c$$$      GH = -42.0d-3 * 31556926.d0
 c$$$      call UV0sta (VMHB, MH, LH, VMHB_GH,  GH)
