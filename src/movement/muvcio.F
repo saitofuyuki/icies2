@@ -1,15 +1,15 @@
-C movement/muvcio.F --- IcIES/Movement/Utility variable cluster
+C movement/muvcio.F - IcIES/Movement/Utility variable cluster
 C Maintainer:  SAITO Fuyuki
 C Created: Oct 3 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/02/08 11:01:44 fuyuki muvcio.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/13 13:54:40 fuyuki muvcio.F>'
 #define _FNAME 'movement/muvcio.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2012--2020
+C Copyright (C) 2012-2021
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -23,7 +23,7 @@ CCC_* Common macros
 #include "odevva.h"
 #include "movement.h" /* movement definitions */
 CCC_* Set attributes
-CCC_ & MUVrgd  ## variable cluster group default register
+CCC_ & MUVrgd - variable cluster group default register
       subroutine MUVrgd
      O    (iErr,
      O     idGM,
@@ -188,7 +188,7 @@ CCC_  - Declaration
       endif
       RETURN
       END
-CCC_ & MUVmng  ## variable cluster group manager
+CCC_ & MUVmng - variable cluster group manager
       subroutine MUVmng
      O    (iErr, idGM,
      I     CGRP,
@@ -350,7 +350,7 @@ c
       call DAtrcU (jpL, iErr, CGRP, 'MUVMNG')
       RETURN
       END
-CCC_ & MUVmhb  ## Set VMHB attributes [Boundary conditions]
+CCC_ & MUVmhb - Set VMHB attributes [Boundary conditions]
       subroutine MUVmhb
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -415,7 +415,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmhr  ## Set VMHR attributes [Boundary condition references]
+CCC_ & MUVmhr - Set VMHR attributes [Boundary condition references]
       subroutine MUVmhr
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -445,7 +445,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmhi  ## Set VMHI attributes
+CCC_ & MUVmhi - Set VMHI attributes
       subroutine MUVmhi
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -481,12 +481,13 @@ c
       call AFBrgi (iErr, idVG, VMHI_ADVYn, icG (1), 'advyn')
       call AFBrgi (iErr, idVG, VMHI_ADVYs, icG (1), 'advys')
       call AFBrgi (iErr, idVG, VMHI_frd,   icG (1), 'frd')
+      call AFBrgi (iErr, idVG, VMHI_bm,    icG (1), 'bm')
 c
       if (iErr.eq.0) call AFBgmf (iErr, idVG, ' ', ' ', IE, IFPa)
 c
       RETURN
       END
-CCC_ & MUVmti  ## Set VMTI attributes
+CCC_ & MUVmti - Set VMTI attributes
       subroutine MUVmti
      O    (iErr, idVG,
      I     CGRP, icG,  MH,  LH, MZ, LZ, CSW,  CLS, CRT, IFPa, IE,  iMA)
@@ -529,7 +530,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVvmi  ## Set VMI attributes
+CCC_ & MUVvmi - Set VMI attributes
       subroutine MUVvmi
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -581,7 +582,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVvmc  ## Set VMC attributes
+CCC_ & MUVvmc - Set VMC attributes
       subroutine MUVvmc
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -650,7 +651,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmid  ## Set VMID attributes
+CCC_ & MUVmid - Set VMID attributes
       subroutine MUVmid
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -692,7 +693,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmiw  ## Set VMIW attributes
+CCC_ & MUVmiw - Set VMIW attributes
       subroutine MUVmiw
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -726,7 +727,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVvmq  ## Set QM attributes
+CCC_ & MUVvmq - Set QM attributes
       subroutine MUVvmq
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -761,7 +762,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVvmx  ## Set X attributes
+CCC_ & MUVvmx - Set X attributes
       subroutine MUVvmx
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -800,7 +801,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmhw  ## Set VMHW attributes
+CCC_ & MUVmhw - Set VMHW attributes
       subroutine MUVmhw
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -838,7 +839,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmtw  ## Set VMTW attributes
+CCC_ & MUVmtw - Set VMTW attributes
       subroutine MUVmtw
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, MZ, LZ, CSW,  CLS, CRT, IFPa, IE, iMA)
@@ -921,7 +922,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmsc  ## Set VMSC attributes
+CCC_ & MUVmsc - Set VMSC attributes
       subroutine MUVmsc
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -1025,7 +1026,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmsv  ## Set VMSV attributes
+CCC_ & MUVmsv - Set VMSV attributes
       subroutine MUVmsv
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -1099,7 +1100,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmsx  ## Set VMSX attributes (choice)
+CCC_ & MUVmsx - Set VMSX attributes (choice)
       subroutine MUVmsx
      O    (iErr, idVG,
      I     CGRP, OSUBI,
@@ -1142,7 +1143,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVswn  ## Set VMSW/N attributes
+CCC_ & MUVswn - Set VMSW/N attributes
       subroutine MUVswn
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -1195,7 +1196,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVswt  ## Set VMSW/T attributes
+CCC_ & MUVswt - Set VMSW/T attributes
       subroutine MUVswt
      O    (iErr, idVG,
      I     CGRP, icG,  MH, LH, CSW, CLS, CRT, IFPa, IE, iMA)
@@ -1248,7 +1249,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmta  ## Set VMTA attributes
+CCC_ & MUVmta - Set VMTA attributes
       subroutine MUVmta
      O    (iErr, idVG,
      I     CGRP, icG,  MH,  LH, MZ, LZ, CSW,  CLS, CRT, IFPa, IE,  iMA)
@@ -1282,7 +1283,7 @@ c
 c
       RETURN
       END
-CCC_ & MUVmtd  ## Set VMTD attributes
+CCC_ & MUVmtd - Set VMTD attributes
       subroutine MUVmtd
      O    (iErr, idVG,
      I     CGRP, icG,  MH,  LH, MZ, LZ, CSW,  CLS, CRT, IFPa, IE,  iMA)
@@ -1331,7 +1332,7 @@ c
 c
       RETURN
       END
-CCC_& MUVCIO  ## Movement/SSA/cluster io announcement
+CCC_& MUVCIO - Movement/SSA/cluster io announcement
       subroutine MUVCIO (STRA, STRB, IOP)
 CCC_ + Declaration
       implicit none
@@ -1353,10 +1354,10 @@ CCC_ + Body
       endif
       RETURN
       END
-CCC_* [TEST]  ## test
+CCC_* [TEST] - test
 #ifdef TEST_MUVCIO
 #include "ofnstd.h"
-CCC_ @ MUVtst  ## test program
+CCC_ @ MUVtst - test program
       program MUVtst
 CCC_  - Test suites
 CCC_  - Declaration
@@ -1385,7 +1386,7 @@ c
       call DevFin (iErr)
       STOP
       END
-CCC_ & MUVtestMain  ## check main
+CCC_ & MUVtestMain - check main
       subroutine MUVtestMain (iErr, ipA, iMA)
 CCC_  - Declaration
       implicit none

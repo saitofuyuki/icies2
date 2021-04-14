@@ -1,15 +1,15 @@
-C movement/mttcol.F --- IcIES/Movement/Thermodynamics collection
+C movement/mttcol.F - IcIES/Movement/Thermodynamics collection
 C Maintainer:  SAITO Fuyuki
 C Created: May 7 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/07 17:01:00 fuyuki mttcol.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/14 10:07:07 fuyuki mttcol.F>'
 #define _FNAME 'movement/mttcol.F'
-#define _REV   'Snoopy0.9'
+#define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2013--2020
+C Copyright (C) 2013-2021
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -42,10 +42,6 @@ CC#define DEBUG_MTSBLD 1
 #  define DEBUG_MTTCOL_SPECIAL 0
 #endif
 
-c$$$#define DEBUG_FLAT_THCOND 1
-#ifndef   DEBUG_FLAT_THCOND
-#  define DEBUG_FLAT_THCOND 0
-#endif
 c$$$#define DEBUG_CONSTANT_THCOND 1
 c$$$#define DEBUG_CONSTANT_HCAPI  1
 #ifndef   DEBUG_CONSTANT_THCOND
@@ -62,7 +58,7 @@ CCC_ + switch
 #  define  OPT_TZLP_METHOD  LOOP_CHOICE
 #endif
 CCC_* Initialization
-CCC_ & MTTnpm  ## Parameters initialization by namelist
+CCC_ & MTTnpm - Parameters initialization by namelist
       subroutine MTTnpm
      O    (iErr,
      O     OMM,  IMM,  PMM,
@@ -80,15 +76,17 @@ CCC_   . Configuration
       character  CROOT * (8)
       _REALSTD   DENS
       _REALSTD   T0, HCAPI, HCAPIG, CONDI,  CLCLD, CONDIP
-      _REALSTD   TBSHC
+      _REALSTD   TBSHC, HCLI
+      _REALSTD   YS
       namelist /NIPRMT/
      $     CROOT,
      $     T0, DENS,  HCAPI, HCAPIG, CONDI, CONDIP, CLCLD,
-     $     TBSHC
+     $     TBSHC,     HCLI
 CCC_   . interior
       integer jc
 CCC_  - Body
       iErr = 0
+      YS = 31556926.d0
 CCC_   . Configuration
       jc = 0
  200  continue
@@ -111,16 +109,17 @@ c$$$      HCAPI  = 2009.0d0
 c$$$      CONDI = 2.1d0
 c$$$      CONDI = 2.1d0    * (31556926.d0 ** 3.0d0)
 #if DEBUG_CONSTANT_THCOND
-      CONDI  = 2.1d0 * 31556926.d0
+      CONDI  = 2.1d0 * YS
 c$$$      CONDI  = 2.3d0 * 31556926.d0
       CONDIP = 0.0d0
 #else /* not DEBUG_CONSTANT_THCOND */
-      CONDI  = 9.828d0 * 31556926.d0
+      CONDI  = 9.828d0 * YS
       CONDIP = -5.7d-3
 #endif /* not DEBUG_CONSTANT_THCOND */
 c$$$      CONDI = 2.1d0 * 31556926.d0
       CLCLD = 8.7d-4
       TBSHC = -2.0d0 + T0
+      HCLI  = 335.0d3
 c
       if (IFPi.ge.0) then
          READ  (IFPi, NIPRMT, IOSTAT = iErr)
@@ -162,12 +161,13 @@ CCC_   . Packing
       PMM (PMT_CLCLD) = CLCLD
       PMM (PMT_T0)    = T0
       PMM (PMT_TBSHC) = TBSHC
+      PMM (PMT_LHC)   = HCLI
 c
       call DAtrcU (IFPl, iErr, 'R', 'MTTNPM')
       RETURN
       END
 CCC_* temperature update
-CCC_ & MTBuvs  ## temperature update (preparation i)
+CCC_ & MTBuvs - temperature update (preparation i)
       subroutine MTBuvs
      O    (iErr,
      M     VMTI,  VMTW, VMHI, VMHW,
@@ -228,12 +228,15 @@ CCC_   . thermal conductivity
       if (iErr.eq.0) then
          CONDI  = PMM (PMT_COND)
          CONDIP = PMM (PMT_CONDP)
-         call MTSthc
-     O       (iErr,
-     O        VMTW,
-     I        VMHW, VMTI,  CONDI, CONDIP,
-     I        WZV,
-     I        MH,   LH,    NZ,  LZ, KZ0)
+         call MTFitc
+     $       (VMTW(1, 1, VMTW_kti),
+     $        VMTI(1, 1, VMTI_T), CONDI, CONDIP, MH, LH, NZ, LZ, KZ0)
+c$$$         call MTBthc
+c$$$     O       (iErr,
+c$$$     O        VMTW,
+c$$$     I        VMHW, VMTI,  CONDI, CONDIP,
+c$$$     I        WZV,
+c$$$     I        MH,   LH,    NZ,  LZ, KZ0)
       endif
 CCC_   , heat capacity
       if (iErr.eq.0) then
@@ -246,24 +249,29 @@ CCC_   , heat capacity
 CCC_   . total heat sources
       if (iErr.eq.0) then
          DENSI = PMM (PMT_DENS)
-c$$$         TDC   = 1.0d0/DENSI/HCAPI * (31556926.0d0 ** 2.0d0)
-c$$$         TDC   = 1.0d0/DENSI/HCAPI
          do jz = 1, KZ0 + NZ - 1
             do jh = 1, MH
                TDC = 1.0d0/DENSI/VMTW(jh,jz,VMTW_hcap)
                VMTW(jh, jz, VMTW_HS) = VMTI(jh, jz, VMTI_sh) * TDC
             enddo
          enddo
-c$$$         call UV1nwc
-c$$$     $        (VMTW, VMTI, MH, LH, NZ, LZ, KZ0, VMTW_HS, VMTI_sh, TDC)
       endif
       if (iErr.eq.0) then
          call UV3naa
      $        (VMHW, VMHI, VMHB, MH, LH, VMHW_HSB, VMHI_frd, VMHB_GH)
       endif
+CCC_   . basal mass balance diagnose
+      if (iErr.eq.0) then
+         call MTBdbm
+     O       (iErr,
+     M        VMHI, VMHW,
+     I        VMTI, VMTW,
+     I        WZV,  PMM,  IMM,
+     I        MH,   LH,   NZ,   LZ,  KZ0)
+      endif
       RETURN
       END
-CCC_ & MTButp  ## temperature update (preparation ii)
+CCC_ & MTButp - temperature update (preparation ii)
       subroutine MTButp
      O    (iErr,
      O     KTB,   NHt,
@@ -327,6 +335,14 @@ c
      I        DT,
      I        KHH,   KTB,   NHt, MH,    LH)
       endif
+      if (iErr.eq.0) then
+         call MTStcg
+     O       (iErr,
+     O        VMTW,
+     I        VMHW,
+     I        KTB,  WZV,
+     I        NHt,  LH,   NZ,  LZ, KZ0)
+      endif
 c
       if (iErr.eq.0) then
          if (IMM(IMD_WADV).eq. SW_WADV_RAW) then
@@ -359,7 +375,7 @@ c
 c
       RETURN
       END
-CCC_ & MTBupd  ## temperature update (solver)
+CCC_ & MTBupd - temperature update (solver)
       subroutine MTBupd
      O    (iErr,
      M     VMTI,  VMTW, VMHI, VMHW,
@@ -443,15 +459,6 @@ CCC_   + solver choices
          endif
       endif
       if (iErr.eq.0) then
-         call MTSgtb
-     O       (iErr,
-     M        VMTW, VMTW_W1,
-     I        VMTI, VMHW, VMHI, VMHB,
-     I        KTB,  WZV,  PMM,  IMM, DT,
-     I        NHt,  LH,   NZ,   LZ,  KZ0,
-     I        IFPl)
-      endif
-      if (iErr.eq.0) then
          call MTTzst
      O       (VMTW,
      I        VMHB,
@@ -468,6 +475,15 @@ CCC_   + solver choices
       endif
 #endif
       if (iErr.eq.0) then
+         call MTBgta
+     O       (iErr,
+     M        VMTI,
+     I        VMTW, VMHW, VMHI, VMHB,
+     I        WZV,  PMM,  IMM,  DT,
+     I        MH,   LH,   NZ,   LZ,  KZ0,
+     I        IFPl)
+      endif
+      if (iErr.eq.0) then
          T0 = PMM (PMT_T0)
          CC = PMM (PMT_CLCLD)
          call MPPdtc
@@ -479,7 +495,275 @@ CCC_   + solver choices
 c
       RETURN
       END
-CCC_ & MTTzst  ## set skipped grids as surface temperature
+CCC_ & MTBthc - Thermal conductivity
+      subroutine MTBthc
+     O    (iErr,
+     O     VMTW,
+     I     VMTI, CONDI, CONDIP,
+     I     MH,   LH,    NZ,  LZ, KZ0)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)  iErr
+      _INTENT(IN,   integer)  MH, LH
+      _INTENT(IN,   integer)  NZ, LZ, KZ0
+c
+      _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
+c
+      _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
+c
+      _INTENT(IN,   _REALSTD) CONDI, CONDIP
+CCC_  . Body
+      iErr = 0
+      call MTFitc
+     $    (VMTW(1, 1, VMTW_kti),
+     $     VMTI(1, 1, VMTI_T), CONDI, CONDIP, MH, LH, NZ, LZ, KZ0)
+      RETURN
+      END
+CCC_ & MTBgta - diag ghost temperature at bottom
+      subroutine MTBgta
+     O    (iErr,
+     M     VMTI,
+     I     VMTW, VMHW, VMHI, VMHB,
+     I     WZV,  PMM,  IMM,  DT,
+     I     MH,   LH,   NZ,   LZ,  KZ0,
+     I     IFPl)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)  iErr
+      _INTENT(IN,   integer)  MH, LH
+      _INTENT(IN,   integer)  NZ, LZ, KZ0
+c
+      _INTENT(INOUT,_REALSTD) VMTI (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VMTW (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VMHW (LH, *)
+      _INTENT(IN,   _REALSTD) VMHI (LH, *)
+      _INTENT(IN,   _REALSTD) VMHB (LH, *)
+c
+      _INTENT(IN,   _REALSTD) PMM  (*)
+      _INTENT(IN,   integer)  IMM  (*)
+      _INTENT(IN,   _REALSTD) DT
+      _INTENT(IN,   _REALSTD) WZV  (LZ, *)
+c
+      _INTENT(IN,   integer)  IFPl
+c
+      integer   kx
+      integer   jh
+      integer   jzz, jz
+c
+      _REALSTD  BU, BD, BL, BB
+      _REALSTD  TKDD
+      _REALSTD  DZDZ,  DPDZ
+      _REALSTD  BDSWu, BDSWl
+      _REALSTD  TBa, TBb
+      _REALSTD  DLF
+CCC_  - Body
+      iErr  = 0
+      KX = VMTI_T
+CCC_   . loop interior
+      DLF = (PMM(PMT_DENS) * PMM(PMT_LHC))
+CCC_   . bottom
+      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+         BDSWl = 0.5d0
+         BDSWu = 0.5d0
+      else
+         BDSWl = 1.0d0
+         BDSWu = 0.0d0
+      endif
+      do    jzz = 1,  1
+         jz = KZ0 + jzz - 1
+         DPDZ  = WZV (jz, VMVZ_dXa)
+         do jh = 1,  MH
+            TBa   = VMHB (jh, VMHB_TBFLG)
+            TBb   = 1.0d0 - TBa
+            DZDZ  = VMHW (jh, VMHW_Hinv)
+            TKDD  = VMTW (jh, jz, VMTW_kti) * DPDZ * DZDZ
+            BU    = TKDD * BDSWu * WZV (jz,   VMVZ_dWPb)
+            BL    = TKDD * BDSWl * WZV (jz-1, VMVZ_dWMb)
+            BD    = TKDD *
+     $           (BDSWu * WZV (jz,   VMVZ_dWMb)
+     $           +BDSWl * WZV (jz-1, VMVZ_dWPb))
+            BB    = VMHW (jh, VMHW_HSB)
+     $           +  VMHI (jh, VMHI_bm) * DLF
+            VMTI(jh, jz-1, KX) =
+     $           TBb *
+     $           ((BB - (BU*VMTI(jh,jz+1,KX)+BD*VMTI(jh,jz,KX)))/BL)
+     $           + Tba * VMHB(jh, VMHB_TBI)
+c$$$            if (jh.eq.6) then
+c$$$               write(*, *) jh, BB, BU, BD, BL, VMTI(jh,jz-1:jz+1,KX)
+c$$$            endif
+         enddo
+      enddo
+      RETURN
+      END
+CCC_ & (obsolete) MTBgtb - diag ghost temperature at bottom
+      subroutine MTBgtb
+     O    (iErr,
+     M     VMTW, KX,
+     I     VMTI, VMHW, VMHI, VMHB,
+     I     KTB,  WZV,  PMM,  IMM, DT,
+     I     NH,   LH,   NZ,   LZ,  KZ0,
+     I     IFPl)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)  iErr
+      _INTENT(IN,   integer)  NH, LH
+      _INTENT(IN,   integer)  NZ, LZ, KZ0
+      _INTENT(IN,   integer)  KX
+c
+      _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VMHW (LH, *)
+      _INTENT(IN,   _REALSTD) VMHI (LH, *)
+      _INTENT(IN,   _REALSTD) VMHB (LH, *)
+c
+      _INTENT(IN,   integer)  KTB  (LH, *)
+      _INTENT(IN,   _REALSTD) PMM  (*)
+      _INTENT(IN,   integer)  IMM  (*)
+      _INTENT(IN,   _REALSTD) DT
+      _INTENT(IN,   _REALSTD) WZV  (LZ, *)
+c
+      _INTENT(IN,   integer)  IFPl
+c
+      integer   jh,  jht, jhti
+      integer   jzz, jz
+      integer   kfw, kbw
+c
+      _REALSTD  BU, BD, BL, BB
+      _REALSTD  TKDD
+      _REALSTD  DZDZ,  DPDZ
+      _REALSTD  BDSWu, BDSWl
+      _REALSTD  TBa, TBb
+      _REALSTD  DLF
+CCC_  - Body
+      iErr  = 0
+      kfw   = 1
+      kbw   = 2
+CCC_   . loop interior
+      DLF = (PMM(PMT_DENS) * PMM(PMT_LHC))
+CCC_   . bottom
+      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+         BDSWl = 0.5d0
+         BDSWu = 0.5d0
+      else
+         BDSWl = 1.0d0
+         BDSWu = 0.0d0
+      endif
+      do    jzz = 1,  1
+         jz = KZ0 + jzz - 1
+         DPDZ  = WZV (jz, VMVZ_dXa)
+         do jht = 1,  NH
+            jh = KTB (jht, kfw)
+            jhti = jht
+            TBa   = VMHB (jh, VMHB_TBFLG)
+            TBb   = 1.0d0 - TBa
+            DZDZ  = VMHW (jh, VMHW_Hinv)
+            TKDD  = VMTW (jh, jz, VMTW_kti) * DPDZ * DZDZ
+            BU    = TKDD * BDSWu * WZV (jz,   VMVZ_dWPb)
+            BL    = TKDD * BDSWl * WZV (jz-1, VMVZ_dWMb)
+            BD    = TKDD *
+     $           (BDSWu * WZV (jz,   VMVZ_dWMb)
+     $           +BDSWl * WZV (jz-1, VMVZ_dWPb))
+            BB    = VMHW (jh, VMHW_HSB)
+     $           +  VMHI (jh, VMHI_bm) * DLF
+            VMTW(jht,jz - 1,KX) =
+     $           TBb *
+     $           ((BB - (BU*VMTW(jht,jz+1,KX)+BD*VMTW(jht,jz,KX)))/BL)
+     $           + Tba * VMHB(jh, VMHB_TBI)
+         enddo
+      enddo
+      RETURN
+      END
+CCC_ & MTBdbm - diagnose basal melting (similar method to MTBgtd)
+      subroutine MTBdbm
+     O    (iErr,
+     M     VMHI, VMHW,
+     I     VMTI, VMTW,
+     I     WZV,  PMM,  IMM,
+     I     MH,   LH,   NZ,   LZ,  KZ0)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,  integer)  iErr
+      _INTENT(IN,   integer)  MH, LH
+      _INTENT(IN,   integer)  NZ, LZ, KZ0
+c
+      _INTENT(INOUT,_REALSTD) VMHW (LH, *)
+      _INTENT(INOUT,_REALSTD) VMHI (LH, *)
+      _INTENT(IN,   _REALSTD) VMTW (LH, LZ, *)
+      _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
+c
+      _INTENT(IN,   _REALSTD) PMM  (*)
+      _INTENT(IN,   integer)  IMM  (*)
+      _INTENT(IN,   _REALSTD) WZV  (LZ, *)
+c
+      integer   jh,  jht, jhti
+      integer   jzz, jz
+      integer   kfw, kbw
+      integer   kwhi, khh
+      integer   KTT
+c
+      _REALSTD  BU, BD, BL, BB
+      _REALSTD  TKDD
+      _REALSTD  DZDZ,  DPDZ
+      _REALSTD  BDSWu, BDSWl
+      _REALSTD  DTF
+      _REALSTD  DLD
+      _REALSTD  T0, CC, P0
+CCC_  - Body
+      iErr = 0
+      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+         BDSWl = 0.5d0
+         BDSWu = 0.5d0
+      else
+         BDSWl = 1.0d0
+         BDSWu = 0.0d0
+      endif
+c
+      khh  = VMHI_oHa
+      kwhi = VMHW_W1
+      ktt  = VMTI_T
+c
+      DLD = 1.0d0 / (PMM(PMT_DENS) * PMM(PMT_LHC))
+c
+      do jh = 1, MH
+         if (VMHI(jh, KHH).le.0.0d0) then
+            VMHW(jh, kwhi) = 0.0d0
+         else
+            VMHW(jh, kwhi) = 1.0d0 / VMHI(jh, KHH)
+         endif
+      enddo
+      do    jzz = 1,  1
+         jz = KZ0 + jzz - 1
+         DPDZ  = WZV (jz, VMVZ_dXa)
+         do jh = 1, MH
+            DZDZ  = VMHW (jh, kwhi)
+            TKDD  = VMTW (jh, jz, VMTW_kti) * DPDZ * DZDZ
+            BU    = TKDD * BDSWu * WZV (jz,   VMVZ_dWPb)
+            BL    = TKDD * BDSWl * WZV (jz-1, VMVZ_dWMb)
+            BD    = TKDD *
+     $           (BDSWu * WZV (jz,   VMVZ_dWMb)
+     $           +BDSWl * WZV (jz-1, VMVZ_dWPb))
+            BB    = VMHW (jh, VMHW_HSB)
+            DTF = (BU * VMTI(jh, jz+1, ktt) + BL * VMTI(jh, jz-1, ktt))
+     $           + BD * VMTI(jh, jz, ktt)
+            VMHI(jh, VMHI_bm) = (DTF - BB) * DLD
+c$$$            VMHI(jh, VMHI_bm) = (- BB) * DLD
+c$$$            VMHI(jh, VMHI_bm) = (DTF) * DLD
+         enddo
+      enddo
+
+      jz = KZ0 + 1 - 1
+      T0 = PMM (PMT_T0)
+      CC = PMM (PMT_CLCLD)
+      P0 = 0.0d0
+      call MPPmsk
+     M    (VMHI, VMHI_bm, VMHI_oHa,
+     I     P0,
+     I     VMTI, VMTI_T,
+     I     WZV(1, VMVZ_cZa), T0,  CC,
+     I     MH,   LH,  JZ, LZ)
+      return
+      END
+CCC_ & MTTzst - set skipped grids as surface temperature
       subroutine MTTzst
      O    (VMTW,
      I     VMHB,
@@ -513,7 +797,7 @@ CCC_  - Body
       RETURN
       END
 CCC_* kiwi
-CCC_ & MTKcgr  ## clone gloup declaration
+CCC_ & MTKcgr - clone gloup declaration
       subroutine MTKcgr
      O    (iErr,
      O     ipCG,
@@ -583,7 +867,7 @@ c
       call DAtrcU (IFPl, iErr, 'R', 'MTKCGR')
       RETURN
       END
-CCC_ & MTKodc  ## kiwi operator declaration
+CCC_ & MTKodc - kiwi operator declaration
       subroutine MTKodc
      O    (iErr,
      M     ipKW,
@@ -602,7 +886,7 @@ CCC_ & MTKodc  ## kiwi operator declaration
 CCC_* variation/V - Violet inheritance
 CCC_* variation/N - Sally/NH[34] inheritance
 CCC_* variation/S - Sally/NH2 inheritance
-CCC_ & MTShsd  ## heating term computation (t:old) late interpolation
+CCC_ & MTShsd - heating term computation (t:old) late interpolation
       subroutine MTShsd
      O    (iErr,
      O     VMTI,  VMHI, VMHW,
@@ -724,7 +1008,7 @@ CCC_   . frictional dissipation
      I     MH,  LH, VMHI_frd, VMHW_W2, VMHW_W3)
       RETURN
       END
-CCC_ & MTShst  ## heating term computation (t:old)  Sally compatible
+CCC_ & MTShst - heating term computation (t:old)  Sally compatible
       subroutine MTShst
      O    (iErr,
      O     VMTI,  VMHI,
@@ -813,7 +1097,7 @@ CCC_   . frictional dissipation
      I     MH,  LH,  NZ,  LZ,  KZ0)
       RETURN
       END
-CCC_ & MTShcs  ## specific heat capacity
+CCC_ & MTShcs - specific heat capacity
       subroutine MTShcs
      O    (iErr,
      O     VMTW,
@@ -837,7 +1121,7 @@ CCC_  - Body
      $        MH,  LH,  NZ, LZ, KZ0)
       endif
       END
-CCC_ & MTStgp  ## topography gradient preparation (t:new)
+CCC_ & MTStgp - topography gradient preparation (t:new)
       subroutine MTStgp
      O    (iErr,
      O     KTB,   NH,
@@ -949,7 +1233,7 @@ CCC_    * selection
      I     MH,    LH,  ipKW,  iMA)
       RETURN
       END
-CCC_ & MTSuws  ## upwind selection sub
+CCC_ & MTSuws - upwind selection sub
       subroutine MTSuws
      O    (iErr,
      M     VW,    CW,
@@ -1006,7 +1290,7 @@ CCC_   . result
 c
       RETURN
       END
-CCC_ & MTSuww  ## upwind selection (y)
+CCC_ & MTSuww - upwind selection (y)
       subroutine MTSuwy
      O    (iErr,
      M     VW,    CW,
@@ -1058,7 +1342,7 @@ CCC_   . result
 c
       RETURN
       END
-CCC_ & MTSpjc  ## derivative conversion coefficients preparation
+CCC_ & MTSpjc - derivative conversion coefficients preparation
       subroutine MTSpjc
      O    (iErr,
      M     VMHW,
@@ -1098,7 +1382,7 @@ c$$$         write (*, *) jht, NH, jh, VMHI (jh, KHH)
       enddo
       RETURN
       END
-CCC_ & MTScxs  ## equation coefficients  (temperature independent)
+CCC_ & MTScxs - equation coefficients  (temperature independent)
       subroutine MTScxs
      O    (iErr,
      M     VMTW,
@@ -1142,15 +1426,6 @@ CCC_  - Body
       iErr = 0
       kfw  = 1
       kbw  = 2
-c
-c$$$      CONDI  = PMM (PMT_COND)
-c$$$      CONDIP = PMM (PMT_CONDP)
-c$$$      call MTSthc
-c$$$     O    (iErr,
-c$$$     O     VMTW,
-c$$$     I     VMHW, VMTI,  CONDI, CONDIP,
-c$$$     I     WZV,
-c$$$     I     NH,   LH,    NZ,  LZ, KZ0)
 c
       DDZDZ = 0.0d0
       DENSI = PMM (PMT_DENS)
@@ -1219,7 +1494,7 @@ c$$$     $           jh, jz, B33, D33, DZDZ, VMHI (jh, VMHI_nHa)
       enddo
       RETURN
       END
-CCC_ & MTScxw  ## equation coefficients, variation wadj (temperature independent)
+CCC_ & MTScxw - equation coefficients, variation wadj (temperature independent)
       subroutine MTScxw
      O    (iErr,
      M     VMTW,
@@ -1316,48 +1591,40 @@ CCC_   . E33 = D33 [d[Z]/dZ]^2
       enddo
       RETURN
       END
-CCC_ & MTSthc  ## Thermal conductivity and gradient
-      subroutine MTSthc
+CCC_ & MTStcg - Thermal conductivity gradient
+      subroutine MTStcg
      O    (iErr,
      O     VMTW,
-     I     VMHW, VMTI,  CONDI, CONDIP,
-     I     WZV,
-     I     MH,   LH,    NZ,  LZ, KZ0)
+     I     VMHW,
+     I     KTB,  WZV,
+     I     NH,   LH,    NZ,  LZ, KZ0)
 CCC_  - Declaration
       implicit none
       _INTENT(OUT,  integer)  iErr
-      _INTENT(IN,   integer)  MH, LH
+      _INTENT(IN,   integer)  NH, LH
       _INTENT(IN,   integer)  NZ, LZ, KZ0
 c
       _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
 c
-      _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
+      _INTENT(IN,   integer)  KTB  (LH, *)
       _INTENT(IN,   _REALSTD) VMHW (LH, *)
       _INTENT(IN,   _REALSTD) WZV  (LZ, *)
 c
-      _INTENT(IN,   _REALSTD) CONDI, CONDIP
-c
-      integer   jh
+      integer   jh,  jht
       integer   jzz, jz
+      integer   kfw, kbw
+c
       _REALSTD  du, dl, da
       _REALSTD  DPDZ, DZDZ
 CCC_  . Body
       iErr = 0
+      kfw  = 1
+      kbw  = 2
 c
-      call MTFitc
-     $    (VMTW(1, 1, VMTW_kti),
-     $     VMTI(1, 1, VMTI_T), CONDI, CONDIP, MH, LH, NZ, LZ, KZ0)
-c
-#if DEBUG_FLAT_THCOND
-      call UV0stc(VMTW, MH, LH, NZ, LZ, KZ0, VMTW_dktidz, 0.0d0)
-#else /* not DEBUG_FLAT_THCOND */
-c$$$      do jzz = 1, NZ
-c$$$         jz = KZ0 + jzz - 1
-c$$$         write(*,*) WZV(jz-1,VMVZ_dWPb),WZV(jz-1,VMVZ_dWMb)
-c$$$      enddo
       do jzz = 1, NZ
          jz = KZ0 + jzz - 1
-         do jh = 1, MH
+         do jht = 1, NH
+            jh = KTB (jht, kfw)
             VMTW(jh, jz, VMTW_dktidz) =
      $           ( VMTW(jh,jz,  VMTW_kti) * WZV(jz-1,VMVZ_dWPb)
      $           + VMTW(jh,jz-1,VMTW_kti) * WZV(jz-1,VMVZ_dWMb))
@@ -1371,7 +1638,8 @@ c$$$      enddo
          du = du / da
          dl = dl / da
          DPDZ  = WZV (jz, VMVZ_dXa)
-         do jh = 1, MH
+         do jht = 1, NH
+            jh = KTB (jht, kfw)
             DZDZ  = VMHW (jh, VMHW_Hinv)
             VMTW(jh, jz, VMTW_dktidz) =
      $           ( VMTW(jh, jz,   VMTW_dktidz) * du
@@ -1382,16 +1650,16 @@ c$$$      enddo
       do jzz = NZ, NZ
          jz = KZ0 + jzz - 1
          DPDZ  = WZV (jz, VMVZ_dXa)
-         do jh = 1, MH
+         do jht = 1, NH
+            jh = KTB (jht, kfw)
             DZDZ  = VMHW (jh, VMHW_Hinv)
             VMTW(jh, jz, VMTW_dktidz) =
      $           VMTW(jh, jz, VMTW_dktidz) * DPDZ * DZDZ
          enddo
       enddo
-#endif /* not DEBUG_FLAT_THCOND */
       RETURN
       END
-CCC_ & MTSdts  ## equation coefficients  (temperature derivatives)
+CCC_ & MTSdts - equation coefficients  (temperature derivatives)
       subroutine MTSdts
      O    (iErr,
      M     VMTW, CW,
@@ -1434,7 +1702,7 @@ CCC_  - Body
 c
       RETURN
       END
-CCC_ & MTSbld  ## matrix builder core (temperature dependent)
+CCC_ & MTSbld - matrix builder core (temperature dependent)
       subroutine MTSbld
      O    (iErr,
      M     VMTW,
@@ -1574,85 +1842,7 @@ c$$$            write (*, *) jh, VMHB (jh, VMHB_TSI)
       enddo
       RETURN
       END
-CCC_ & MTSgtb  ## diag ghost temperature at bottom
-      subroutine MTSgtb
-     O    (iErr,
-     M     VMTW, KX,
-     I     VMTI, VMHW, VMHI, VMHB,
-     I     KTB,  WZV,  PMM,  IMM, DT,
-     I     NH,   LH,   NZ,   LZ,  KZ0,
-     I     IFPl)
-CCC_  - Declaration
-      implicit none
-      _INTENT(OUT,  integer)  iErr
-      _INTENT(IN,   integer)  NH, LH
-      _INTENT(IN,   integer)  NZ, LZ, KZ0
-      _INTENT(IN,   integer)  KX
-c
-      _INTENT(INOUT,_REALSTD) VMTW (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VMTI (LH, LZ, *)
-      _INTENT(IN,   _REALSTD) VMHW (LH, *)
-      _INTENT(IN,   _REALSTD) VMHI (LH, *)
-      _INTENT(IN,   _REALSTD) VMHB (LH, *)
-c
-      _INTENT(IN,   integer)  KTB  (LH, *)
-      _INTENT(IN,   _REALSTD) PMM  (*)
-      _INTENT(IN,   integer)  IMM  (*)
-      _INTENT(IN,   _REALSTD) DT
-      _INTENT(IN,   _REALSTD) WZV  (LZ, *)
-c
-      _INTENT(IN,   integer)  IFPl
-c
-      integer   jh,  jht, jhti
-      integer   jzz, jz
-      integer   kfw, kbw
-c
-      _REALSTD  BU, BD, BL, BB
-      _REALSTD  TKDD
-      _REALSTD  DZDZ,  DPDZ
-      _REALSTD  BDSWu, BDSWl
-      _REALSTD  TBa, TBb
-CCC_  - Body
-      iErr  = 0
-      kfw   = 1
-      kbw   = 2
-CCC_   . loop interior
-CCC_   . bottom
-      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
-         BDSWl = 0.5d0
-         BDSWu = 0.5d0
-      else
-         BDSWl = 1.0d0
-         BDSWu = 0.0d0
-      endif
-      do    jzz = 1,  1
-         jz = KZ0 + jzz - 1
-         DPDZ  = WZV (jz, VMVZ_dXa)
-         do jht = 1,  NH
-            jh = KTB (jht, kfw)
-            jhti = jht
-            TBa   = VMHB (jh, VMHB_TBFLG)
-            TBb   = 1.0d0 - TBa
-            DZDZ  = VMHW (jh, VMHW_Hinv)
-            TKDD  = VMTW (jh, jz, VMTW_kti) * DPDZ * DZDZ
-            BU    = TKDD * BDSWu * WZV (jz,   VMVZ_dWPb)
-            BL    = TKDD * BDSWl * WZV (jz-1, VMVZ_dWMb)
-            BD    = TKDD *
-     $           (BDSWu * WZV (jz,   VMVZ_dWMb)
-     $           +BDSWl * WZV (jz-1, VMVZ_dWPb))
-            BB    = VMHW (jh, VMHW_HSB)
-            VMTW(jht,jz - 1,KX) =
-     $           TBb *
-     $           ((BB - (BU*VMTW(jht,jz+1,KX)+BD*VMTW(jht,jz,KX)))/BL)
-     $           + Tba * VMHB(jh, VMHB_TBI)
-c$$$            write(*, *) 'T', jht, jh, jz,
-c$$$     $           VMTW(jht,jz+1,KX), VMTW(jht,jz,KX),
-c$$$     $           VMTW(jht,jz-1,KX)
-         enddo
-      enddo
-      RETURN
-      END
-CCC_& MTTCOL  ## Movement/Thermodynamics announcement
+CCC_& MTTCOL - Movement/Thermodynamics announcement
       subroutine MTTCOL (STRA, STRB, IOP)
 CCC_ + Declaration
       implicit none
@@ -1677,7 +1867,7 @@ CCC_ + Body
 CCC_* Test
 CCC_ + begin
 #if     TEST_MTTCOL
-CCC_ @ MTTTST  ## Movement/Thermodynamics test program
+CCC_ @ MTTTST - Movement/Thermodynamics test program
 #include "ofnstd.h"
 #include "odevid.h"  /* MPI table */
       program MTTTST
@@ -1704,7 +1894,7 @@ CCC_  - Body
       call DevFin (iErr)
       STOP
       END
-CCC_ & MTTtestMain   ## main
+CCC_ & MTTtestMain - main
       subroutine MTTtestMain (iErr, ipA, iMA)
 CCC_  - Declaration
       implicit none
@@ -1720,7 +1910,7 @@ CCC_ + end
 CCC_* obsolete
 CCC_ + begin
 #if 0 /* obsolete */
-CCC_ & MTSpvs  ## velocity/upwind switch preparation (t:old)
+CCC_ & MTSpvs - velocity/upwind switch preparation (t:old)
       subroutine MTSpvs
      O    (iErr,
      M     VMTI,  VMHI,
@@ -1825,7 +2015,7 @@ c$$$         enddo
 c$$$      enddo
       RETURN
       END
-CCC_ & MTSsvs  ## velocity/upwind switch preparation (sub)
+CCC_ & MTSsvs - velocity/upwind switch preparation (sub)
       subroutine MTSsvs
      O    (iErr,
      M     VMTI,  VMHI,
@@ -1917,7 +2107,7 @@ CCC_   . compute velocity used for advection
 CCC_   . return
       RETURN
       END
-c$$$CCC_ & MTSbld  ## matrix builder core
+c$$$CCC_ & MTSbld - matrix builder core
 c$$$      subroutine MTSbld
 c$$$     O    (iErr,
 c$$$     W     KTB,
@@ -2014,7 +2204,7 @@ c$$$      enddo
 c$$$CCC_   . end
 c$$$      RETURN
 c$$$      END
-CCC_ & MTSslv  ## matrix solver core (z outer)
+CCC_ & MTSslv - matrix solver core (z outer)
       subroutine MTSslv
      O    (iErr,
      M     VX,
@@ -2100,7 +2290,7 @@ c
       enddo
       RETURN
       END
-CCC_ & MTSslz  ## matrix solver core (z inner)
+CCC_ & MTSslz - matrix solver core (z inner)
       subroutine MTSslz
      O    (iErr,
      M     VX,

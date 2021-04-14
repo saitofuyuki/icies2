@@ -1,9 +1,9 @@
-dnl movement/movement.m4 --- Template for Definition for IcIES/Movement modules
+dnl movement/movement.m4 - Template for Definition for IcIES/Movement modules
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Jan 17 2012
 m4_define([TIME_STAMP],
-          ['Time-stamp: <2021/02/08 11:00:20 fuyuki movement.m4>'])dnl
-C movement/movement.h --- Definition for IcIES/Movement modules
+          ['Time-stamp: <2021/04/12 07:53:36 fuyuki movement.m4>'])dnl
+C movement/movement.h - Definition for IcIES/Movement modules
 C Maintainer:  SAITO Fuyuki
 C Created: Dec 20 2011
 #ifdef HAVE_CONFIG_H
@@ -12,11 +12,11 @@ C Created: Dec 20 2011
 #ifdef HEADER_PROPERTY
 [#]define _TSTAMP TIME_STAMP
 #define _FNAME 'movement/movement.h'
-#define _REV   'Snoopy0.9'
+#define _REV   'JosePeterson0'
 #endif /* HEADER_PROPERTY */
 CCC_! MANIFESTO
 C
-C Copyright (C) 2011--2020
+C Copyright (C) 2011-2021
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -139,6 +139,7 @@ c_xincr([HCAP],  [heat capatity coeff])
 c_xincr([HCAPG], [heat capatity gradient])
 c_xincr([CLCLD],[Melting point dependence on depth])
 c_xincr([TBSHC],[constant bottom temperature (ice shelf)])
+c_xincr([LHC],  [latent heat capacity of ice])
 c_xincr([ADIFF],[diffusion coeff for age])
 c_xincr([AEPS], [epsilon number for age in RCIP])
 c_xkeep([MAX])
@@ -1402,6 +1403,7 @@ c_xincr([ADVYn], [advection switch yn],         [advyn],[a])
 c_xincr([ADVYs], [advection switch ys],         [advys],[a])
 
 c_xincr([frd],   [frictional dissipation (not heating)],        [frd],   [a])
+c_xincr([bm],    [basal melting],                               [bm],    [a])
 
 c_xkeep([MAX])
 

@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/02/18 08:31:17 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/04/14 10:21:41 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -30,8 +30,8 @@ RECG=(VMTI  : VMTA : VMTD : VMHB 100
 typeset -A GFILV
 GFILV=(VMHB Ms:Mb:Tsi:Tbi:gh
        VMTA age:dad3:dadz
-       VMHI oH:oS:oB:nH:nS:nB
-       VMHW Hinv:dHdt:dBdt
+       VMHI oH:oS:oB:nH:nS:nB:bm
+       VMHW Hinv:dHdt:dBdt:HSB
        VMTI T:wadv:wh:dwdZ
        VBBT T
        VBBI Tu:hR:gh)
@@ -809,6 +809,16 @@ arp_ag_create_sysin_z ()
       print " &NIGEOZ CROOT='$croot', NLV=36,  DXN= 50.d0,  DXD=0.0d0 &END"
       print " &NIGEOZ CROOT='$croot', NLV=33,  DXN= 100.d0, DXD=0.0d0 &END"
       print " &NIGEOZ CROOT='$croot', NLV=-1,  DXN= 200.d0, DXD=0.0d0 &END"
+      ;;
+  (optdfa)
+      print " &NIGEOZ CROOT='$croot', NLV=1517, DXN=1.d0, DXD=16384.d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=337, DXN=2.d0, DXD=0.d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=252, DXN=4.d0, DXD=0.d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=192, DXN=8.d0, DXD=0.d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=156, DXN=16.d0, DXD=0.d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=134, DXN=32.d0, DXD=0.d0 &END"
+      print " &NIGEOZ CROOT='$croot', NLV=-1, DXN=64.d0, DXD=0.d0 &END"
+      [[ x${nz:--} == x- ]] && nz=2660
       ;;
   esac
   [[ -n $nz ]] && print " &NICOOR CROOT='$croot', NZ=$nz, &END"
