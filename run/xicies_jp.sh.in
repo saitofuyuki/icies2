@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/03/02 19:42:53 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/04/14 10:21:41 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -30,8 +30,8 @@ RECG=(VMTI  : VMTA : VMTD : VMHB 100
 typeset -A GFILV
 GFILV=(VMHB Ms:Mb:Tsi:Tbi:gh
        VMTA age:dad3:dadz
-       VMHI oH:oS:oB:nH:nS:nB
-       VMHW Hinv:dHdt:dBdt
+       VMHI oH:oS:oB:nH:nS:nB:bm
+       VMHW Hinv:dHdt:dBdt:HSB
        VMTI T:wadv:wh:dwdZ
        VBBT T
        VBBI Tu:hR:gh)

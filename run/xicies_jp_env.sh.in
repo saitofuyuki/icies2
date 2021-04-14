@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/02/18 07:50:41 fuyuki xicies_jp_env.sh.in>
+# Time-stamp: <2021/04/13 18:35:42 fuyuki xicies_jp_env.sh.in>
 #
 # Copyright: 2021 JAMSTEC
 # Licensed under the Apache License, Version 2.0
@@ -18,6 +18,7 @@ main ()
   local refs=()
   local k= v= high= low= ltp=
   local odir=.
+  local params=("$@")
   while [[ $# -gt 0 ]]
   do
     case $1 in
@@ -78,7 +79,8 @@ main ()
   gen_envf $odir G $refs -- W 'W m^-2' || return $?
 
   local dcfg=(${=xsets[n$refs[1]]})
-  print "$dcfg" > $odir/domain
+  print - "$dcfg" > $odir/domain
+  print - "${(@q-)params}" > $odir/params
 }
 
 usage ()
