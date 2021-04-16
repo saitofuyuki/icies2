@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# build-aux/icies/mkmkam --- IcIES/build-aux/Makefile.am generator
+# build-aux/icies/mkmkam - IcIES/build-aux/Makefile.am generator
 # Maintainer: SAITO Fuyuki
 # Created: Aug 7 2013 (again from scratch)
-# Time-stamp: <2020/09/14 08:25:53 fuyuki mkmkam>
+# Time-stamp: <2021/04/16 16:20:01 fuyuki mkmkam>
 # Package: IcIES-2
-# Copyright: 2013--2020 JAMSTEC
+# Copyright: 2013-2021 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -489,7 +489,8 @@ class MakeTmplIcIES (MakeTmpl):
         E.insert (EntryDef ('MKMKAM',            '$(top_srcdir)/build-aux/icies/mkmkam'))
         E.insert (EntryDef ('MKCLOCKCOND',       '$(top_srcdir)/build-aux/icies/clockcond'))
         # E.insert (EntryDef ('LCLCNDH',           '$(srcdir)/lclcnd.h'))
-        E.insert (EntryDef ('EXTRA_DIST',        '$(LCLCNDH)'))
+        tmpl = os.path.basename(self.tmpl)
+        E.insert (EntryDef ('EXTRA_DIST',        '$(LCLCNDH) %s' % tmpl))
 
         E.insert (EntryNormal (r'if NEVER',
                                r'EXTRA_PROGRAMS = dummy_never_built',
