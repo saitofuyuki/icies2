@@ -1,0 +1,163 @@
+# src/Makefile.tmpl --- IcIES src/Makefile.am template
+# Maintainer:  SAITO Fuyuki
+# Created: Nov 2 2011
+# Revision:  JosePeterson0
+# Time-stamp: <2020/09/16 12:42:27 fuyuki Makefile.tmpl>
+
+# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+bin_PROGRAMS_ORIGINS	=	icies_tgv.F
+bin_PROGRAMS = icies_tgv   ##%% t
+
+icies_tgv_LDADD			=	libicies.la
+
+lib_LTLIBRARIES = libicies.la
+libicies_la_SOURCES =
+nodist_EXTRA_libicies_la_SOURCES = dummy.F
+
+LIB_DEPEND_DIRS	=	unison development arpeggio movement begleitung
+
+libicies_la_LIBADD = unison/libicies_local.la development/libicies_local.la arpeggio/libicies_local.la movement/libicies_local.la begleitung/libicies_local.la
+
+SUBDIRS       = $(LIB_DEPEND_DIRS) ##%% t
+DIST_SUBDIRS  = $(SUBDIRS) ostinato cadenza
+
+noinst_LTLIBRARIES	=	##%% n
+## nodist_libicies_local_la_SOURCES	=	##%% n
+
+# force nullify
+LCLCNDH	= ##%% t
+
+install-cadenza:
+	@cd cadenza; $(MAKE) $(AM_MAKEFLAGS) all install
+
+### Local Variables:
+### mode: makefile-automake
+### end:
+#### End of template
+#### COMMON
+F77PREPROCESS = $(CPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS)
+STANDARD_CPPFLAGS = -I$(OSTINATO_build) -I$(top_srcdir) -I$(OSTINATO_src)
+AM_CPPFLAGS = $(STANDARD_CPPFLAGS) $(XPKG_CPPFLAGS)
+AM_LDFLAGS = $(STANDARD_LDFLAGS)  $(XPKG_LDFLAGS)
+auto_SUBDIRS_auto = .
+OSTINATO = src/ostinato
+OSTINATO_src = $(top_srcdir)/$(OSTINATO)
+OSTINATO_build = $(top_builddir)/$(OSTINATO)
+MKMKAM = $(top_srcdir)/build-aux/icies/mkmkam
+MKCLOCKCOND = $(top_srcdir)/build-aux/icies/clockcond
+EXTRA_DIST = $(LCLCNDH) Makefile.tmpl
+if NEVER
+EXTRA_PROGRAMS = dummy_never_built
+nodist_dummy_never_built_SOURCES = dummy_never_built.c
+endif
+#### END COMMON
+#### COMMON BUILDS
+.tmpl.am:
+	$(MKMKAM) $<
+force_config_status:
+	cd $(top_builddir) && $(SHELL) ./config.status
+clockh:
+	$(MAKE) $(AM_MAKEFLAGS) RECURSIVE_TARGETS=clockh-recursive clockh-recursive
+clockh-am:
+if MAINTAINER_MODE
+	if test -z "$(CLC_SRCS)"; then :; else \
+	$(MKCLOCKCOND) $(MKCLOCKCOND_FLAGS) -s $(subdir) -t $(top_srcdir) -g $(OSTINATO_build) $(CLC_SRCS); \
+	fi
+else
+	test -n '$(LCLCNDH)' && touch $(LCLCNDH)
+endif
+$(LCLCNDH): clockh-am
+tmpl2am:
+	$(MAKE) $(AM_MAKEFLAGS) RECURSIVE_TARGETS=tmpl2am-recursive tmpl2am-recursive
+tmpl2am-am:
+	$(MKMKAM) $(srcdir)/Makefile.tmpl
+catall:
+	$(MAKE) $(AM_MAKEFLAGS) RECURSIVE_TARGETS=catall-recursive catall-recursive
+catall-am: $(CATALL_files)
+catall-src:
+	@cd ../; $(MAKE) $(AM_MAKEFLAGS) catall
+libdepall:
+	@fail= failcom='exit 1'; \
+	for f in x $$MAKEFLAGS; do \
+	case $$f in \
+		*=* | --[!k]*);; \
+		*k*) failcom='fail=yes';; \
+	esac; \
+	done; \
+	target=all; \
+	list='$(LIB_DEPEND_DIRS)'; for subdir in $$list; do \
+		subdir=$(top_builddir)/$(LIB_DEPEND_BASE)/$$subdir; \
+		echo "Making library in $$subdir"; \
+		($(am__cd) $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$target) \
+		|| eval $$failcom; \
+	done; \
+	test -z "$$fail"
+.F.f:
+@am__fastdepCC_TRUE@	$(F77PREPROCESS)  -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS)  `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+copy-am: $(ta__copy_source_targets)
+$(ta__copy_source_targets):
+	@fail=; \
+	target=`echo $@ | sed s/^.*copy-//`; \
+	if test -f $(builddir)/$$target; then \
+	echo cannot overwrite $(builddir)/$$target; fail=yes; \
+	else \
+	$(CP) $(srcdir)/$$target $(builddir); \
+	fi; test -z "$$fail"
+$(DEPDIR)/dummy_never_built.Po:
+	@$(MKDIR_P) $(DEPDIR) && touch $@
+#### END COMMON BUILDS
+#### ORIGINS/BUILDS
+icies_tgv_ORIGINS = icies_tgv.F
+#### END ORIGINS/BUILDS
+#### BUILD FAMILY bin_PROGRAMS
+#### BUILD icies_tgv
+icies_tgv.$(OBJEXT): icies_tgv.f
+ta__copy_source_targets = copy-icies_tgv.F
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icies_tgv.Pf@am__quote@ # am--include-marker
+EXTRA_DIST += $(icies_tgv_ORIGINS)
+CLC_SRCS = $(icies_tgv_ORIGINS)
+CLEANFILES = icies_tgv.f gather_icies_tgv.f
+CATALL_files = gather_icies_tgv.f
+gather_icies_tgv.f: $(nodist_icies_tgv_SOURCES)
+	test -z "$(nodist_icies_tgv_SOURCES)" || cat $(nodist_icies_tgv_SOURCES) > $@ || rm -f $@
+#### END BUILD icies_tgv
+#### END BUILD FAMILY bin_PROGRAMS
+#### ORIGINS/CHECKS icies_tgv.F
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/icies_tgv-icies_tgv.Pf@am__quote@ # am--include-marker
+icies_tgv_CPPFLAGS = -DTEST_ICIES_TGV=1
+icies_tgv-icies_tgv.f: icies_tgv.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(icies_tgv_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(icies_tgv_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+nodist_icies_tgv_SOURCES = icies_tgv-icies_tgv.f
+srcchk-icies_tgv: $(nodist_icies_tgv_SOURCES)
+	$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(nodist_icies_tgv_SOURCES) $(FORTRAN_CHECK_ADD)
+sublist-icies_tgv: $(nodist_icies_tgv_SOURCES)
+	$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(nodist_icies_tgv_SOURCES) $(FORTRAN_CHECK_ADD)
+bundle-icies_tgv.f: $(nodist_icies_tgv_SOURCES) $(FORTRAN_CHECK_ADD)
+	test -z "$(nodist_icies_tgv_SOURCES)" || cat $(nodist_icies_tgv_SOURCES) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@
+CLEANFILES += icies_tgv-icies_tgv.f bundle-icies_tgv.f
+check_PROGRAMS = icies_tgv
+srcchk-all: srcchk-icies_tgv
+sublist-all: sublist-icies_tgv
+bundle-all: bundle-icies_tgv.f
+check-icies_tgv: icies_tgv
+#### END ORIGINS/CHECKS icies_tgv.F
+am__depfiles_remade = ./$(DEPDIR)/icies_tgv.Pf ./$(DEPDIR)/icies_tgv-icies_tgv.Pf
+auto_LCLCNDH_auto = $(builddir)/lclcnd.h
+MAINTAINERCLEANFILES = $(LCLDNDH)
+#### DEP-DIR
+LIB_DEPEND_BASE = src
+LIB_DEPEND_NAME = libicies_local.la
+LDADD = $(top_builddir)/src/unison/libicies_local.la $(top_builddir)/src/development/libicies_local.la $(top_builddir)/src/arpeggio/libicies_local.la $(top_builddir)/src/movement/libicies_local.la $(top_builddir)/src/begleitung/libicies_local.la
+FORTRAN_CHECK_ADD = $(top_builddir)/src/unison/gather_libicies_local_la.f $(top_builddir)/src/development/gather_libicies_local_la.f $(top_builddir)/src/arpeggio/gather_libicies_local_la.f $(top_builddir)/src/movement/gather_libicies_local_la.f $(top_builddir)/src/begleitung/gather_libicies_local_la.f
+#### END DEP-DIR

@@ -1,0 +1,196 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define if ## is accepted */
+#undef HAVE_CPP_F_CONCATENATION
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* whether you have adjustl on Fortran 77 */
+#undef HAVE_F77_ADJUSTL
+
+/* whether you have adjustr on Fortran 77 */
+#undef HAVE_F77_ADJUSTR
+
+/* whether you have command_argument_count on Fortran 77 */
+#undef HAVE_F77_COMMAND_ARGUMENT_COUNT
+
+/* whether you have cpu_time on Fortran 77 */
+#undef HAVE_F77_CPU_TIME
+
+/* whether you have DECL_MPI_MAX_OBJECT_NAME on Fortran 77 */
+#undef HAVE_F77_DECL_MPI_MAX_OBJECT_NAME
+
+/* whether you have dummy_none on Fortran 77 */
+#undef HAVE_F77_DUMMY_NONE
+
+/* whether you have etime on Fortran 77 */
+#undef HAVE_F77_ETIME
+
+/* whether you have floor on Fortran 77 */
+#undef HAVE_F77_FLOOR
+
+/* whether you have getenv on Fortran 77 */
+#undef HAVE_F77_GETENV
+
+/* whether you have get_command on Fortran 77 */
+#undef HAVE_F77_GET_COMMAND
+
+/* whether you have get_command_argument on Fortran 77 */
+#undef HAVE_F77_GET_COMMAND_ARGUMENT
+
+/* whether you have get_environment_variable on Fortran 77 */
+#undef HAVE_F77_GET_ENVIRONMENT_VARIABLE
+
+/* whether you have iachar on Fortran 77 */
+#undef HAVE_F77_IACHAR
+
+/* whether you have ichar on Fortran 77 */
+#undef HAVE_F77_ICHAR
+
+/* whether you have inquire_convert on Fortran 77 */
+#undef HAVE_F77_INQUIRE_CONVERT
+
+/* whether you have isatty on Fortran 77 */
+#undef HAVE_F77_ISATTY
+
+/* whether you have isnan on Fortran 77 */
+#undef HAVE_F77_ISNAN
+
+/* whether you have is_iostat_end on Fortran 77 */
+#undef HAVE_F77_IS_IOSTAT_END
+
+/* whether you have len_trim on Fortran 77 */
+#undef HAVE_F77_LEN_TRIM
+
+/* whether you have scan on Fortran 77 */
+#undef HAVE_F77_SCAN
+
+/* whether you have trim on Fortran 77 */
+#undef HAVE_F77_TRIM
+
+/* whether you have ttynam on Fortran 77 */
+#undef HAVE_F77_TTYNAM
+
+/* whether you have verify on Fortran 77 */
+#undef HAVE_F77_VERIFY
+
+/* Define which fortran features are used */
+#undef HAVE_FORTRAN_STANDARD
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if NETCDF is found */
+#undef HAVE_NETCDF
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
+#undef LT_OBJDIR
+
+/* whether need to declare adjustl on Fortran 77 */
+#undef NEED_DECLARE_F77_ADJUSTL
+
+/* whether need to declare adjustr on Fortran 77 */
+#undef NEED_DECLARE_F77_ADJUSTR
+
+/* whether need to declare command_argument_count on Fortran 77 */
+#undef NEED_DECLARE_F77_COMMAND_ARGUMENT_COUNT
+
+/* whether need to declare dummy_none on Fortran 77 */
+#undef NEED_DECLARE_F77_DUMMY_NONE
+
+/* whether need to declare floor on Fortran 77 */
+#undef NEED_DECLARE_F77_FLOOR
+
+/* whether need to declare iachar on Fortran 77 */
+#undef NEED_DECLARE_F77_IACHAR
+
+/* whether need to declare ichar on Fortran 77 */
+#undef NEED_DECLARE_F77_ICHAR
+
+/* whether need to declare isatty on Fortran 77 */
+#undef NEED_DECLARE_F77_ISATTY
+
+/* whether need to declare isnan on Fortran 77 */
+#undef NEED_DECLARE_F77_ISNAN
+
+/* whether need to declare is_iostat_end on Fortran 77 */
+#undef NEED_DECLARE_F77_IS_IOSTAT_END
+
+/* whether need to declare len_trim on Fortran 77 */
+#undef NEED_DECLARE_F77_LEN_TRIM
+
+/* whether need to declare scan on Fortran 77 */
+#undef NEED_DECLARE_F77_SCAN
+
+/* whether need to declare trim on Fortran 77 */
+#undef NEED_DECLARE_F77_TRIM
+
+/* whether need to declare verify on Fortran 77 */
+#undef NEED_DECLARE_F77_VERIFY
+
+/* embedded profile level */
+#undef OPT_DEV_PROFILER
+
+/* clock information */
+#undef OPT_USE_CLOCK
+
+/* Define if you use mpi */
+#undef OPT_USE_MPI
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Version number of package */
+#undef VERSION
+
+/* Define if you use PETSc */
+#undef WITH_PETSC
+
+/* whether use GNU extesion */
+#undef _FORTRAN_GNU_EXTENSION
