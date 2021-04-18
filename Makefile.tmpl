@@ -2,7 +2,7 @@
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision:  JosePeterson0
-# Time-stamp: <2021/02/05 20:12:57 fuyuki Makefile.tmpl>
+# Time-stamp: <2021/04/19 08:24:22 fuyuki Makefile.tmpl>
 
 # Copyright: 2011-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -14,15 +14,17 @@ BUILD_AUX	  = build-aux
 SUBDIRS       = src run ##%% t
 DIST_SUBDIRS  = $(SUBDIRS) etc doc
 TREEID		  = TreeID
+REVISION_CACHE	=	autorevision.cache
 DOC_DIST      = INSTALL-icies2 NOTICE LICENSE HOWTORUN
-EXTRA_DIST    = $(TREEID) $(BUILD_AUX) $(DOC_DIST) ##%% a
+EXTRA_DIST    = $(TREEID) $(REVISION_CACHE) $(BUILD_AUX) $(DOC_DIST) ##%% a
 
+IDGEN		=	$(BUILD_AUX)/icies/idgen
+RUN_IDGEN	=	$(top_srcdir)/$(IDGEN)
 GIT			=	@GIT@
 RUN_GIT		=	cd $(top_srcdir); $(GIT)
 COMMIT		=	HEAD
-SHA			=	$(RUN_GIT) rev-parse $(COMMIT)
-ID_FILTER	= 	sed -e '/^\(....\).*$$/s//\1/'
-DIST_ID		=	`($(SHA)) | $(ID_FILTER)`
+SHA			=	$(RUN_GIT) rev-parse --short $(COMMIT)
+DIST_ID		=	`$(SHA)`
 
 STATUS_COUNT_M	=	`($(RUN_GIT) status -s --porcelain) | grep -c '^ M'`
 
@@ -98,9 +100,10 @@ show-archives-git:
 	$(MAKE) $(AM_MAKEFLAGS) distdir=$(DIST_DIR_GIT) show-archives
 
 $(TREEID):
-	@echo "PANIC.  The tree-id file \`$(TREEID)' is not found."
-	@echo "It should be distributed in the official archives."
-	@echo "Or you can create it when cloned from an IcIES repository."
+	$(RUN_IDGEN) $@
+
+$(REVISION_CACHE):
+	echo "# dummy" > $@
 
 ### Local Variables:
 ### mode: makefile-automake
