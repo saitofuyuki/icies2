@@ -18,7 +18,7 @@
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision:  JosePeterson0
-# Time-stamp: <2021/02/05 20:12:57 fuyuki Makefile.tmpl>
+# Time-stamp: <2021/04/19 08:24:22 fuyuki Makefile.tmpl>
 
 # Copyright: 2011-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -101,8 +101,17 @@ target_triplet = @target@
 @NEVER_TRUE@EXTRA_PROGRAMS = dummy_never_built$(EXEEXT)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/aipackage.m4 \
-	$(top_srcdir)/configure.ac
+am__aclocal_m4_deps = $(top_srcdir)/build-aux/m4/abt_check_mpi.m4 \
+	$(top_srcdir)/build-aux/m4/abt_fortran_check.m4 \
+	$(top_srcdir)/build-aux/m4/abt_init.m4 \
+	$(top_srcdir)/build-aux/m4/abt_var_define_check.m4 \
+	$(top_srcdir)/build-aux/m4/ai_init.m4 \
+	$(top_srcdir)/build-aux/m4/libtool.m4 \
+	$(top_srcdir)/build-aux/m4/ltoptions.m4 \
+	$(top_srcdir)/build-aux/m4/ltsugar.m4 \
+	$(top_srcdir)/build-aux/m4/ltversion.m4 \
+	$(top_srcdir)/build-aux/m4/lt~obsolete.m4 \
+	$(top_srcdir)/aipackage.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
@@ -413,14 +422,16 @@ BUILD_AUX = build-aux
 SUBDIRS = src run ##%% t
 DIST_SUBDIRS = $(SUBDIRS) etc doc
 TREEID = TreeID
+REVISION_CACHE = autorevision.cache
 DOC_DIST = INSTALL-icies2 NOTICE LICENSE HOWTORUN
-EXTRA_DIST = $(TREEID) $(BUILD_AUX) $(DOC_DIST) $(LCLCNDH) \
-	Makefile.tmpl
+EXTRA_DIST = $(TREEID) $(REVISION_CACHE) $(BUILD_AUX) $(DOC_DIST) \
+	$(LCLCNDH) Makefile.tmpl
+IDGEN = $(BUILD_AUX)/icies/idgen
+RUN_IDGEN = $(top_srcdir)/$(IDGEN)
 RUN_GIT = cd $(top_srcdir); $(GIT)
 COMMIT = HEAD
-SHA = $(RUN_GIT) rev-parse $(COMMIT)
-ID_FILTER = sed -e '/^\(....\).*$$/s//\1/'
-DIST_ID = `($(SHA)) | $(ID_FILTER)`
+SHA = $(RUN_GIT) rev-parse --short $(COMMIT)
+DIST_ID = `$(SHA)`
 STATUS_COUNT_M = `($(RUN_GIT) status -s --porcelain) | grep -c '^ M'`
 DIST_SFX = 
 DIST_DIR_GIT = $(PACKAGE)-$(VERSION)_$(DIST_ID)$(DIST_SFX)
@@ -1053,9 +1064,10 @@ show-archives-git:
 	$(MAKE) $(AM_MAKEFLAGS) distdir=$(DIST_DIR_GIT) show-archives
 
 $(TREEID):
-	@echo "PANIC.  The tree-id file \`$(TREEID)' is not found."
-	@echo "It should be distributed in the official archives."
-	@echo "Or you can create it when cloned from an IcIES repository."
+	$(RUN_IDGEN) $@
+
+$(REVISION_CACHE):
+	echo "# dummy" > $@
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:
