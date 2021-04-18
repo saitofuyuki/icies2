@@ -1,20 +1,31 @@
 #!/bin/sh
 # Maintainer: SAITO Fuyuki
-# Time-stamp: <2020/09/15 13:10:57 fuyuki auto-all>
+# Time-stamp: <2021/04/17 16:35:19 fuyuki auto-all>
 # Package: IcIES-2
-# Copyright: 2020 JAMSTEC
+# Copyright: 2020-2021 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
-bindir=$(dirname "$0")
-top_srcdir=${bindir}/../..
+bindir=`dirname "$0"`
+
+# health check
+e=0
+for c in find autoreconf python dirname
+do
+  if command -v "$c" > /dev/null 2>&1; then :; else
+    echo "$0: missing command: $c" >&2
+    e=1
+  fi
+done
+test "$e" -gt 0 && echo "$0: aborts" >&2 && exit "$e"
 
 while test $# -gt 0
 do
   case $1 in
   -f) force=-f;;
   -v) verbose=--verbose;;
-  -*) echo "Invalid argument $1." >&2; exit 1;;
+  -*) echo "$0: invalid argument $1." >&2; exit 1;;
+  *)  break;;
   esac
   shift
 done
@@ -24,26 +35,39 @@ done
 mkmkam=$bindir/mkmkam
 tmpl=Makefile.tmpl
 am=Makefile.am
-dir=.
 
-find $dir -name $tmpl |\
+top_srcdir=
+if command -v "git" > /dev/null 2>&1; then
+  chk=`git rev-parse --is-inside-work-tree 2> /dev/null || echo false`
+  if test x"$chk" = xtrue; then
+    top_srcdir=`git rev-parse --show-toplevel` || exit $?
+  fi
+fi
+test x"$top_srcdir" = x && top_srcdir=${bindir}/../..
+
+cd "$top_srcdir" || { echo "$0: cannot cd $top_srcdir" >&2; exit 1; }
+echo "$0: entering $top_srcdir."
+
+find . -name $tmpl |\
   while read -r fs
   do
-    ft=$(dirname "$fs")/$am
+    ft=`dirname "$fs"`/$am
     if test x"$force" = x  -a  -e "$ft"  -a  "$ft" -nt "$fs"; then
-      echo "skip to generate $ft." >&2
+      echo "$0: skip to generate $ft." >&2
     else
-      echo "generate $ft from $fs." >&2
-      $mkmkam "$fs"
+      echo "$0: generate $ft from $fs." >&2
+      $mkmkam "$fs" || exit $?
     fi
   done
 
-{ cd $top_srcdir; m4dir=$(pwd)/build-aux/m4; }
-
+m4dir=build-aux/m4
 if test -d "$m4dir"; then
-  autoreconf $verbose -i -I "${m4dir}"
+  echo "$0: run autoreconf..." >&2
+  autoreconf $verbose -i -I "${m4dir}" || exit $?
 else
   echo "$0: autotools disabled (not found $m4dir)" >&2
   echo "$0: You may run \`autoreconf -i' manually (which may fail)." >&2
   exit 1
 fi
+echo "$0: done" >&2
+exit 0

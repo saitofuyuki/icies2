@@ -1,13 +1,24 @@
 #!/bin/sh
-# Time-stamp: <2020/09/15 12:24:00 fuyuki tree-all>
-# Copyright: 2011--2020 JAMSTEC
+# Maintainer: SAITO Fuyuki
+# Time-stamp: <2021/04/19 08:12:38 fuyuki tree-all>
+# Copyright: 2011-2021 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
-d=`dirname $0`/tree
+bindir=`dirname "$0"`
 
-for c in pkggen idgen listgen
-do
-  c=$d/$c
-  test -x $c && $c $@
-done
+top_srcdir=
+if command -v "git" > /dev/null 2>&1; then
+  chk=`git rev-parse --is-inside-work-tree 2> /dev/null || echo false`
+  if test x"$chk" = xtrue; then
+    top_srcdir=`git rev-parse --show-toplevel` || exit $?
+  fi
+fi
+test x"$top_srcdir" = x && top_srcdir=${bindir}/../..
+
+idgen=$bindir/idgen
+
+test -x $idgen || { echo "Cannot run $idgen." >&2; exit 1; }
+
+$idgen $top_srcdir/TreeID || exit $?
+exit 0

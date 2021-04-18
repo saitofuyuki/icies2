@@ -1,0 +1,112 @@
+#!/bin/sh
+# Filename: idgen
+# Author: SAITO Fuyuki
+# Created: May 20 2009
+# Time-stamp: <2021/04/18 08:10:44 fuyuki idgen>
+# Copyright: 2009-2021 JAMSTEC
+# Licensed under the Apache License, Version 2.0
+#   (https://www.apache.org/licenses/LICENSE-2.0)
+
+: "${AUTOREVISION:=autorevision}"
+: "${GIT:=git}"
+: "${MKTEMP:=mktemp}"
+: "${CMP:=cmp}"
+
+base=`basename "$0"`
+
+if test x"${AUTOREVISION}" != x:; then
+  command -v "$AUTOREVISION" > /dev/null 2>&1 || AUTOREVISION=:
+fi
+if test x"${GIT}" != x:; then
+  command -v "$GIT" > /dev/null 2>&1 || GIT=:
+fi
+if test x"${MKTEMP}" != x:; then
+  command -v "$MKTEMP" > /dev/null 2>&1 || MKTEMP=:
+fi
+if test x"${CMP}" != x:; then
+  command -v "$CMP" > /dev/null 2>&1 || CMP=:
+fi
+
+rev=HEAD
+cache=autorevision.cache
+
+while test $# -gt 0
+do
+  case $1 in
+  -r)  rev=$2; shift || exit $?;;
+  -r*) rev="{$1#-r}";;
+  -t)  topdir=$2; shift || exit $?;;
+  -t*) topdir=${1#-t};;
+  -*)  echo "$0: unknown argument $1.  aborts." >&2; exit 1;;
+  *)   break;;
+  esac
+  shift
+done
+outf=$1
+if test x"$outf" = x; then
+  exec >&2
+  echo "$base - revision metadata extractor for IcIES-2"
+  echo
+  echo "usage: $0 [OPTION] OUTPUT"
+  exit 1
+fi
+
+test x"$topdir" = x && topdir=`$GIT rev-parse --show-toplevel 2> /dev/null`
+test x"$topdir" = x && topdir=`dirname $0`/../..
+
+cachep="$topdir/$cache"
+
+$AUTOREVISION -o "$cachep" -q -sVCS_TYPE > /dev/null 2>&1 || exit $?
+
+# shellcheck disable=SC1090
+test -e "$cachep" && { . "$cachep" || exit $?; }
+
+if test x"$GIT" = x:; then
+  if test x"$VCS_TYPE" != x; then
+    echo "$0: warning. may not be updated (using $cachep)." >&2
+  else
+    echo "$0: warning. no revision information." >&2
+  fi
+else
+  chk=`$GIT rev-parse --is-inside-work-tree 2> /dev/null || echo false`
+  if test x"$chk" = xtrue; then
+    revid=`$GIT rev-parse "$rev"` || exit $?
+    if test "$revid" != "${VCS_FULL_HASH-$revid}"; then
+      echo "$0: warning. $cachep is not updated." >&2
+      VCS_FULL_HASH="$revid"
+      skip_autorevision=true
+    fi      
+  else
+    echo "$0: warning. cannot parse revision." >&2 
+  fi
+fi
+
+: "${VCS_FULL_HASH:=unknown}"
+
+tmp=
+if test ! -e "$outf"; then
+  exec 3> "$outf"
+elif test x"$MKTEMP" = x: -o "$CMP" = x:; then
+  test -e "$outf" && echo "$0: warning. $outf clobbered." >&2
+  exec 3> "$outf"
+else
+  tmp=$(mktemp) || exit $?
+  exec 3> "$tmp"
+fi
+
+echo "#define GIT_INFOs '$VCS_FULL_HASH'"    >&3
+echo "#define GIT_INFOd \"$VCS_FULL_HASH\""  >&3
+
+if test x"$skip_autorevision" = x; then
+  $AUTOREVISION -f -o "$cachep" -th | sed -e "s/\"/'/g" -e "s/''$/' '/" >&3
+fi
+
+exec 3>&-
+if test x"$tmp" != x; then
+  if $CMP --quiet "$outf" "$tmp"; then
+    echo "$0: $outf is identical.  skipped." >&2
+    rm -f "$tmp"
+  else
+    mv "$tmp" "$outf" || exit $?
+  fi
+fi

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Time-stamp: <2020/09/15 12:24:54 fuyuki post-checkout>
-# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Time-stamp: <2021/04/18 23:30:48 fuyuki post-checkout>
+# Copyright: 2011-2021 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -8,5 +8,5 @@ a=$1 b=$2 c=$3
 test $c = 0 && exit 0
 . `git --exec-path`/git-sh-setup
 cd_to_toplevel
-cmd=build-aux/icies/tree-all
-test -x $cmd && $cmd
+cmd=build-aux/icies/idgen
+test -x $cmd && $cmd TreeID

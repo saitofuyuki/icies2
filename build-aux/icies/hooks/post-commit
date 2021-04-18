@@ -1,11 +1,11 @@
 #!/bin/sh
-# Time-stamp: <2020/09/15 12:25:06 fuyuki post-commit>
-# Copyright: 2011--2020 JAMSTEC
+# Time-stamp: <2021/04/18 23:31:01 fuyuki post-commit>
+# Copyright: 2011-2021 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
 # No parameters
 . `git --exec-path`/git-sh-setup
 cd_to_toplevel
-cmd=build-aux/icies/tree-all
-test -x $cmd && $cmd
+cmd=build-aux/icies/idgen
+test -x $cmd && $cmd TreeID
