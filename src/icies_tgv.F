@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/04/14 13:53:20 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/04/22 09:22:38 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -938,7 +938,7 @@ CCC_   . surface mass balance
 c$$$      write(*, *) 'MS', VMHB(:, VMHB_MS)
 CCC_   . basal mass balance
       KSWEV = ITGV(ITGV_MBPATTERN)
-      if (ITGV(ITGV_XFILE_MS).gt.0) then
+      if (ITGV(ITGV_XFILE_MB).gt.0) then
          call TGVxev
      O       (iErr,
      O        VMHB(1, VMHB_MB),
