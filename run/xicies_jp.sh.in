@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/04/14 10:21:41 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/04/22 16:53:42 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -504,7 +504,7 @@ gen_sysin ()
 
   print -u3 -n - " &NITGVW"
   print -u3 -n - " KWTYP=$cfgw[1],"
-  [[ x${cfgw[2]:--} != x- ]] && print -u3 -n - " WPOWER=$cfgw[2],"
+  [[ x${cfgw[2]:--} != x- ]] && print -u3 -n - " POWW=$cfgw[2],"
   print -u3 - " &END"
   nml_tgvc -u3 MS "${(@)cfgA}" || return $?
   nml_tgvc -u3 MB "${(@)cfgB}" || return $?
