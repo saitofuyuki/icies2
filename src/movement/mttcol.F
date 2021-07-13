@@ -710,12 +710,19 @@ c
       _REALSTD  T0, CC, P0
 CCC_  - Body
       iErr = 0
-      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+c$$$      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+c$$$         BDSWl = 0.5d0
+c$$$         BDSWu = 0.5d0
+c$$$      else
+c$$$         BDSWl = 1.0d0
+c$$$         BDSWu = 0.0d0
+c$$$      endif
+      if (IMM (IMD_BMTZ).eq. SW_BM_TBDZ_CENTER) then
          BDSWl = 0.5d0
          BDSWu = 0.5d0
       else
-         BDSWl = 1.0d0
-         BDSWu = 0.0d0
+         BDSWl = 0.0d0
+         BDSWu = 1.0d0
       endif
 c
       khh  = VMHI_oHa
