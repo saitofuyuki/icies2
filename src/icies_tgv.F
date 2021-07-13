@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/04/22 09:22:38 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/07/13 14:03:19 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -47,8 +47,8 @@ CCC_ + TGV test parameter
 #define ITGV_XFILE_MS    6 /* unit of surface mass balance history */
 #define ITGV_XFILE_TS    7 /* unit of surface temperature history */
 #define ITGV_XFILE_MB    8 /* unit of basal mass balance history */
-#define ITGV_XFILE_DH    -1
-#define ITGV_MAX         8
+#define ITGV_XFILE_DH    9
+#define ITGV_MAX         9
 
 #define PTGV_WPOWER      1   /* power parameter for w */
 
@@ -58,11 +58,10 @@ CCC_ + TGV test parameter
 #define PTGV_S_THSTD     5   /* smb: steady high period */
 #define PTGV_S_DURATION  6   /* smb: total duration */
 #define PTGV_S_PHASE     7   /* smb: phase offset */
-
-#define PTGV_S_XTPREV   20   /* smb: xfile last time */
-#define PTGV_S_XTNEXT   21   /* smb: xfile next time */
-#define PTGV_S_VPREV    22   /* smb: xfile last value */
-#define PTGV_S_VNEXT    23   /* smb: xfile next value */
+#define PTGV_S_XTPREV    20   /* smb: xfile last time */
+#define PTGV_S_XTNEXT    21   /* smb: xfile next time */
+#define PTGV_S_VPREV     22   /* smb: xfile last value */
+#define PTGV_S_VNEXT     23   /* smb: xfile next value */
 
 #define PTGV_B_TDECR     8   /* bmb: decrement period */
 #define PTGV_B_TINCR     9   /* bmb: increment period */
@@ -77,12 +76,14 @@ CCC_ + TGV test parameter
 
 #define PTGV_H_TDECR     18  /* thickness: decrement period */
 #define PTGV_H_TINCR     19  /* thickness: increment period */
-#define PTGV_H_TLSTD     20  /* thickness: steady low period */
-#define PTGV_H_THSTD     21  /* thickness: steady high period */
-#define PTGV_H_DURATION  22  /* thickness: total duration */
-#define PTGV_H_PHASE     23  /* thickness: phase offset */
-#define PTGV_H_XTPREV    -1
-#define PTGV_H_XTNEXT    -1
+#define PTGV_H_TLSTD     24  /* thickness: steady low period */
+#define PTGV_H_THSTD     25  /* thickness: steady high period */
+#define PTGV_H_DURATION  26  /* thickness: total duration */
+#define PTGV_H_PHASE     27  /* thickness: phase offset */
+#define PTGV_H_XTPREV    38  /* thickness: xfile last time */
+#define PTGV_H_XTNEXT    39  /* thickness: xfile next time */
+#define PTGV_H_VPREV     40  /* thickness: xfile last value */
+#define PTGV_H_VNEXT     41  /* thickness: xfile next value */
 
 #define PTGV_TS_TDECR    28   /* Ts: decrement period */
 #define PTGV_TS_TINCR    29   /* Ts: increment period */
@@ -96,7 +97,7 @@ CCC_ + TGV test parameter
 #define PTGV_TS_VPREV    36   /* Ts: xfile last value */
 #define PTGV_TS_VNEXT    37   /* Ts: xfile next value */
 
-#define PTGV_MAX          37
+#define PTGV_MAX          41
 CCC_ + TGV test field
 #define VXCFG_MSMAX     1
 #define VXCFG_MSMIN     2
