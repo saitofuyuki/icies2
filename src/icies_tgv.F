@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/04/22 09:22:38 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/07/13 14:30:21 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -47,8 +47,8 @@ CCC_ + TGV test parameter
 #define ITGV_XFILE_MS    6 /* unit of surface mass balance history */
 #define ITGV_XFILE_TS    7 /* unit of surface temperature history */
 #define ITGV_XFILE_MB    8 /* unit of basal mass balance history */
-#define ITGV_XFILE_DH    -1
-#define ITGV_MAX         8
+#define ITGV_XFILE_DH    9 /* unit of thickness history */
+#define ITGV_MAX         9
 
 #define PTGV_WPOWER      1   /* power parameter for w */
 
@@ -58,11 +58,10 @@ CCC_ + TGV test parameter
 #define PTGV_S_THSTD     5   /* smb: steady high period */
 #define PTGV_S_DURATION  6   /* smb: total duration */
 #define PTGV_S_PHASE     7   /* smb: phase offset */
-
-#define PTGV_S_XTPREV   20   /* smb: xfile last time */
-#define PTGV_S_XTNEXT   21   /* smb: xfile next time */
-#define PTGV_S_VPREV    22   /* smb: xfile last value */
-#define PTGV_S_VNEXT    23   /* smb: xfile next value */
+#define PTGV_S_XTPREV    20   /* smb: xfile last time */
+#define PTGV_S_XTNEXT    21   /* smb: xfile next time */
+#define PTGV_S_VPREV     22   /* smb: xfile last value */
+#define PTGV_S_VNEXT     23   /* smb: xfile next value */
 
 #define PTGV_B_TDECR     8   /* bmb: decrement period */
 #define PTGV_B_TINCR     9   /* bmb: increment period */
@@ -77,12 +76,14 @@ CCC_ + TGV test parameter
 
 #define PTGV_H_TDECR     18  /* thickness: decrement period */
 #define PTGV_H_TINCR     19  /* thickness: increment period */
-#define PTGV_H_TLSTD     20  /* thickness: steady low period */
-#define PTGV_H_THSTD     21  /* thickness: steady high period */
-#define PTGV_H_DURATION  22  /* thickness: total duration */
-#define PTGV_H_PHASE     23  /* thickness: phase offset */
-#define PTGV_H_XTPREV    -1
-#define PTGV_H_XTNEXT    -1
+#define PTGV_H_TLSTD     24  /* thickness: steady low period */
+#define PTGV_H_THSTD     25  /* thickness: steady high period */
+#define PTGV_H_DURATION  26  /* thickness: total duration */
+#define PTGV_H_PHASE     27  /* thickness: phase offset */
+#define PTGV_H_XTPREV    38  /* thickness: xfile last time */
+#define PTGV_H_XTNEXT    39  /* thickness: xfile next time */
+#define PTGV_H_VPREV     40  /* thickness: xfile last value */
+#define PTGV_H_VNEXT     41  /* thickness: xfile next value */
 
 #define PTGV_TS_TDECR    28   /* Ts: decrement period */
 #define PTGV_TS_TINCR    29   /* Ts: increment period */
@@ -96,7 +97,7 @@ CCC_ + TGV test parameter
 #define PTGV_TS_VPREV    36   /* Ts: xfile last value */
 #define PTGV_TS_VNEXT    37   /* Ts: xfile next value */
 
-#define PTGV_MAX          37
+#define PTGV_MAX          41
 CCC_ + TGV test field
 #define VXCFG_MSMAX     1
 #define VXCFG_MSMIN     2
@@ -725,34 +726,46 @@ CCC_   . log
       endif
 #endif /* OPT_VERBOSE */
 CCC_   . dH/dt
-      TDUR  = PTGV(PTGV_H_DURATION)
-      TINC  = PTGV(PTGV_H_TINCR)
-      TDEC  = PTGV(PTGV_H_TDECR)
-      TLST  = PTGV(PTGV_H_TLSTD)
-      THST  = PTGV(PTGV_H_THSTD)
-      PHS   = PTGV(PTGV_H_PHASE)
       KSWEV = ITGV(ITGV_DHPATTERN)
-      TNXT  = T + DT
-c
-      if (KSWEV.eq. SW_DHPAT_EXP_VIALOV) then
-         XP = 1.0d0 / (2.0d0 * PMD(PMD_PF) + 2.0d0)
-         do jh = 1, MH
-            F = VMHB(jh, VMHB_MS) / VXCFG(jh, VXCFG_MSMAX)
-            VMHW(jh, KWDH) = VXCFG(jh, VXCFG_HMAX) * (F ** XP)
-         enddo
-         CO  = 1.0d0 - EXP(- DT / TDUR)
-         do jh = 1, MH
-            VMHI(jh, VMHI_nHa) =
-     $           + VMHI(jh, VMHI_oHa) * (1.0d0 - CO)
-     $           + VMHW(jh, KWDH)     * CO
-         enddo
-      else
-         call TGVtev
+      if (ITGV(ITGV_XFILE_DH).gt.0) then
+         call TGVxev
      O       (iErr,
      O        VMHI(1, VMHI_nHa),
-     I        VXCFG(1, VXCFG_HMAX), VXCFG(1, VXCFG_HMIN),
-     I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
-     I        TNXT, MH,   LH)
+     M        PTGV(PTGV_H_VPREV),    PTGV(PTGV_H_VNEXT),
+     M        PTGV(PTGV_H_XTPREV),   PTGV(PTGV_H_XTNEXT),
+     I        VXCFG(1, VXCFG_HMAX),  VXCFG(1, VXCFG_HMIN),
+     I        ITGV(ITGV_XFILE_DH),
+     I        KSWEV, XOPR_ADD,
+     I        T,    MH,   LH, IFPl)
+      else
+         TDUR  = PTGV(PTGV_H_DURATION)
+         TINC  = PTGV(PTGV_H_TINCR)
+         TDEC  = PTGV(PTGV_H_TDECR)
+         TLST  = PTGV(PTGV_H_TLSTD)
+         THST  = PTGV(PTGV_H_THSTD)
+         PHS   = PTGV(PTGV_H_PHASE)
+         TNXT  = T + DT
+c
+         if (KSWEV.eq. SW_DHPAT_EXP_VIALOV) then
+            XP = 1.0d0 / (2.0d0 * PMD(PMD_PF) + 2.0d0)
+            do jh = 1, MH
+               F = VMHB(jh, VMHB_MS) / VXCFG(jh, VXCFG_MSMAX)
+               VMHW(jh, KWDH) = VXCFG(jh, VXCFG_HMAX) * (F ** XP)
+            enddo
+            CO  = 1.0d0 - EXP(- DT / TDUR)
+            do jh = 1, MH
+               VMHI(jh, VMHI_nHa) =
+     $              + VMHI(jh, VMHI_oHa) * (1.0d0 - CO)
+     $              + VMHW(jh, KWDH)     * CO
+            enddo
+         else
+            call TGVtev
+     O           (iErr,
+     O           VMHI(1, VMHI_nHa),
+     I           VXCFG(1, VXCFG_HMAX), VXCFG(1, VXCFG_HMIN),
+     I           TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
+     I           TNXT, MH,   LH)
+         endif
       endif
       call UV0naa (VMHI, MH, LH, VMHI_nSa, VMHI_nHa, VMHI_nBa)
       do jh = 1, MH
@@ -1216,13 +1229,14 @@ CCC_   . Configuration
       _REALSTD POWW
       character FILEMS*(OPT_FILENAME_MAX)
       character FILETS*(OPT_FILENAME_MAX)
+      character FILEDH*(OPT_FILENAME_MAX)
       namelist /NITGVB/
      $     KSWMSP, TDECRS, TINCRS, TLSTDS, THSTDS, TPHSS,
      $     KSWMBP, TDECRB, TINCRB, TLSTDB, THSTDB, TPHSB,
      $     KSWDHP, TDECRH, TINCRH, TLSTDH, THSTDH, TPHSH,
      $     KSWTSP, TDECRT, TINCRT, TLSTDT, THSTDT, TPHST,
-     $     KWTYP,  POWW,   FILEMS, FILETS
-      integer jfpMS, LR
+     $     KWTYP,  POWW,   FILEMS, FILETS, FILEDH
+      integer jfpXT, LR
 CCC_  - Body
       iErr = 0
 c
@@ -1259,6 +1273,7 @@ c
 c
       FILEMS = ' '
       FILETS = ' '
+      FILEDH = ' '
 c
       if (ipP.ge.0) then
          call UUrwnd (iErr, ipP)
@@ -1335,23 +1350,34 @@ c
       if (FILEMS.eq.' ') then
          continue
       else
-         if (iErr.eq.0) call UUMCnu (iErr, jfpMS)
+         if (iErr.eq.0) call UUMCnu (iErr, jfpXT)
          if (iErr.eq.0) then
             LR = -1
-            call UUopen (iErr, jfpMS, FILEMS, LR, 'F', 'O', 'R', ' ')
+            call UUopen (iErr, jfpXT, FILEMS, LR, 'F', 'O', 'R', ' ')
          endif
-         if (iErr.eq.0) ITGV(ITGV_XFILE_MS) = jfpMS
+         if (iErr.eq.0) ITGV(ITGV_XFILE_MS) = jfpXT
       endif
       ITGV(ITGV_XFILE_TS) = -1
       if (FILETS.eq.' ') then
          continue
       else
-         if (iErr.eq.0) call UUMCnu (iErr, jfpMS)
+         if (iErr.eq.0) call UUMCnu (iErr, jfpXT)
          if (iErr.eq.0) then
             LR = -1
-            call UUopen (iErr, jfpMS, FILETS, LR, 'F', 'O', 'R', ' ')
+            call UUopen (iErr, jfpXT, FILETS, LR, 'F', 'O', 'R', ' ')
          endif
-         if (iErr.eq.0) ITGV(ITGV_XFILE_TS) = jfpMS
+         if (iErr.eq.0) ITGV(ITGV_XFILE_TS) = jfpXT
+      endif
+      ITGV(ITGV_XFILE_DH) = -1
+      if (FILEDH.eq.' ') then
+         continue
+      else
+         if (iErr.eq.0) call UUMCnu (iErr, jfpXT)
+         if (iErr.eq.0) then
+            LR = -1
+            call UUopen (iErr, jfpXT, FILEDH, LR, 'F', 'O', 'R', ' ')
+         endif
+         if (iErr.eq.0) ITGV(ITGV_XFILE_DH) = jfpXT
       endif
 c
       if (iErr.eq.0) then
