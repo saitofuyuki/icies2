@@ -5,7 +5,7 @@ C Revision:  Snoopy0.9
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/12/18 09:20:32 fuyuki mdrvrm.F>'
+#define _TSTAMP 'Time-stamp: <2021/07/14 06:20:14 fuyuki mdrvrm.F>'
 #define _FNAME 'movement/mdrvrm.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
@@ -2353,17 +2353,17 @@ CCC_   . Configuration
       integer    MSW,   MINI
       integer    KRF,   KRFI,   KWI,   KTBDZ, KUSG
       integer    KUADV, KWADV
-      integer    KVB,   KVBSW,  KSHSW, KFGSW, KEGSW, KTZLP
+      integer    KVB,   KVBSW,  KSHSW, KFGSW, KEGSW,  KTZLP
       integer    KDHDT, KSTRH
       integer    KHUPD
-      integer    KAGEC, KARST,  KABDZ, KASDZ, KAADVL
+      integer    KAGEC, KARST,  KABDZ, KASDZ, KAADVL, KBMTZ
       namelist /NIMSWD/
      $     MSW,   MINI,
      $     KRF,   KRFI,  KWI,   KTBDZ, KUSG,
      $     KUADV, KWADV,
-     $     KVB,   KVBSW, KSHSW, KFGSW, KEGSW, KTZLP,
+     $     KVB,   KVBSW, KSHSW, KFGSW, KEGSW,  KTZLP,
      $     KDHDT, KSTRH, KHUPD,
-     $     KAGEC, KARST, KABDZ, KASDZ, KAADVL
+     $     KAGEC, KARST, KABDZ, KASDZ, KAADVL, KBMTZ
 CCC_   . interior
       integer jc
 CCC_  - Body
@@ -2401,6 +2401,7 @@ c
       KASDZ  = SW_ADZ_CENTER
       KABDZ  = SW_ADZ_CENTER
       KAADVL = SW_ADVV_STAGGERED
+      KBMTZ  = SW_BM_TBDZ_CENTER
 c
       if (ipP.ge.0) then
          READ  (ipP, NIMSWD, IOSTAT = iErr)
@@ -2458,6 +2459,7 @@ c
       IMM (IMD_ASDZ)   = KASDZ
       IMM (IMD_ABDZ)   = KABDZ
       IMM (IMD_AADVL)  = KAADVL
+      IMM (IMD_BMTZ)   = KBMTZ
 c
       if (IMM(IMD_AGEC).ne. SW_AGEC_OFF
      $     .and. IMM(IMD_WADV).eq. SW_WADV_RAW) then

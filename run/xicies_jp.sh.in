@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/04/22 16:53:42 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/07/14 06:33:59 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -61,6 +61,7 @@ Options:
    -C  PATH    path to conversion script (cnx.sh)
    -X  PATH    path to executable (icies_tgv)
    -x  PREFIX  prefix to output directory
+   -P  PARAMETER=VALUE
 USAGE
 
   if [[ $verbose -gt 0 ]]; then
@@ -124,6 +125,7 @@ main ()
   local verbose=0 help=
   local ecfg=./cfg/evolution.cfg
   local np=1
+  local PV=()
   while [[ $# -gt 0 ]]
   do
     case $1 in
@@ -150,6 +152,8 @@ main ()
     (-E*) ecfg=${1: 2};;
     (-A)  ADIR+=($2); shift;;
     (-A*) ADIR+=(${1: 2});;
+    (-P)  PV+=($2); shift;;
+    (-P*) PV+=(${1: 2});;
     (*) break;;
     esac
     shift
@@ -183,6 +187,13 @@ main ()
   xcnx=${xcnx:a}
   [[ ! -x $xcnx ]] && print -u2 - "$thisx: netcdf conversion disabled." && xcnx=
 
+  local p= v=
+  for p in "${(@)PV}"
+  do
+    [[ ${p[(I)=]} -eq 0 ]] && print -u2 - "invalid arguments $p" && return 1
+    v=${p#*=}; p=${p%%=*}
+    : "${(P)p::=$v}"
+  done
   ########## parse times  -t [END][:[DT][:[REC]]]
   tcfg=("${(@s/:/)tcfg}" '' '')
   local tend= dt=
@@ -469,8 +480,10 @@ gen_sysin ()
 
   # scheme
   local kaadvl=
-  [[ -n $cfgc[2] ]] && kaadvl="KAADVL=$cfgc[2], "
-  print -u3 - " &NIMSWD MSW=0, MINI=0, KAGEC=$cfgc[1], ${kaadvl}&END"
+  [[ -n $cfgc[2] ]] && kaadvl=" KAADVL=$cfgc[2],"
+  print -u3 -n - " &NIMSWD MSW=0, MINI=0, KAGEC=$cfgc[1],${kaadvl}"
+  [[ -n $KBMTZ ]] && print -u3 -n - " KBMTZ=$KBMTZ,"
+  print -u3 - " &END"
 
   # initialization
   local DIMS="$NXG,$NYG"
