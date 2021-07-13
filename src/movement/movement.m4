@@ -2,7 +2,7 @@ dnl movement/movement.m4 - Template for Definition for IcIES/Movement modules
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Jan 17 2012
 m4_define([TIME_STAMP],
-          ['Time-stamp: <2021/04/12 07:53:36 fuyuki movement.m4>'])dnl
+          ['Time-stamp: <2021/07/14 06:16:46 fuyuki movement.m4>'])dnl
 C movement/movement.h - Definition for IcIES/Movement modules
 C Maintainer:  SAITO Fuyuki
 C Created: Dec 20 2011
@@ -229,6 +229,7 @@ c_xincr([SHSW],   [shelf switch])
 c_xincr([DSFR],   [calving front surface gradient])
 c_xincr([DSSE],   [shelf end surface gradient])
 c_xincr([DHDT],   [dH/dt computation switch])
+c_xincr([BMTZ],   [T bottom gradient method switch for basal melting])
 
 c_xincr([HUPD],   [H update])
 c_xincr([TUPD],   [T update])
@@ -325,6 +326,9 @@ c_xkeep([MAX])
 
 #define SW_ADZ_FIRST   0  /* first-order difference */
 #define SW_ADZ_CENTER  1  /* second-order central difference */
+
+#define SW_BM_TBDZ_FIRST   0  /* first-order difference for basal melting diag */
+#define SW_BM_TBDZ_CENTER  1  /* second-order central difference for basal melting diag */
 
 CCC_  * [IMS] SSA diagnostic
 c_reset([IMS], [IMD_MAX])

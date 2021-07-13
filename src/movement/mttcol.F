@@ -4,7 +4,7 @@ C Created: May 7 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/04/14 10:07:07 fuyuki mttcol.F>'
+#define _TSTAMP 'Time-stamp: <2021/07/14 06:20:24 fuyuki mttcol.F>'
 #define _FNAME 'movement/mttcol.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -583,7 +583,7 @@ CCC_   . bottom
      $           (BDSWu * WZV (jz,   VMVZ_dWMb)
      $           +BDSWl * WZV (jz-1, VMVZ_dWPb))
             BB    = VMHW (jh, VMHW_HSB)
-     $           +  VMHI (jh, VMHI_bm) * DLF
+c$$$     $           +  VMHI (jh, VMHI_bm) * DLF
             VMTI(jh, jz-1, KX) =
      $           TBb *
      $           ((BB - (BU*VMTI(jh,jz+1,KX)+BD*VMTI(jh,jz,KX)))/BL)
@@ -710,12 +710,19 @@ c
       _REALSTD  T0, CC, P0
 CCC_  - Body
       iErr = 0
-      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+c$$$      if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
+c$$$         BDSWl = 0.5d0
+c$$$         BDSWu = 0.5d0
+c$$$      else
+c$$$         BDSWl = 1.0d0
+c$$$         BDSWu = 0.0d0
+c$$$      endif
+      if (IMM (IMD_BMTZ).eq. SW_BM_TBDZ_CENTER) then
          BDSWl = 0.5d0
          BDSWu = 0.5d0
       else
-         BDSWl = 1.0d0
-         BDSWu = 0.0d0
+         BDSWl = 0.0d0
+         BDSWu = 1.0d0
       endif
 c
       khh  = VMHI_oHa
