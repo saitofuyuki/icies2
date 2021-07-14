@@ -5,7 +5,7 @@ C Created: Dec 20 2011
 #  include "config.h"
 #endif
 #ifdef HEADER_PROPERTY
-#define _TSTAMP 'Time-stamp: <2021/04/12 07:53:36 fuyuki movement.m4>'
+#define _TSTAMP 'Time-stamp: <2021/07/14 06:16:46 fuyuki movement.m4>'
 #define _FNAME 'movement/movement.h'
 #define _REV   'JosePeterson0'
 #endif /* HEADER_PROPERTY */
@@ -224,20 +224,21 @@ CCC_  * IMD thickness time integration
 #define IMD_DSFR        16   /* calving front surface gradient */
 #define IMD_DSSE        17   /* shelf end surface gradient */
 #define IMD_DHDT        18   /* dH/dt computation switch */
+#define IMD_BMTZ        19   /* T bottom gradient method switch for basal melting */
 
-#define IMD_HUPD        19   /* H update */
-#define IMD_TUPD        20   /* T update */
-#define IMD_TZLP        21   /* Z-loop outer/inner switch in T solver */
-#define IMD_STRH        22   /* strain heating switch */
-#define IMD_RFPR        23   /* rate factor procedure */
+#define IMD_HUPD        20   /* H update */
+#define IMD_TUPD        21   /* T update */
+#define IMD_TZLP        22   /* Z-loop outer/inner switch in T solver */
+#define IMD_STRH        23   /* strain heating switch */
+#define IMD_RFPR        24   /* rate factor procedure */
 
-#define IMD_AGEC        24   /* age computation switch */
-#define IMD_ARSTT       25   /* bc age reset timing */
-#define IMD_ABDZ        26   /* Age bottom gradient method switch */
-#define IMD_ASDZ        27   /* Age surface gradient method switch */
-#define IMD_AADVL       28   /* age advection velocity level */
+#define IMD_AGEC        25   /* age computation switch */
+#define IMD_ARSTT       26   /* bc age reset timing */
+#define IMD_ABDZ        27   /* Age bottom gradient method switch */
+#define IMD_ASDZ        28   /* Age surface gradient method switch */
+#define IMD_AADVL       29   /* age advection velocity level */
 
-#define IMD_MAX         28   /*  kept */
+#define IMD_MAX         29   /*  kept */
 
 #define SW_RF_CONST  0  /* constant rate factor */
 #define SW_RF_FLOWAR 1  /* temperature dependent rate factor (AR) */
@@ -321,23 +322,26 @@ CCC_  * IMD thickness time integration
 #define SW_ADZ_FIRST   0  /* first-order difference */
 #define SW_ADZ_CENTER  1  /* second-order central difference */
 
+#define SW_BM_TBDZ_FIRST   0  /* first-order difference for basal melting diag */
+#define SW_BM_TBDZ_CENTER  1  /* second-order central difference for basal melting diag */
+
 CCC_  * IMS SSA diagnostic
 
-#define IMS_ITRL        29   /* Maximum iteration for linear part */
-#define IMS_ITRLmin     30   /* Minimum iteration for linear part */
-#define IMS_ITRNL       31   /* Maximum iteration for non linear part */
-#define IMS_ITRGL       32   /* Maximum iteration for grounding-line flux part */
-#define IMS_MINNL       33   /* Minimum iteration for non linear part */
-#define IMS_TRYNL       34   /* Maximum try for non-linear part */
-#define IMS_SWNOV       35   /* solution choice when not converged */
-#define IMS_SWL         36   /* initial guess switch for linear part */
-#define IMS_SWNL        37   /* initial guess switch for non linear part */
-#define IMS_SWNLG       38   /* initial guess switch for non linear part, grounding line */
-#define IMS_GLUPD       39   /* grounding-line velocity update timing */
-#define IMS_GLBT        40   /* buttressing effect switch */
-#define IMS_XREPL       41   /* residual report lower */
-#define IMS_XREPH       42   /* residual report higher */
-#define IMS_MAX         42   /*  kept */
+#define IMS_ITRL        30   /* Maximum iteration for linear part */
+#define IMS_ITRLmin     31   /* Minimum iteration for linear part */
+#define IMS_ITRNL       32   /* Maximum iteration for non linear part */
+#define IMS_ITRGL       33   /* Maximum iteration for grounding-line flux part */
+#define IMS_MINNL       34   /* Minimum iteration for non linear part */
+#define IMS_TRYNL       35   /* Maximum try for non-linear part */
+#define IMS_SWNOV       36   /* solution choice when not converged */
+#define IMS_SWL         37   /* initial guess switch for linear part */
+#define IMS_SWNL        38   /* initial guess switch for non linear part */
+#define IMS_SWNLG       39   /* initial guess switch for non linear part, grounding line */
+#define IMS_GLUPD       40   /* grounding-line velocity update timing */
+#define IMS_GLBT        41   /* buttressing effect switch */
+#define IMS_XREPL       42   /* residual report lower */
+#define IMS_XREPH       43   /* residual report higher */
+#define IMS_MAX         43   /*  kept */
 
 #define SW_GLBT_DEF       0  /* buttressing effect included */
 #define SW_GLBT_EXCL      1  /* buttressing effect excluded */
@@ -354,7 +358,7 @@ CCC_  * OMM
 
 CCC_  * P/IMM PMD/PMS integration
 #define PMM_MAX 92
-#define IMM_MAX 42
+#define IMM_MAX 43
 
 CCC_ + clone group
 CCC_  * CGB SIA
