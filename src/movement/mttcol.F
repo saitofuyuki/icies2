@@ -4,7 +4,7 @@ C Created: May 7 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/07/14 06:20:24 fuyuki mttcol.F>'
+#define _TSTAMP 'Time-stamp: <2021/07/31 15:02:01 fuyuki mttcol.F>'
 #define _FNAME 'movement/mttcol.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -565,9 +565,15 @@ CCC_   . bottom
       if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
          BDSWl = 0.5d0
          BDSWu = 0.5d0
-      else
+      else if (IMM (IMD_TBDZ).eq. SW_TBDZ_FIRST_LOW) then
          BDSWl = 1.0d0
          BDSWu = 0.0d0
+      else
+         BDSWl = 0.0d0
+         BDSWu = 1.0d0
+         write(*, *) 'NOT WORK AS EXPECTED.  ABORT'
+         ierr = -1
+         return
       endif
       do    jzz = 1,  1
          jz = KZ0 + jzz - 1
@@ -1788,9 +1794,15 @@ CCC_   . bottom
       if (IMM (IMD_TBDZ).eq. SW_TBDZ_CENTER) then
          BDSWl = 0.5d0
          BDSWu = 0.5d0
-      else
+      else if (IMM (IMD_TBDZ).eq. SW_TBDZ_FIRST_LOW) then
          BDSWl = 1.0d0
          BDSWu = 0.0d0
+      else
+         BDSWl = 0.0d0
+         BDSWu = 1.0d0
+         write(*, *) 'NOT WORK AS EXPECTED.  ABORT'
+         ierr = -1
+         return
       endif
       do    jzz = 1,  1
          jz = KZ0 + jzz - 1
