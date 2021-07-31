@@ -4,7 +4,7 @@ C Created: May 31 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/07/13 14:30:21 fuyuki icies_tgv.F>'
+#define _TSTAMP 'Time-stamp: <2021/07/31 14:46:39 fuyuki icies_tgv.F>'
 #define _FNAME 'icies_tgv.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
@@ -40,6 +40,7 @@ CCC_ + TGV test parameter
 #  define SW_BCPAT_LINEAR      3
 #  define SW_BCPAT_EXP         4
 #  define SW_DHPAT_EXP_VIALOV  5 /* exponential evolution toward vialov solution */
+#  define SW_MBPAT_INTERNAL    6 /* apply basal melting by thermodynamics */
 #define ITGV_WTYPE       5 /* w pattern */
 #  define WTYPE_CONST    0
 #  define WTYPE_VIALOV   1
@@ -487,7 +488,7 @@ CCC_    * Environment computation
      O             (iErr,
      O              VMHB,  VBBI,
      M              PTGV,
-     I              VXCFG, VMHR, VMHI, VMTI, VBBT,
+     I              VXCFG, VMTI, VBBT,
      I              T,     DTI,  ITGV, PMM,  IMM, WW, IMTI, PMTI,
      I              PBB,   IBB,  WZR,
      I              MH,    LH,   NZ,   LZ,   KZ0,
@@ -507,6 +508,17 @@ CCC_     + basal melting
      I              VMTI, VMTW,
      I              WZV,  PMM,  IMM,
      I              MH,   LH,   NZ,   LZ,  KZ0)
+            endif
+CCC_     + Environment (basal melting)
+            if (iErr.eq.0) then
+               call TGVubb
+     O             (iErr,
+     O              VMHB,
+     M              PTGV,
+     I              VXCFG, VMHI, VMTI,
+     I              T,     DTI,  ITGV, PMM,  IMM, WW,
+     I              MH,    LH,   NZ,   LZ,   KZ0,
+     I              ipKW,  ipL)
             endif
 CCC_    * Environment update
             call BBTupd
@@ -686,18 +698,18 @@ CCC_  - Declaration
 c
       _INTENT(IN, _REALSTD)  T, DT
 c
-      _INTENT(IN, integer)   ITGV(*)
-      _INTENT(IN, _REALSTD)  PTGV(*)
-      _INTENT(IN, _REALSTD)  PMD  (*)
-      _INTENT(IN, integer)   IMD  (*)
-      _INTENT(IN, _REALSTD)  PBB  (*)
-      _INTENT(IN, integer)   IBB  (*)
-      _INTENT(IN, integer)   IMTI (*)
-      _INTENT(IN, _REALSTD)  PMTI (*)
-      _INTENT(IN, _REALSTD)  WW   (LH, *)
-      _INTENT(IN, _REALSTD)  WZV  (LZ, *)
-      _INTENT(IN, integer)   ipKW (IPKW_FULL_DECL)
-      _INTENT(IN, integer)   IFPl
+      _INTENT(IN,   integer)   ITGV(*)
+      _INTENT(INOUT,_REALSTD)  PTGV(*)
+      _INTENT(IN,   _REALSTD)  PMD  (*)
+      _INTENT(IN,   integer)   IMD  (*)
+      _INTENT(IN,   _REALSTD)  PBB  (*)
+      _INTENT(IN,   integer)   IBB  (*)
+      _INTENT(IN,   integer)   IMTI (*)
+      _INTENT(IN,   _REALSTD)  PMTI (*)
+      _INTENT(IN,   _REALSTD)  WW   (LH, *)
+      _INTENT(IN,   _REALSTD)  WZV  (LZ, *)
+      _INTENT(IN,   integer)   ipKW (IPKW_FULL_DECL)
+      _INTENT(IN,   integer)   IFPl
 c
       integer jz, jzz
       integer jh
@@ -835,7 +847,7 @@ CCC_ & TGVubc  ## boundary condition update
      O    (iErr,
      O     VMHB,  VBBI,
      M     PTGV,
-     I     VXCFG, VMHR,  VMHI, VMTI, VBBT,
+     I     VXCFG, VMTI, VBBT,
      I     T,     DT,
      I     ITGV,  PMD,  IMD,  WW,  IMTI, PMTI,
      I     PBB,   IBB,  WZR,
@@ -853,8 +865,6 @@ c
       _INTENT(INOUT,_REALSTD)  PTGV(*)
 c
       _INTENT(IN, _REALSTD)  VXCFG(LH, *)
-      _INTENT(IN, _REALSTD)  VMHI (LH, *)
-      _INTENT(IN, _REALSTD)  VMHR (LH, *)
       _INTENT(IN, _REALSTD)  VMTI (LH, LZ, *)
       _INTENT(IN, _REALSTD)  VBBT (LH, LZR, *)
       _INTENT(IN, _REALSTD)  T, DT
@@ -873,14 +883,11 @@ c
       _INTENT(IN, integer)   ipKW (IPKW_FULL_DECL)
       _INTENT(IN, integer)   IFPl
 c
-      _REALSTD GH
       _REALSTD KR, DTDP, DPDZ, DZDZ
       integer jzt
       integer jh
       _REALSTD TDUR, TINC, TDEC, TLST, THST, PHS
       integer  KSWEV
-      _REALSTD VBUFMS(2, 2)
-      save     VBUFMS
 CCC_  - Body
       iErr = 0
 CCC_   . log
@@ -896,7 +903,6 @@ CCC   _   . misc properties
       call UV0sta (VMHB, MH, LH, VMHB_TBI,   0.0d0)
       call UV0sta (VMHB, MH, LH, VMHB_TBFLG, 0.0d0)
 CCC_   . surface temperature
-c$$$      call UV0sta(VMHB, MH, LH, VMHB_TSI, 210.d0)
       KSWEV = ITGV(ITGV_TSPATTERN)
       if (ITGV(ITGV_XFILE_TS).gt.0) then
          call TGVxev
@@ -948,7 +954,60 @@ CCC_   . surface mass balance
      I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
      I        T,    MH,   LH)
       endif
-c$$$      write(*, *) 'MS', VMHB(:, VMHB_MS)
+CCC_   . geothermal heat flux
+C     G = k dT/dz = k dT/dp dP/dZ dZ/dz
+      KR = PBB(PBB_CONDR)
+      jzt = KZ0R + NZR - 1
+      do jh = 1, MH
+         DZDZ  = 1.0d0 / VBBI (jh, VBBI_HR)
+         DPDZ  = WZR (jzt-1, VBBZ_dXa)
+         DTDP  = WZR (jzt-1, VBBZ_dWPb) * VBBT(jh, jzt,   VBBT_T)
+     $         + WZR (jzt-1, VBBZ_dWMb) * VBBT(jh, jzt-1, VBBT_T)
+         VMHB(jh, VMHB_GH) = KR * DTDP * DPDZ * DZDZ
+      enddo
+CCC_   . rock bc
+      do jh = 1, MH
+         VBBI(jh, VBBI_TU) = VMTI(jh, KZ0, VMTI_T)
+      enddo
+c
+      RETURN
+      END
+CCC_ & TGVubb  ## boundary condition update (basal melting)
+      subroutine TGVubb
+     O    (iErr,
+     O     VMHB,
+     M     PTGV,
+     I     VXCFG, VMHI, VMTI,
+     I     T,     DT,
+     I     ITGV,  PMD,  IMD,  WW,
+     I     MH,    LH,   NZ,   LZ,  KZ0,
+     I     ipKW,  IFPl)
+CCC_  - Declaration
+      implicit none
+      _INTENT(OUT,integer)   iErr
+      _INTENT(IN, integer)   MH,   LH
+      _INTENT(IN, integer)   NZ,   LZ,  KZ0
+      _INTENT(OUT,_REALSTD)  VMHB (LH, *)
+c
+      _INTENT(INOUT,_REALSTD)  PTGV(*)
+c
+      _INTENT(IN, _REALSTD)  VXCFG(LH, *)
+      _INTENT(IN, _REALSTD)  VMHI (LH, *)
+      _INTENT(IN, _REALSTD)  VMTI (LH, LZ, *)
+      _INTENT(IN, _REALSTD)  T, DT
+c
+      _INTENT(IN, integer)   ITGV(*)
+c
+      _INTENT(IN, _REALSTD)  PMD  (*)
+      _INTENT(IN, integer)   IMD  (*)
+      _INTENT(IN, _REALSTD)  WW   (LH, *)
+      _INTENT(IN, integer)   ipKW (IPKW_FULL_DECL)
+      _INTENT(IN, integer)   IFPl
+c
+      _REALSTD TDUR, TINC, TDEC, TLST, THST, PHS
+      integer  KSWEV
+CCC_  - Body
+      iErr = 0
 CCC_   . basal mass balance
       KSWEV = ITGV(ITGV_MBPATTERN)
       if (ITGV(ITGV_XFILE_MB).gt.0) then
@@ -961,6 +1020,8 @@ CCC_   . basal mass balance
      I        ITGV(ITGV_XFILE_MB),
      I        KSWEV, XOPR_ADD,
      I        T,    MH,   LH, IFPl)
+      else if (KSWEV.eq.SW_MBPAT_INTERNAL) then
+         call UV1nwa(VMHB, VMHI, MH, LH, VMHB_MB, VMHI_bm, -1.0d0)
       else
          TDUR  = PTGV(PTGV_B_DURATION)
          TINC  = PTGV(PTGV_B_TINCR)
@@ -975,29 +1036,7 @@ CCC_   . basal mass balance
      I        TDUR, TINC, TDEC, TLST, THST, PHS, KSWEV,
      I        T,    MH,   LH)
       endif
-CCC_   . geothermal heat flux
-c$$$      GH = -42.0d-3 * 31556926.d0
-c$$$      call UV0sta (VMHB, MH, LH, VMHB_GH,  GH)
-C     G = k dT/dz = k dT/dp dP/dZ dZ/dz
-      KR = PBB(PBB_CONDR)
-      jzt = KZ0R + NZR - 1
-      do jh = 1, MH
-         DZDZ  = 1.0d0 / VBBI (jh, VBBI_HR)
-         DPDZ  = WZR (jzt-1, VBBZ_dXa)
-         DTDP  = WZR (jzt-1, VBBZ_dWPb) * VBBT(jh, jzt,   VBBT_T)
-     $         + WZR (jzt-1, VBBZ_dWMb) * VBBT(jh, jzt-1, VBBT_T)
-         VMHB(jh, VMHB_GH) = KR * DTDP * DPDZ * DZDZ
-      enddo
-c$$$      GH = -42.0d-3 * 31556926.d0
-c$$$      call UV0sta (VMHB, MH, LH, VMHB_GH,  GH)
-CCC_   . rock bc
-c$$$      GH = -42.0d-3 * 31556926.d0
-c$$$      call UV0sta (VBBI, MH, LH, VBBI_GH,  GH)
-      do jh = 1, MH
-         VBBI(jh, VBBI_TU) = VMTI(jh, KZ0, VMTI_T)
-      enddo
 c
-c$$$      write(*, *) 'MS', 9, VMHB(:, VMHB_MS)
       RETURN
       END
 CCC_ + Begl./Climate Ts
