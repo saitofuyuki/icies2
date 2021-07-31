@@ -2,7 +2,7 @@ dnl movement/movement.m4 - Template for Definition for IcIES/Movement modules
 dnl Maintainer:  SAITO Fuyuki
 dnl Created: Jan 17 2012
 m4_define([TIME_STAMP],
-          ['Time-stamp: <2021/07/14 06:16:46 fuyuki movement.m4>'])dnl
+          ['Time-stamp: <2021/07/31 15:26:50 fuyuki movement.m4>'])dnl
 C movement/movement.h - Definition for IcIES/Movement modules
 C Maintainer:  SAITO Fuyuki
 C Created: Dec 20 2011
@@ -259,8 +259,10 @@ c_xkeep([MAX])
 #define SW_WI_SALLY   1  /* sally compatible method */
 #define SW_WI_UDB     2  /* snoopy compatible, but bottom bc use u grad b */
 
-#define SW_TBDZ_FIRST   0  /* first-order difference */
-#define SW_TBDZ_CENTER  1  /* second-order central difference */
+#define SW_TBDZ_FIRST_LOW 0  /* first-order difference (lower) */
+#define SW_TBDZ_FIRST     SW_TBDZ_FIRST_LOW
+#define SW_TBDZ_CENTER    1  /* second-order central difference */
+c$$$#define SW_TBDZ_FIRST_UP  2  /* first-order difference (upper) [deprecated] */
 
 #define SW_UADV_UPH    0  /* use half-grid upwind */
 #define SW_UADV_SELF   1  /* use same grid */
@@ -327,7 +329,7 @@ c_xkeep([MAX])
 #define SW_ADZ_FIRST   0  /* first-order difference */
 #define SW_ADZ_CENTER  1  /* second-order central difference */
 
-#define SW_BM_TBDZ_FIRST   0  /* first-order difference for basal melting diag */
+#define SW_BM_TBDZ_FIRST   0  /* first-order difference (use upper) for basal melting diag */
 #define SW_BM_TBDZ_CENTER  1  /* second-order central difference for basal melting diag */
 
 CCC_  * [IMS] SSA diagnostic

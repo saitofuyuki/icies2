@@ -1,5 +1,5 @@
 #!@ZSH@ -f
-# Time-stamp: <2021/07/14 06:33:59 fuyuki xicies_jp.sh.in>
+# Time-stamp: <2021/07/30 16:27:32 fuyuki xicies_jp.sh.in>
 #
 # Copyright: 2019-2021 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
@@ -364,6 +364,8 @@ parse_evolution ()
     _vi=$2
     [[ -z $_vi ]] && _vi=$func:t
     _vc=($func)
+  elif [[ ${func: :1} == i ]]; then
+    _vi=int _vc=(int 0 0 0 0)
   else
     [[ ! -e $ecfg ]] && mkdir -p $ecfg:h && touch $ecfg
     off=${off:-0}
@@ -483,6 +485,7 @@ gen_sysin ()
   [[ -n $cfgc[2] ]] && kaadvl=" KAADVL=$cfgc[2],"
   print -u3 -n - " &NIMSWD MSW=0, MINI=0, KAGEC=$cfgc[1],${kaadvl}"
   [[ -n $KBMTZ ]] && print -u3 -n - " KBMTZ=$KBMTZ,"
+  [[ -n $KTBDZ ]] && print -u3 -n - " KTBDZ=$KTBDZ,"
   print -u3 - " &END"
 
   # initialization
@@ -569,6 +572,8 @@ nml_tgvc ()
     (l*) type=3;;  # linear
     (e*) type=4;;  # exponential
     (v*) type=5;;  # variation
+    (i*) [[ $vtag != MB ]] && print -u2 - "$thisx: conflict pattern for $vtag ($func)" && return 1
+         type=6;;  # internal
     (*)  print -u2 - "$thisx: invalid evolution pattern $vtag"; return 1;;
     esac
 
