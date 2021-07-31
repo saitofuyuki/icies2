@@ -5,7 +5,7 @@ C Created: Dec 20 2011
 #  include "config.h"
 #endif
 #ifdef HEADER_PROPERTY
-#define _TSTAMP 'Time-stamp: <2021/07/14 06:16:46 fuyuki movement.m4>'
+#define _TSTAMP 'Time-stamp: <2021/07/31 15:26:50 fuyuki movement.m4>'
 #define _FNAME 'movement/movement.h'
 #define _REV   'JosePeterson0'
 #endif /* HEADER_PROPERTY */
@@ -254,8 +254,10 @@ CCC_  * IMD thickness time integration
 #define SW_WI_SALLY   1  /* sally compatible method */
 #define SW_WI_UDB     2  /* snoopy compatible, but bottom bc use u grad b */
 
-#define SW_TBDZ_FIRST   0  /* first-order difference */
-#define SW_TBDZ_CENTER  1  /* second-order central difference */
+#define SW_TBDZ_FIRST_LOW 0  /* first-order difference (lower) */
+#define SW_TBDZ_FIRST     SW_TBDZ_FIRST_LOW
+#define SW_TBDZ_CENTER    1  /* second-order central difference */
+c$$$#define SW_TBDZ_FIRST_UP  2  /* first-order difference (upper) [deprecated] */
 
 #define SW_UADV_UPH    0  /* use half-grid upwind */
 #define SW_UADV_SELF   1  /* use same grid */
@@ -322,7 +324,7 @@ CCC_  * IMD thickness time integration
 #define SW_ADZ_FIRST   0  /* first-order difference */
 #define SW_ADZ_CENTER  1  /* second-order central difference */
 
-#define SW_BM_TBDZ_FIRST   0  /* first-order difference for basal melting diag */
+#define SW_BM_TBDZ_FIRST   0  /* first-order difference (use upper) for basal melting diag */
 #define SW_BM_TBDZ_CENTER  1  /* second-order central difference for basal melting diag */
 
 CCC_  * IMS SSA diagnostic
