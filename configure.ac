@@ -3,7 +3,7 @@
 # Maintainer: SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision: JosePeterson0
-# Time-stamp: <2021/02/17 21:21:25 fuyuki configure.ac>
+# Time-stamp: <2026/03/17 16:56:40 fuyuki configure.ac>
 
 dnl _. health check
 m4_ifndef([ABT_INIT],
@@ -16,12 +16,12 @@ AI_INIT()
 dnl _. autoconf
 
 dnl _ , autoconf initialization
-AC_PREREQ([2.68])
-AC_INIT(AI_PACKAGE, AI_VERSION, [saitofuyuki@jamstec.go.jp], AI_TARNAME)
+AC_PREREQ([2.72])
+AC_INIT([AI_PACKAGE], [AI_VERSION], [saitofuyuki@jamstec.go.jp], AI_TARNAME)
 
 dnl _ , notice
 AC_COPYRIGHT([dnl
-Copyright (C) 2011-2021 Japan Agency for Marine-Earth Science and Technology
+Copyright (C) 2011-2026 Japan Agency for Marine-Earth Science and Technology
                         Ayako ABE-OUCHI
 
 Ice sheet model for Integrated Earth system Studies-II (IcIES-2) is developed by
@@ -275,7 +275,7 @@ AS_IF([test "x$enable_embedded_profiler" = xno],  [enable_embedded_profiler=0])
 AC_DEFINE_UNQUOTED([OPT_DEV_PROFILER], [$enable_embedded_profiler], [embedded profile level])
 
 dnl _. Results
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_FILES([Makefile
                  doc/Makefile
