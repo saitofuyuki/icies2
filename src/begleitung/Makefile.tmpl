@@ -1,9 +1,9 @@
 # IcIES/src/begleitung
 # Author: SAITO Fuyuki
 # Created: Aug 8 2013
-# Time-stamp: <2020/09/15 11:03:22 fuyuki Makefile.tmpl>
+# Time-stamp: <2026/03/25 15:55:33 fuyuki Makefile.tmpl>
 
-# Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
+# Copyright: 2013--2020, 2026 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -13,6 +13,7 @@ BUILT_SOURCES	=	begleitung.h
 EXTRA_DIST  	=	begleitung.m4 $(BUILT_SOURCES) ##%% a
 MAINTAINERCLEANFILES = $(BUILT_SOURCES)  ##%% a
 
+LIB_DEPEND_DIRS	=	arpeggio development unison
 
 SQIHELP	= $(top_srcdir)/build-aux/icies/sqihelp
 if MAINTAINER_MODE
