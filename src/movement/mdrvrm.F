@@ -5,12 +5,12 @@ C Revision:  Snoopy0.9
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/07/14 06:20:14 fuyuki mdrvrm.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:18:32 fuyuki mdrvrm.F>'
 #define _FNAME 'movement/mdrvrm.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2011--2020
+C Copyright (C) 2011--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -2822,9 +2822,10 @@ CCC_ @ MDTEST  ## Mdrvrm test program
 #endif
       program MDTEST
 CCC_  - Test suites
-CC::   KINDS 1 2 3 4 5 6 7 8
-CC::   SOURCES mmcipc.F mmsbcg.F mutcfg.F msnita.F mibakw.F mmxoms.F mbscol.F msbmos.F mmwcol.F mttcol.F
-CC::   SOURCES 4 dbg_mttcol.F
+CC::   KINDS 1 2 3 5 6 7 8
+CC::   SOURCES mmcipc.F mmsbcg.F mutcfg.F msnita.F mibakw.F mmxoms.F mbscol.F msbmos.F mmwcol.F mttcol.F magcol.F
+CCxx:: KINDS 1 2 3 4 5 6 7 8
+CCxx:: SOURCES 4 dbg_mttcol.F
 CCC_  - Declaration
       implicit none
       integer iErr
