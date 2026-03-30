@@ -10,7 +10,7 @@
 
 GCLDEF	=	gcldef.h
 
-EXTRA_DIST = ##%% a
+EXTRA_DIST = 
 EXTRA_DIST += ofdlct.h ofnstd.h ologfm.h orevan.h olimit.h \
 			ounits.h ouhcal.h ounelv.h \
 			odevel.h odevid.h odevva.h \
@@ -18,7 +18,7 @@ EXTRA_DIST += ofdlct.h ofnstd.h ologfm.h orevan.h olimit.h \
 			ofugca.h \
 			oclock.h $(GCLDEF)
 # force nullify
-LCLCNDH	= ##%% t
+LCLCNDH	= 
 
 $(GCLDEF):
 	touch $@
@@ -43,6 +43,7 @@ if NEVER
 EXTRA_PROGRAMS = dummy_never_built
 nodist_dummy_never_built_SOURCES = dummy_never_built.c
 endif
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:

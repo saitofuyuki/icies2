@@ -398,7 +398,7 @@ EXTRA_DIST = ofdlct.h ofnstd.h ologfm.h orevan.h olimit.h ounits.h \
 	oarpea_obsolete256.h oarpea_v257.h oarpkw.h oarpfi.h oarpgc.h \
 	ovconf.h ofugca.h oclock.h $(GCLDEF) $(LCLCNDH) Makefile.tmpl
 # force nullify
-LCLCNDH = ##%% t
+LCLCNDH = 
 
 ### Local Variables:
 ### mode: makefile-automake
@@ -416,6 +416,7 @@ OSTINATO_build = $(top_builddir)/$(OSTINATO)
 MKMKAM = $(top_srcdir)/build-aux/icies/mkmkam
 MKCLOCKCOND = $(top_srcdir)/build-aux/icies/clockcond
 @NEVER_TRUE@nodist_dummy_never_built_SOURCES = dummy_never_built.c
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON BUILDS
 am__depfiles_remade = 
 #### DEP-DIR
@@ -688,6 +689,7 @@ clean-generic:
 distclean-generic:
 	-$(am__rm_f) $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || $(am__rm_f) $(CONFIG_CLEAN_VPATH_FILES)
+	-$(am__rm_f) $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"

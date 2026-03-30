@@ -11,12 +11,12 @@
 ACLOCAL_AMFLAGS = -I build-aux/m4
 
 BUILD_AUX	  = build-aux
-SUBDIRS       = src run ##%% t
+SUBDIRS       = src run 
 DIST_SUBDIRS  = $(SUBDIRS) etc doc
 TREEID		  = TreeID
 REVISION_CACHE	=	autorevision.cache
 DOC_DIST      = INSTALL-icies2 NOTICE LICENSE HOWTORUN
-EXTRA_DIST    = $(TREEID) $(REVISION_CACHE) $(BUILD_AUX) $(DOC_DIST) ##%% a
+EXTRA_DIST    = $(TREEID) $(REVISION_CACHE) $(BUILD_AUX) $(DOC_DIST) 
 
 IDGEN		=	$(BUILD_AUX)/icies/idgen
 RUN_IDGEN	=	$(top_srcdir)/$(IDGEN)
@@ -33,7 +33,7 @@ DIST_DIR_GIT	=	$(PACKAGE)-$(VERSION)_$(DIST_ID)$(DIST_SFX)
 
 SP_DIST_HOOK	=
 # force nullify
-LCLCNDH	= ##%% t
+LCLCNDH	= 
 # distdir	=	$(PACKAGE)-$(VERSION)_$(DIST_ID)
 
 install-etc:
@@ -125,6 +125,7 @@ if NEVER
 EXTRA_PROGRAMS = dummy_never_built
 nodist_dummy_never_built_SOURCES = dummy_never_built.c
 endif
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:

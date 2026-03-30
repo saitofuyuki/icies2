@@ -160,7 +160,8 @@ aedlra3_DEPENDENCIES =  \
 	$(top_builddir)/src/development/libicies_local.la \
 	$(top_builddir)/src/unison/libicies_local.la
 nodist_afintf_OBJECTS = afintf-afintf.$(OBJEXT) \
-	afintf-acorms.$(OBJEXT) afintf-aedlra.$(OBJEXT)
+	afintf-aedlra.$(OBJEXT) afintf-acorms.$(OBJEXT) \
+	afintf-agmtry.$(OBJEXT)
 afintf_OBJECTS = $(nodist_afintf_OBJECTS)
 afintf_LDADD = $(LDADD)
 afintf_DEPENDENCIES =  \
@@ -181,8 +182,8 @@ agmtry2_DEPENDENCIES =  \
 	$(top_builddir)/src/development/libicies_local.la \
 	$(top_builddir)/src/unison/libicies_local.la
 nodist_akwopr_OBJECTS = akwopr-akwopr.$(OBJEXT) \
-	akwopr-agmtry.$(OBJEXT) akwopr-acorms.$(OBJEXT) \
-	akwopr-aedlra.$(OBJEXT) akwopr-afintf.$(OBJEXT)
+	akwopr-aedlra.$(OBJEXT) akwopr-agmtry.$(OBJEXT) \
+	akwopr-acorms.$(OBJEXT) akwopr-afintf.$(OBJEXT)
 akwopr_OBJECTS = $(nodist_akwopr_OBJECTS)
 akwopr_LDADD = $(LDADD)
 akwopr_DEPENDENCIES =  \
@@ -514,6 +515,7 @@ MKMKAM = $(top_srcdir)/build-aux/icies/mkmkam
 MKCLOCKCOND = $(top_srcdir)/build-aux/icies/clockcond
 EXTRA_DIST = $(LCLCNDH) Makefile.tmpl $(libicies_local_la_ORIGINS)
 @NEVER_TRUE@nodist_dummy_never_built_SOURCES = dummy_never_built.c
+DISTCLEANFILES = .deps/*.Pf $(LCLCNDH)
 #### END COMMON BUILDS
 #### ORIGINS/BUILDS
 noinst_LTLIBRARIES = libicies_local.la
@@ -524,15 +526,15 @@ CLEANFILES = acorms.f agmtry.f aedlra.f akwopr.f afintf.f apscfg.f \
 	arpmng.f gather_libicies_local_la.f acorms-acorms.f \
 	bundle-acorms.f aedlra1-aedlra.f bundle-aedlra1.f \
 	aedlra2-aedlra.f bundle-aedlra2.f aedlra3-aedlra.f \
-	bundle-aedlra3.f afintf-afintf.f afintf-acorms.f \
-	afintf-aedlra.f bundle-afintf.f agmtry1-agmtry.f \
-	agmtry1-acorms.f bundle-agmtry1.f agmtry2-agmtry.f \
-	agmtry2-acorms.f bundle-agmtry2.f akwopr-akwopr.f \
-	akwopr-agmtry.f akwopr-acorms.f akwopr-aedlra.f \
-	akwopr-afintf.f bundle-akwopr.f apscfg-apscfg.f \
-	bundle-apscfg.f arpmng-arpmng.f arpmng-agmtry.f \
-	arpmng-acorms.f arpmng-akwopr.f arpmng-aedlra.f \
-	arpmng-afintf.f bundle-arpmng.f
+	bundle-aedlra3.f afintf-afintf.f afintf-aedlra.f \
+	afintf-acorms.f afintf-agmtry.f bundle-afintf.f \
+	agmtry1-agmtry.f agmtry1-acorms.f bundle-agmtry1.f \
+	agmtry2-agmtry.f agmtry2-acorms.f bundle-agmtry2.f \
+	akwopr-akwopr.f akwopr-aedlra.f akwopr-agmtry.f \
+	akwopr-acorms.f akwopr-afintf.f bundle-akwopr.f \
+	apscfg-apscfg.f bundle-apscfg.f arpmng-arpmng.f \
+	arpmng-agmtry.f arpmng-acorms.f arpmng-akwopr.f \
+	arpmng-aedlra.f arpmng-afintf.f bundle-arpmng.f
 CATALL_files = gather_libicies_local_la.f
 acorms_CPPFLAGS = -DTEST_ACORMS=1
 nodist_acorms_SOURCES = acorms-acorms.f
@@ -543,21 +545,20 @@ nodist_aedlra2_SOURCES = aedlra2-aedlra.f
 aedlra3_CPPFLAGS = -DTEST_AEDLRA=3
 nodist_aedlra3_SOURCES = aedlra3-aedlra.f
 afintf_CPPFLAGS = -DTEST_AFINTF=1
-nodist_afintf_SOURCES = afintf-afintf.f afintf-acorms.f afintf-aedlra.f
+nodist_afintf_SOURCES = afintf-afintf.f afintf-aedlra.f afintf-acorms.f afintf-agmtry.f
 agmtry1_CPPFLAGS = -DTEST_AGMTRY=1
 nodist_agmtry1_SOURCES = agmtry1-agmtry.f agmtry1-acorms.f
 agmtry2_CPPFLAGS = -DTEST_AGMTRY=2
 nodist_agmtry2_SOURCES = agmtry2-agmtry.f agmtry2-acorms.f
 akwopr_CPPFLAGS = -DTEST_AKWOPR=1 -DTEST_AEDLRA_CFG=1
-nodist_akwopr_SOURCES = akwopr-akwopr.f akwopr-agmtry.f akwopr-acorms.f akwopr-aedlra.f akwopr-afintf.f
+nodist_akwopr_SOURCES = akwopr-akwopr.f akwopr-aedlra.f akwopr-agmtry.f akwopr-acorms.f akwopr-afintf.f
 apscfg_CPPFLAGS = -DTEST_APSCFG=1
 nodist_apscfg_SOURCES = apscfg-apscfg.f
 arpmng_CPPFLAGS = -DTEST_ARPMNG=1 -DTEST_AEDLRA_CFG=1
 nodist_arpmng_SOURCES = arpmng-arpmng.f arpmng-agmtry.f arpmng-acorms.f arpmng-akwopr.f arpmng-aedlra.f arpmng-afintf.f
 #### END ORIGINS/CHECKS arpmng.F
-am__depfiles_remade = ./$(DEPDIR)/acorms.Pf ./$(DEPDIR)/agmtry.Pf ./$(DEPDIR)/aedlra.Pf ./$(DEPDIR)/akwopr.Pf ./$(DEPDIR)/afintf.Pf ./$(DEPDIR)/apscfg.Pf ./$(DEPDIR)/arpmng.Pf ./$(DEPDIR)/acorms-acorms.Pf ./$(DEPDIR)/aedlra1-aedlra.Pf ./$(DEPDIR)/aedlra2-aedlra.Pf ./$(DEPDIR)/aedlra3-aedlra.Pf ./$(DEPDIR)/afintf-afintf.Pf ./$(DEPDIR)/afintf-acorms.Pf ./$(DEPDIR)/afintf-aedlra.Pf ./$(DEPDIR)/agmtry1-agmtry.Pf ./$(DEPDIR)/agmtry1-acorms.Pf ./$(DEPDIR)/agmtry2-agmtry.Pf ./$(DEPDIR)/agmtry2-acorms.Pf ./$(DEPDIR)/akwopr-akwopr.Pf ./$(DEPDIR)/akwopr-agmtry.Pf ./$(DEPDIR)/akwopr-acorms.Pf ./$(DEPDIR)/akwopr-aedlra.Pf ./$(DEPDIR)/akwopr-afintf.Pf ./$(DEPDIR)/apscfg-apscfg.Pf ./$(DEPDIR)/arpmng-arpmng.Pf ./$(DEPDIR)/arpmng-agmtry.Pf ./$(DEPDIR)/arpmng-acorms.Pf ./$(DEPDIR)/arpmng-akwopr.Pf ./$(DEPDIR)/arpmng-aedlra.Pf ./$(DEPDIR)/arpmng-afintf.Pf
+am__depfiles_remade = ./$(DEPDIR)/acorms.Pf ./$(DEPDIR)/agmtry.Pf ./$(DEPDIR)/aedlra.Pf ./$(DEPDIR)/akwopr.Pf ./$(DEPDIR)/afintf.Pf ./$(DEPDIR)/apscfg.Pf ./$(DEPDIR)/arpmng.Pf ./$(DEPDIR)/acorms-acorms.Pf ./$(DEPDIR)/aedlra1-aedlra.Pf ./$(DEPDIR)/aedlra2-aedlra.Pf ./$(DEPDIR)/aedlra3-aedlra.Pf ./$(DEPDIR)/afintf-afintf.Pf ./$(DEPDIR)/afintf-aedlra.Pf ./$(DEPDIR)/afintf-acorms.Pf ./$(DEPDIR)/afintf-agmtry.Pf ./$(DEPDIR)/agmtry1-agmtry.Pf ./$(DEPDIR)/agmtry1-acorms.Pf ./$(DEPDIR)/agmtry2-agmtry.Pf ./$(DEPDIR)/agmtry2-acorms.Pf ./$(DEPDIR)/akwopr-akwopr.Pf ./$(DEPDIR)/akwopr-aedlra.Pf ./$(DEPDIR)/akwopr-agmtry.Pf ./$(DEPDIR)/akwopr-acorms.Pf ./$(DEPDIR)/akwopr-afintf.Pf ./$(DEPDIR)/apscfg-apscfg.Pf ./$(DEPDIR)/arpmng-arpmng.Pf ./$(DEPDIR)/arpmng-agmtry.Pf ./$(DEPDIR)/arpmng-acorms.Pf ./$(DEPDIR)/arpmng-akwopr.Pf ./$(DEPDIR)/arpmng-aedlra.Pf ./$(DEPDIR)/arpmng-afintf.Pf
 LCLCNDH = $(builddir)/lclcnd.h
-MAINTAINERCLEANFILES = $(LCLDNDH)
 #### DEP-DIR
 LIB_DEPEND_BASE = src
 LIB_DEPEND_NAME = libicies_local.la
@@ -897,11 +898,11 @@ clean-generic:
 distclean-generic:
 	-$(am__rm_f) $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || $(am__rm_f) $(CONFIG_CLEAN_VPATH_FILES)
+	-$(am__rm_f) $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-$(am__rm_f) $(MAINTAINERCLEANFILES)
 clean: clean-recursive
 
 clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
@@ -1135,9 +1136,16 @@ check-aedlra: aedlra1 aedlra2 aedlra3
 #### END ORIGINS/CHECKS aedlra.F
 #### ORIGINS/CHECKS afintf.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afintf-afintf.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afintf-acorms.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afintf-aedlra.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afintf-acorms.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afintf-agmtry.Pf@am__quote@ # am--include-marker
 afintf-afintf.f: afintf.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(afintf_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(afintf_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+afintf-aedlra.f: aedlra.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(afintf_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -1149,7 +1157,7 @@ afintf-acorms.f: acorms.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(afintf_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-afintf-aedlra.f: aedlra.F
+afintf-agmtry.f: agmtry.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(afintf_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -1214,11 +1222,17 @@ check-agmtry: agmtry1 agmtry2
 #### END ORIGINS/CHECKS agmtry.F
 #### ORIGINS/CHECKS akwopr.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/akwopr-akwopr.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/akwopr-aedlra.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/akwopr-agmtry.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/akwopr-acorms.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/akwopr-aedlra.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/akwopr-afintf.Pf@am__quote@ # am--include-marker
 akwopr-akwopr.f: akwopr.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+akwopr-aedlra.f: aedlra.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -1231,12 +1245,6 @@ akwopr-agmtry.f: agmtry.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
 akwopr-acorms.f: acorms.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-akwopr-aedlra.f: aedlra.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(akwopr_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@

@@ -9,7 +9,7 @@
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
 bin_PROGRAMS_ORIGINS	=	icies_tgv.F
-bin_PROGRAMS = icies_tgv   ##%% t
+bin_PROGRAMS = icies_tgv   
 
 icies_tgv_LDADD			=	libicies.la
 
@@ -21,14 +21,14 @@ LIB_DEPEND_DIRS	=	unison development arpeggio movement begleitung
 
 libicies_la_LIBADD = unison/libicies_local.la development/libicies_local.la arpeggio/libicies_local.la movement/libicies_local.la begleitung/libicies_local.la
 
-SUBDIRS       = $(LIB_DEPEND_DIRS) ##%% t
+SUBDIRS       = $(LIB_DEPEND_DIRS) 
 DIST_SUBDIRS  = $(SUBDIRS) ostinato cadenza
 
-noinst_LTLIBRARIES	=	##%% n
-## nodist_libicies_local_la_SOURCES	=	##%% n
+noinst_LTLIBRARIES	=	
+## nodist_libicies_local_la_SOURCES	=	
 
 # force nullify
-LCLCNDH	= ##%% t
+LCLCNDH	= 
 
 install-cadenza:
 	@cd cadenza; $(MAKE) $(AM_MAKEFLAGS) all install
@@ -53,6 +53,7 @@ if NEVER
 EXTRA_PROGRAMS = dummy_never_built
 nodist_dummy_never_built_SOURCES = dummy_never_built.c
 endif
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:
@@ -154,7 +155,7 @@ check-icies_tgv: icies_tgv
 #### END ORIGINS/CHECKS icies_tgv.F
 am__depfiles_remade = ./$(DEPDIR)/icies_tgv.Pf ./$(DEPDIR)/icies_tgv-icies_tgv.Pf
 auto_LCLCNDH_auto = $(builddir)/lclcnd.h
-MAINTAINERCLEANFILES = $(LCLDNDH)
+DISTCLEANFILES += $(LCLCNDH)
 #### DEP-DIR
 LIB_DEPEND_BASE = src
 LIB_DEPEND_NAME = libicies_local.la

@@ -472,12 +472,12 @@ libicies_la_SOURCES =
 nodist_EXTRA_libicies_la_SOURCES = dummy.F
 LIB_DEPEND_DIRS = unison development arpeggio movement begleitung
 libicies_la_LIBADD = unison/libicies_local.la development/libicies_local.la arpeggio/libicies_local.la movement/libicies_local.la begleitung/libicies_local.la
-SUBDIRS = $(LIB_DEPEND_DIRS) ##%% t
+SUBDIRS = $(LIB_DEPEND_DIRS) 
 DIST_SUBDIRS = $(SUBDIRS) ostinato cadenza
-noinst_LTLIBRARIES = ##%% n
+noinst_LTLIBRARIES = 
 
 # force nullify
-LCLCNDH = ##%% t
+LCLCNDH = 
 
 ### Local Variables:
 ### mode: makefile-automake
@@ -496,6 +496,7 @@ MKMKAM = $(top_srcdir)/build-aux/icies/mkmkam
 MKCLOCKCOND = $(top_srcdir)/build-aux/icies/clockcond
 EXTRA_DIST = $(LCLCNDH) Makefile.tmpl $(icies_tgv_ORIGINS)
 @NEVER_TRUE@nodist_dummy_never_built_SOURCES = dummy_never_built.c
+DISTCLEANFILES = .deps/*.Pf $(LCLCNDH)
 #### END COMMON BUILDS
 #### ORIGINS/BUILDS
 icies_tgv_ORIGINS = icies_tgv.F
@@ -509,7 +510,6 @@ nodist_icies_tgv_SOURCES = icies_tgv-icies_tgv.f
 #### END ORIGINS/CHECKS icies_tgv.F
 am__depfiles_remade = ./$(DEPDIR)/icies_tgv.Pf ./$(DEPDIR)/icies_tgv-icies_tgv.Pf
 auto_LCLCNDH_auto = $(builddir)/lclcnd.h
-MAINTAINERCLEANFILES = $(LCLDNDH)
 #### DEP-DIR
 LIB_DEPEND_BASE = src
 LIB_DEPEND_NAME = libicies_local.la
@@ -908,11 +908,11 @@ clean-generic:
 distclean-generic:
 	-$(am__rm_f) $(CONFIG_CLEAN_FILES)
 	-test . = "$(srcdir)" || $(am__rm_f) $(CONFIG_CLEAN_VPATH_FILES)
+	-$(am__rm_f) $(DISTCLEANFILES)
 
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-	-$(am__rm_f) $(MAINTAINERCLEANFILES)
 clean: clean-recursive
 
 clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
