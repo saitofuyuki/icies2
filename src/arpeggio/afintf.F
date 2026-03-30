@@ -4,12 +4,12 @@ C Created: Jan 31 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 11:56:09 fuyuki afintf.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:18:44 fuyuki afintf.F>'
 #define _FNAME 'arpeggio/afintf.F'
 #define _REV   'Arpeggio 1.0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2012--2020
+C Copyright (C) 2012--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology
 C
 C Licensed under the Apache License, Version 2.0
@@ -2938,7 +2938,7 @@ CCC_@ AFTEST  ## Arpeggio/File test
 #if TEST_AFINTF
       program AFTEST
 CCC_ + Test suites
-CC::   SOURCES aedlra.F acorms.F
+CC::   SOURCES aedlra.F acorms.F agmtry.F
 CCC_ + Declaration
 #include "odevid.h"  /* MPI table */
       implicit none

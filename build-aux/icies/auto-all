@@ -1,8 +1,8 @@
 #!/bin/sh
 # Maintainer: SAITO Fuyuki
-# Time-stamp: <2021/04/17 16:35:19 fuyuki auto-all>
+# Time-stamp: <2026/03/17 17:32:18 fuyuki auto-all>
 # Package: IcIES-2
-# Copyright: 2020-2021 JAMSTEC
+# Copyright: 2020-2026 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -10,7 +10,7 @@ bindir=`dirname "$0"`
 
 # health check
 e=0
-for c in find autoreconf python dirname
+for c in find autoreconf python3 dirname
 do
   if command -v "$c" > /dev/null 2>&1; then :; else
     echo "$0: missing command: $c" >&2

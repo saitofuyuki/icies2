@@ -4,12 +4,12 @@ C Created: Apr 17 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2016/10/24 13:29:50 fuyuki msbmos.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:26:04 fuyuki msbmos.F>'
 #define _FNAME 'movement/msbmos.F'
 #define _REV   'Snoopy0.9/Three0.1'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2012--2020
+C Copyright (C) 2012--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -4694,7 +4694,7 @@ c
 #include "odevid.h"
       program MSBMts
 CCC_  - Test suites
-CC::   SOURCES mutcfg.F mibakw.F msfunc.F
+CC::   SOURCES mutcfg.F mibakw.F msfunc.F muvcio.F
 CCC_  - Declaration
       implicit none
       integer iErr
@@ -4921,17 +4921,23 @@ CCC_  - right
 CCC_  - Variable clusters output
       CSW = 'C'
       if (iErr.eq.0) then
-         call MIVgst
+         call MUVrgd
      O       (iErr, idGM,
      I        icF,  MH,  LH, NZ,  LZ,  KZ0,
      I        CSW,  ' ', CR, IFPa, IE, iMA)
       endif
-      if (iErr.eq.0) then
-         call MSVgst
-     O       (iErr, idGM,
-     I        icF,  MH,  LH,
-     I        CSW,  ' ', CR, IFPa, IE, iMA)
-      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MIVgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH, NZ,  LZ,  KZ0,
+c$$$     I        CSW,  ' ', CR, IFPa, IE, iMA)
+c$$$      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MSVgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH,
+c$$$     I        CSW,  ' ', CR, IFPa, IE, iMA)
+c$$$      endif
 c
       T    = 0.0d0
       if (iErr.eq.0) then

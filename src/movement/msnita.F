@@ -4,12 +4,12 @@ C Created: Oct 2 2012
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2017/01/30 12:50:18 fuyuki msnita.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:32:05 fuyuki msnita.F>'
 #define _FNAME 'movement/msnita.F'
 #define _REV   'Snoopy0.9/Three0.1'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2012--2020
+C Copyright (C) 2012--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -2497,7 +2497,7 @@ CCC_* [TEST]  ## test
 CCC_ @ MSLtst  ## test program
       program MSNtst
 CCC_  - Test suites
-CC::   SOURCES mslbcg.F mglcol.F msbmos.F:TEST_MSBMOS_SUB=1 mmxoms.F
+CC::   SOURCES mslbcg.F mglcol.F msbmos.F:TEST_MSBMOS_SUB=1 mmxoms.F muvcio.F
 CCC_  - Declaration
       implicit none
       integer iErr
@@ -2664,23 +2664,29 @@ CCC_    * Parameters
 CCC_    * Variable clusters
       CSW = 'C'
       if (iErr.eq.0) then
-         call MSVgst
-     O       (iErr, idGM,
-     I        icF,  MH,  LH,
-     I        CSW,  ' ', CR, IFPa, IE, iMA)
-      endif
-      if (iErr.eq.0) then
-         call MIVgst
+         call MUVrgd
      O       (iErr, idGM,
      I        icF,  MH,  LH, NZ,   LZ,  KZ0,
      I        CSW,  ' ', CR, IFPa, IE,  iMA)
       endif
-      if (iErr.eq.0) then
-         call MMXgst
-     O       (iErr, idGM,
-     I        icF,  MH,  LH,
-     I        CSW,  ' ', CR, IFPa, IE, iMA)
-      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MSVgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH,
+c$$$     I        CSW,  ' ', CR, IFPa, IE, iMA)
+c$$$      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MIVgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH, NZ,   LZ,  KZ0,
+c$$$     I        CSW,  ' ', CR, IFPa, IE,  iMA)
+c$$$      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MMXgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH,
+c$$$     I        CSW,  ' ', CR, IFPa, IE, iMA)
+c$$$      endif
 CCC_    * reports
       if (iErr.eq.0) then
          WZV (1) = 0.0d0

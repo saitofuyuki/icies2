@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # build-aux/icies/mkmkam - IcIES/build-aux/Makefile.am generator
 # Maintainer: SAITO Fuyuki
 # Created: Aug 7 2013 (again from scratch)
-# Time-stamp: <2021/04/16 16:20:01 fuyuki mkmkam>
+# Time-stamp: <2026/03/26 16:04:41 fuyuki mkmkam>
 # Package: IcIES-2
-# Copyright: 2013-2021 JAMSTEC
+# Copyright: 2013-2026 JAMSTEC
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -101,7 +101,7 @@ exit with error, reporting the confliction.
 Special (input) variables in Makefile.tmpl
 ------------------------------------------
 
-     \*lib\*_la_ORIGINS      original fortran source files to be included in the specified library
+     *lib*_la_ORIGINS      original fortran source files to be included in the specified library
      bin_PROGRAMS_ORIGINS  original fortran source files to build bin_PROGRAMS
      EXTRA_ORIGINS         original fortran source files NOT to be included in libraries
 
@@ -189,17 +189,25 @@ class MakeTmpl:
         At the same time template (user) variable attributes are generated.
         """
         ll = ''
-        rp = re.compile (r'\s*(\w+)\s*(\+)?=\s*([^\\#]*)\s*(?:##%%\s*(\w)\w*)?$')
+        #                    1       2        3                     4
+        rp = re.compile(r'\s*(\w+)\s*(\+)?=\s*([^\\#]*)\s*(?:##%%\s*(\w)\w*)?$')
+        rd = re.compile(r'##%%\s*(\w)\w*$')
         for l in lines:
             l = l[:-1]
-            self.L.insert (EntryNormal (l))
             if len (l) > 0 and l[-1] == '\\':
+                self.L.insert (EntryNormal (l))
+                # print(f'>>ADD {l}')
                 ll += l[:-1]
             else:
                 ll += l
                 x = rp.match (ll)
+                lo = l[:]
+                l = rd.sub(r'', l)
+                self.L.insert (EntryNormal (l))
+                # print(f'>>REP {l} << {lo}')
                 if x:
                     k, v = x.group (1,3)
+                    # print(f'>>>> {k} {v} /{x.group(2)}/{x.group(4)}/')
                     if x.group (2):
                         if not k in self.U:
                             sys.stderr.write ('Warning: no previous definition (%s)\n' % k)
@@ -219,7 +227,7 @@ class MakeTmpl:
 
     def diag (self):
         """Diagnosis."""
-        print repr (self.L)
+        print(repr(self.L))
         # print str  (self.L)
         # debug_check (self.U, 'U')
         # debug_check (self.S, 'S')
@@ -301,6 +309,8 @@ class EntryDef (Entry):
         F = F or {}
         f = F.get (self.k, None)
         r = ''
+        # if self.k == r'MAINTAINERCLEANFILES':
+        #     print(f"flag {f} {self.k} {self.fmt()}")
         if f == 'a':
             r = '%s += %s' % (self.k, self.fmt ())
         elif f == 'n':
@@ -323,6 +333,7 @@ class EntryDef (Entry):
         else:
             sys.stderr.write ('Error: unknown flag %s for %s.\n' % (f, self.k))
             sys.exit (1)
+        # print('>> ', r)
         return r
     def fmt (self):
         """Format value of variable"""
@@ -424,6 +435,7 @@ class EntryList (Entry):
     def finalize (self, F = None):
         def f (x): return not isinstance (x, EntryAnchor)
         # return [e.finalize (F) for e in filter (f, self.seq)]
+        # print('>> ', [e for e in filter (f, self.seq)])
         return ('\n'.join
             ([e.finalize (F) for e in filter (f, self.seq)]))
 
@@ -496,6 +508,8 @@ class MakeTmplIcIES (MakeTmpl):
                                r'EXTRA_PROGRAMS = dummy_never_built',
                                r'nodist_dummy_never_built_SOURCES = dummy_never_built.c',
                                r'endif'))
+
+        E.insert (EntryDef ('DISTCLEANFILES',       '.deps/*.Pf'))
 
         self.sync_system (E)
         ## E.insert (EntryDef ('__TEST__',          ['a', 'b', 'c', ['d', 'e', 'f', ['f0', 'f1']], 'g', 'h']))
@@ -596,7 +610,7 @@ class MakeTmplIcIES (MakeTmpl):
         for f in org.keys ():
             Ef = EntrySection ('BUILD FAMILY %s' % f)
             R.insert (Ef)
-            for b, s in org[f].iteritems ():
+            for b, s in org[f].items():
                 Eb = EntrySection ('BUILD %s' % b)
                 Ef.insert (Eb)
                 srcs += self.add_build_environments (f, b, s, depf, Eb)
@@ -612,7 +626,8 @@ class MakeTmplIcIES (MakeTmpl):
         ## common setting
         if expand_flatten_list ((self.U, self.S), 'CLC_SRCS'):
             R.insert (EntryDef ('LCLCNDH', '$(builddir)/lclcnd.h'))
-            R.insert (EntryDef ('MAINTAINERCLEANFILES', '$(LCLDNDH)'))
+            # R.insert (EntryDef ('MAINTAINERCLEANFILES', '$(LCLCNDH)'))
+            R.insert (EntryDef ('DISTCLEANFILES', '$(LCLCNDH)'))
         pass
 
     def parse_origins (self, R = None):
@@ -671,7 +686,7 @@ class MakeTmplIcIES (MakeTmpl):
         if ndef:
             E = EntrySection ('ORIGINS/BUILDS')
             R.insert (E)
-            for k, v in ndef.iteritems ():
+            for k, v in ndef.items():
                 E.insert (EntryDef (k, v))
             self.sync_system (E)
             pass
@@ -951,10 +966,10 @@ class MakeTmplIcIES (MakeTmpl):
         b = True
         while b:
             b = False
-            for dk, dv in DEPS.iteritems ():
+            for dk, dv in DEPS.items():
                 nv = {}
                 ##print '### start ', dk, dv
-                for ck, cv in dv.iteritems ():
+                for ck, cv in dv.items():
                     ##print '### item ', ck, cv
                     nv[ck] = cv
                     if not DEPS.get (ck): continue
@@ -1063,15 +1078,15 @@ def debug_check (a, name = None, lev = 0):
 def debug_dict (a, name, lev = 0):
     if lev == 0:
         print ("@@@DICT: %s" % name)
-    for k, v in a.iteritems ():
+    for k, v in a.items():
         if   isinstance (v, dict):
-            print '%s%s:' % ('  ' * lev, k)
+            print('%s%s:' % ('  ' * lev, k))
             debug_dict (v, None, lev + 1)
         elif isinstance (v, list):
-            print '%s%s:' % ('  ' * lev, k)
+            print('%s%s:' % ('  ' * lev, k))
             debug_list (v, None, lev + 1)
         else:
-            print '%s%s: %s' % ('  ' * lev, k, v)
+            print('%s%s: %s' % ('  ' * lev, k, v))
     if lev == 0:
         print ("@@@DICT: %s done" % name)
     pass
@@ -1080,17 +1095,17 @@ def debug_list (a, name, lev = 0):
     if lev == 0:
         print ("@@@LIST: %s" % name)
     if lev == 10:
-        print '  ' * lev, a, '@@@'
+        print('  ' * lev, a, '@@@')
     else:
         for l in a:
             if   isinstance (l, dict):
-                print '  ' * lev, '@@:'
+                print('  ' * lev, '@@:')
                 debug_dict (l, None, lev + 1)
             elif isinstance (l, list):
-                print '  ' * lev, '@@:'
+                print('  ' * lev, '@@:')
                 debug_list (l, None, lev + 1)
             else:
-                print '  ' * lev, l
+                print('  ' * lev, l)
     if lev == 0:
         print ("@@@LIST: %s done" % name)
     pass

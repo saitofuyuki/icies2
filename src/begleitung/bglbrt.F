@@ -4,12 +4,12 @@ C Created: Jun 16 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/04/14 10:42:34 fuyuki bglbrt.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:45:53 fuyuki bglbrt.F>'
 #define _FNAME 'begleitung/bglbrt.F'
 #define _REV   'JosePeterson0'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2018-2021
+C Copyright (C) 2018-2021, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -900,6 +900,17 @@ c
       enddo
       RETURN
       END
+CCC_* [TEST]  ## test
+#ifdef TEST_BGLBRT
+CCC_ @ BBtest  ## test program
+      program BBtest
+CCC_  - Test suites
+      implicit none
+      integer iErr
+      ierr = 0
+      STOP
+      END
+#endif /* TEST_BGLBRT */
 CCC_! FOOTER
 C Local Variables:
 C fff-style: "iciesShermy"
