@@ -2,25 +2,25 @@
 # Maintainer:  SAITO Fuyuki
 # Created: Mar 29 2013
 # Revision:  Snoopy0.9
-# Time-stamp: <2020/09/15 22:30:37 fuyuki Makefile.tmpl>
+# Time-stamp: <2026/03/26 14:15:07 fuyuki Makefile.tmpl>
 
-# Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
+# Copyright: 2013--2020, 2026 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
 libicies_local_la_ORIGINS	= cnxutl.F
 
 EXTRA_SRCS					=
-LDADD						= libicies_local.la ../libicies.la  ##%% t
+LDADD						= libicies_local.la ../libicies.la  
 
 bin_PROGRAMS_ORIGINS	= cnxseq.F cvglst.F caechk.F cabcnv.F
 
 cnxseq_LDADD	= $(LDADD) $(NETCDF_LDFLAGS) -lnetcdf -lnetcdff
-cnxseq_CPPFLAGS	= $(NETCDF_CPPFLAGS)  ##%% a
-cnxseq_FFLAGS	= -I$(NETCDFINC)  ##%% a
+cnxseq_CPPFLAGS	= $(NETCDF_CPPFLAGS)  
+cnxseq_FFLAGS	= -I$(NETCDFINC)  
 
 bin_SCRIPTS		= cnx.sh
-CLEANFILES		= $(bin_SCRIPTS) ##%% a
+CLEANFILES		= $(bin_SCRIPTS) 
 
 LIB_DEPEND_DIRS	=	.
 SRC_DEPEND_DIRS	=	cadenza arpeggio development unison
@@ -45,6 +45,7 @@ if NEVER
 EXTRA_PROGRAMS = dummy_never_built
 nodist_dummy_never_built_SOURCES = dummy_never_built.c
 endif
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:
@@ -106,36 +107,28 @@ $(DEPDIR)/dummy_never_built.Po:
 	@$(MKDIR_P) $(DEPDIR) && touch $@
 #### END COMMON BUILDS
 #### ORIGINS/BUILDS
-cabcnv_ORIGINS = cabcnv.F
 cnxseq_ORIGINS = cnxseq.F
 cvglst_ORIGINS = cvglst.F
 caechk_ORIGINS = caechk.F
-bin_PROGRAMS = caechk cabcnv cnxseq cvglst
+cabcnv_ORIGINS = cabcnv.F
 noinst_LTLIBRARIES = libicies_local.la
+bin_PROGRAMS = cnxseq cvglst caechk cabcnv
 #### END ORIGINS/BUILDS
+#### BUILD FAMILY noinst_LTLIBRARIES
+#### BUILD libicies_local.la
+cnxutl.$(OBJEXT): cnxutl.f
+ta__copy_source_targets = copy-cnxutl.F
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cnxutl.Pf@am__quote@ # am--include-marker
+EXTRA_DIST += $(libicies_local_la_ORIGINS)
+CLC_SRCS = $(libicies_local_la_ORIGINS)
+nodist_libicies_local_la_SOURCES = cnxutl.f
+CLEANFILES += cnxutl.f gather_libicies_local_la.f
+CATALL_files = gather_libicies_local_la.f
+gather_libicies_local_la.f: $(nodist_libicies_local_la_SOURCES)
+	test -z "$(nodist_libicies_local_la_SOURCES)" || cat $(nodist_libicies_local_la_SOURCES) > $@ || rm -f $@
+#### END BUILD libicies_local.la
+#### END BUILD FAMILY noinst_LTLIBRARIES
 #### BUILD FAMILY bin_PROGRAMS
-#### BUILD caechk
-caechk.$(OBJEXT): caechk.f
-ta__copy_source_targets = copy-caechk.F
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/caechk.Pf@am__quote@ # am--include-marker
-EXTRA_DIST += $(caechk_ORIGINS)
-CLC_SRCS = $(caechk_ORIGINS)
-CLEANFILES += caechk.f gather_caechk.f
-CATALL_files = gather_caechk.f
-gather_caechk.f: $(nodist_caechk_SOURCES)
-	test -z "$(nodist_caechk_SOURCES)" || cat $(nodist_caechk_SOURCES) > $@ || rm -f $@
-#### END BUILD caechk
-#### BUILD cabcnv
-cabcnv.$(OBJEXT): cabcnv.f
-ta__copy_source_targets += copy-cabcnv.F
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cabcnv.Pf@am__quote@ # am--include-marker
-EXTRA_DIST += $(cabcnv_ORIGINS)
-CLC_SRCS += $(cabcnv_ORIGINS)
-CLEANFILES += cabcnv.f gather_cabcnv.f
-CATALL_files += gather_cabcnv.f
-gather_cabcnv.f: $(nodist_cabcnv_SOURCES)
-	test -z "$(nodist_cabcnv_SOURCES)" || cat $(nodist_cabcnv_SOURCES) > $@ || rm -f $@
-#### END BUILD cabcnv
 #### BUILD cnxseq
 cnxseq.$(OBJEXT): cnxseq.f
 ta__copy_source_targets += copy-cnxseq.F
@@ -158,21 +151,29 @@ CATALL_files += gather_cvglst.f
 gather_cvglst.f: $(nodist_cvglst_SOURCES)
 	test -z "$(nodist_cvglst_SOURCES)" || cat $(nodist_cvglst_SOURCES) > $@ || rm -f $@
 #### END BUILD cvglst
+#### BUILD caechk
+caechk.$(OBJEXT): caechk.f
+ta__copy_source_targets += copy-caechk.F
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/caechk.Pf@am__quote@ # am--include-marker
+EXTRA_DIST += $(caechk_ORIGINS)
+CLC_SRCS += $(caechk_ORIGINS)
+CLEANFILES += caechk.f gather_caechk.f
+CATALL_files += gather_caechk.f
+gather_caechk.f: $(nodist_caechk_SOURCES)
+	test -z "$(nodist_caechk_SOURCES)" || cat $(nodist_caechk_SOURCES) > $@ || rm -f $@
+#### END BUILD caechk
+#### BUILD cabcnv
+cabcnv.$(OBJEXT): cabcnv.f
+ta__copy_source_targets += copy-cabcnv.F
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cabcnv.Pf@am__quote@ # am--include-marker
+EXTRA_DIST += $(cabcnv_ORIGINS)
+CLC_SRCS += $(cabcnv_ORIGINS)
+CLEANFILES += cabcnv.f gather_cabcnv.f
+CATALL_files += gather_cabcnv.f
+gather_cabcnv.f: $(nodist_cabcnv_SOURCES)
+	test -z "$(nodist_cabcnv_SOURCES)" || cat $(nodist_cabcnv_SOURCES) > $@ || rm -f $@
+#### END BUILD cabcnv
 #### END BUILD FAMILY bin_PROGRAMS
-#### BUILD FAMILY noinst_LTLIBRARIES
-#### BUILD libicies_local.la
-cnxutl.$(OBJEXT): cnxutl.f
-ta__copy_source_targets += copy-cnxutl.F
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cnxutl.Pf@am__quote@ # am--include-marker
-EXTRA_DIST += $(libicies_local_la_ORIGINS)
-CLC_SRCS += $(libicies_local_la_ORIGINS)
-nodist_libicies_local_la_SOURCES = cnxutl.f
-CLEANFILES += cnxutl.f gather_libicies_local_la.f
-CATALL_files += gather_libicies_local_la.f
-gather_libicies_local_la.f: $(nodist_libicies_local_la_SOURCES)
-	test -z "$(nodist_libicies_local_la_SOURCES)" || cat $(nodist_libicies_local_la_SOURCES) > $@ || rm -f $@
-#### END BUILD libicies_local.la
-#### END BUILD FAMILY noinst_LTLIBRARIES
 #### ORIGINS/CHECKS cabcnv.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cabcnv-cabcnv.Pf@am__quote@ # am--include-marker
 cabcnv_CPPFLAGS = -DTEST_CABCNV=1
@@ -288,9 +289,9 @@ sublist-all: sublist-cvglst
 bundle-all: bundle-cvglst.f
 check-cvglst: cvglst
 #### END ORIGINS/CHECKS cvglst.F
-am__depfiles_remade = ./$(DEPDIR)/caechk.Pf ./$(DEPDIR)/cabcnv.Pf ./$(DEPDIR)/cnxseq.Pf ./$(DEPDIR)/cvglst.Pf ./$(DEPDIR)/cnxutl.Pf ./$(DEPDIR)/cabcnv-cabcnv.Pf ./$(DEPDIR)/caechk-caechk.Pf ./$(DEPDIR)/cnxseq-cnxseq.Pf ./$(DEPDIR)/cnxutl-cnxutl.Pf ./$(DEPDIR)/cvglst-cvglst.Pf
+am__depfiles_remade = ./$(DEPDIR)/cnxutl.Pf ./$(DEPDIR)/cnxseq.Pf ./$(DEPDIR)/cvglst.Pf ./$(DEPDIR)/caechk.Pf ./$(DEPDIR)/cabcnv.Pf ./$(DEPDIR)/cabcnv-cabcnv.Pf ./$(DEPDIR)/caechk-caechk.Pf ./$(DEPDIR)/cnxseq-cnxseq.Pf ./$(DEPDIR)/cnxutl-cnxutl.Pf ./$(DEPDIR)/cvglst-cvglst.Pf
 LCLCNDH = $(builddir)/lclcnd.h
-MAINTAINERCLEANFILES = $(LCLDNDH)
+DISTCLEANFILES += $(LCLCNDH)
 #### DEP-DIR
 LIB_DEPEND_BASE = src
 LIB_DEPEND_NAME = libicies_local.la

@@ -1,18 +1,19 @@
 # IcIES/src/begleitung
 # Author: SAITO Fuyuki
 # Created: Aug 8 2013
-# Time-stamp: <2020/09/15 11:03:22 fuyuki Makefile.tmpl>
+# Time-stamp: <2026/03/25 15:55:33 fuyuki Makefile.tmpl>
 
-# Copyright: 2013--2020 JAMSTEC, Ayako ABE-OUCHI
+# Copyright: 2013--2020, 2026 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
 libicies_local_la_ORIGINS	= bglbrt.F
 
 BUILT_SOURCES	=	begleitung.h
-EXTRA_DIST  	=	begleitung.m4 $(BUILT_SOURCES) ##%% a
-MAINTAINERCLEANFILES = $(BUILT_SOURCES)  ##%% a
+EXTRA_DIST  	=	begleitung.m4 $(BUILT_SOURCES) 
+MAINTAINERCLEANFILES = $(BUILT_SOURCES)  
 
+LIB_DEPEND_DIRS	=	arpeggio development unison
 
 SQIHELP	= $(top_srcdir)/build-aux/icies/sqihelp
 if MAINTAINER_MODE
@@ -49,6 +50,7 @@ if NEVER
 EXTRA_PROGRAMS = dummy_never_built
 nodist_dummy_never_built_SOURCES = dummy_never_built.c
 endif
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:
@@ -151,8 +153,10 @@ check-bglbrt: bglbrt
 #### END ORIGINS/CHECKS bglbrt.F
 am__depfiles_remade = ./$(DEPDIR)/bglbrt.Pf ./$(DEPDIR)/bglbrt-bglbrt.Pf
 LCLCNDH = $(builddir)/lclcnd.h
-MAINTAINERCLEANFILES += $(LCLDNDH)
+DISTCLEANFILES += $(LCLCNDH)
 #### DEP-DIR
 LIB_DEPEND_BASE = src
 LIB_DEPEND_NAME = libicies_local.la
+LDADD = $(top_builddir)/src/arpeggio/libicies_local.la $(top_builddir)/src/development/libicies_local.la $(top_builddir)/src/unison/libicies_local.la
+FORTRAN_CHECK_ADD = $(top_builddir)/src/arpeggio/gather_libicies_local_la.f $(top_builddir)/src/development/gather_libicies_local_la.f $(top_builddir)/src/unison/gather_libicies_local_la.f
 #### END DEP-DIR

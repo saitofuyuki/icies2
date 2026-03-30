@@ -2,9 +2,9 @@
 # Maintainer:  SAITO Fuyuki
 # Created: Nov 2 2011
 # Revision:  Snoopy0.9
-# Time-stamp: <2020/09/15 11:02:19 fuyuki Makefile.tmpl>
+# Time-stamp: <2026/03/26 16:04:22 fuyuki Makefile.tmpl>
 
-# Copyright: 2011--2020 JAMSTEC, Ayako ABE-OUCHI
+# Copyright: 2011--2020, 2026 JAMSTEC, Ayako ABE-OUCHI
 # Licensed under the Apache License, Version 2.0
 #   (https://www.apache.org/licenses/LICENSE-2.0)
 
@@ -15,7 +15,7 @@ libicies_local_la_ORIGINS = ufortw.F \
 							unmlem.F uxunit.F uxhcal.F uvclst.F \
 							uprfem.F
 
-CLEANFILES = fort.* ##%% a
+CLEANFILES = fort.* 
 
 ### Local Variables:
 ### mode: makefile-automake
@@ -37,6 +37,7 @@ if NEVER
 EXTRA_PROGRAMS = dummy_never_built
 nodist_dummy_never_built_SOURCES = dummy_never_built.c
 endif
+DISTCLEANFILES = .deps/*.Pf
 #### END COMMON
 #### COMMON BUILDS
 .tmpl.am:
@@ -195,16 +196,10 @@ check-uarmpi: uarmpi1 uarmpi2 uarmpi3
 #### END ORIGINS/CHECKS uarmpi.F
 #### ORIGINS/CHECKS udbgst.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/udbgst-udbgst.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/udbgst-ufortw.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/udbgst-ustrmn.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/udbgst-ufortw.Pf@am__quote@ # am--include-marker
 udbgst_CPPFLAGS = -DTEST_UDBGST=1
 udbgst-udbgst.f: udbgst.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(udbgst_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(udbgst_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-udbgst-ufortw.f: ufortw.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(udbgst_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -216,14 +211,20 @@ udbgst-ustrmn.f: ustrmn.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(udbgst_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-nodist_udbgst_SOURCES = udbgst-udbgst.f udbgst-ufortw.f udbgst-ustrmn.f
+udbgst-ufortw.f: ufortw.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(udbgst_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(udbgst_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+nodist_udbgst_SOURCES = udbgst-udbgst.f udbgst-ustrmn.f udbgst-ufortw.f
 srcchk-udbgst: $(nodist_udbgst_SOURCES)
 	$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(nodist_udbgst_SOURCES) $(FORTRAN_CHECK_ADD)
 sublist-udbgst: $(nodist_udbgst_SOURCES)
 	$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(nodist_udbgst_SOURCES) $(FORTRAN_CHECK_ADD)
 bundle-udbgst.f: $(nodist_udbgst_SOURCES) $(FORTRAN_CHECK_ADD)
 	test -z "$(nodist_udbgst_SOURCES)" || cat $(nodist_udbgst_SOURCES) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@
-CLEANFILES += udbgst-udbgst.f udbgst-ufortw.f udbgst-ustrmn.f bundle-udbgst.f
+CLEANFILES += udbgst-udbgst.f udbgst-ustrmn.f udbgst-ufortw.f bundle-udbgst.f
 check_PROGRAMS += udbgst
 srcchk-all: srcchk-udbgst
 sublist-all: sublist-udbgst
@@ -361,18 +362,12 @@ check-ukvtbl: ukvtbl
 #### END ORIGINS/CHECKS ukvtbl.F
 #### ORIGINS/CHECKS unmlem.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-unmlem.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-ufortw.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-uuioms.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-ustrmn.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-ufortw.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-udbgst.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unmlem-ustrmn.Pf@am__quote@ # am--include-marker
 unmlem_CPPFLAGS = -DTEST_UNMLEM=1
 unmlem-unmlem.f: unmlem.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-unmlem-ufortw.f: ufortw.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -384,7 +379,7 @@ unmlem-uuioms.f: uuioms.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-unmlem-ustrmn.f: ustrmn.F
+unmlem-ufortw.f: ufortw.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -396,14 +391,20 @@ unmlem-udbgst.f: udbgst.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-nodist_unmlem_SOURCES = unmlem-unmlem.f unmlem-ufortw.f unmlem-uuioms.f unmlem-ustrmn.f unmlem-udbgst.f
+unmlem-ustrmn.f: ustrmn.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(unmlem_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+nodist_unmlem_SOURCES = unmlem-unmlem.f unmlem-uuioms.f unmlem-ufortw.f unmlem-udbgst.f unmlem-ustrmn.f
 srcchk-unmlem: $(nodist_unmlem_SOURCES)
 	$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(nodist_unmlem_SOURCES) $(FORTRAN_CHECK_ADD)
 sublist-unmlem: $(nodist_unmlem_SOURCES)
 	$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(nodist_unmlem_SOURCES) $(FORTRAN_CHECK_ADD)
 bundle-unmlem.f: $(nodist_unmlem_SOURCES) $(FORTRAN_CHECK_ADD)
 	test -z "$(nodist_unmlem_SOURCES)" || cat $(nodist_unmlem_SOURCES) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@
-CLEANFILES += unmlem-unmlem.f unmlem-ufortw.f unmlem-uuioms.f unmlem-ustrmn.f unmlem-udbgst.f bundle-unmlem.f
+CLEANFILES += unmlem-unmlem.f unmlem-uuioms.f unmlem-ufortw.f unmlem-udbgst.f unmlem-ustrmn.f bundle-unmlem.f
 check_PROGRAMS += unmlem
 srcchk-all: srcchk-unmlem
 sublist-all: sublist-unmlem
@@ -488,24 +489,12 @@ check-usymch: usymch
 #### END ORIGINS/CHECKS usymch.F
 #### ORIGINS/CHECKS utmplm.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-utmplm.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-ufortw.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-udbgst.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-ukvtbl.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-udbgst.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-ustrmn.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utmplm-ufortw.Pf@am__quote@ # am--include-marker
 utmplm_CPPFLAGS = -DTEST_UTMPLM=1
 utmplm-utmplm.f: utmplm.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-utmplm-ufortw.f: ufortw.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-utmplm-udbgst.f: udbgst.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -517,20 +506,32 @@ utmplm-ukvtbl.f: ukvtbl.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+utmplm-udbgst.f: udbgst.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
 utmplm-ustrmn.f: ustrmn.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-nodist_utmplm_SOURCES = utmplm-utmplm.f utmplm-ufortw.f utmplm-udbgst.f utmplm-ukvtbl.f utmplm-ustrmn.f
+utmplm-ufortw.f: ufortw.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(utmplm_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+nodist_utmplm_SOURCES = utmplm-utmplm.f utmplm-ukvtbl.f utmplm-udbgst.f utmplm-ustrmn.f utmplm-ufortw.f
 srcchk-utmplm: $(nodist_utmplm_SOURCES)
 	$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(nodist_utmplm_SOURCES) $(FORTRAN_CHECK_ADD)
 sublist-utmplm: $(nodist_utmplm_SOURCES)
 	$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(nodist_utmplm_SOURCES) $(FORTRAN_CHECK_ADD)
 bundle-utmplm.f: $(nodist_utmplm_SOURCES) $(FORTRAN_CHECK_ADD)
 	test -z "$(nodist_utmplm_SOURCES)" || cat $(nodist_utmplm_SOURCES) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@
-CLEANFILES += utmplm-utmplm.f utmplm-ufortw.f utmplm-udbgst.f utmplm-ukvtbl.f utmplm-ustrmn.f bundle-utmplm.f
+CLEANFILES += utmplm-utmplm.f utmplm-ukvtbl.f utmplm-udbgst.f utmplm-ustrmn.f utmplm-ufortw.f bundle-utmplm.f
 check_PROGRAMS += utmplm
 srcchk-all: srcchk-utmplm
 sublist-all: sublist-utmplm
@@ -583,17 +584,11 @@ check-uuioms: uuioms
 #### END ORIGINS/CHECKS uuioms.F
 #### ORIGINS/CHECKS uvclst.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uvclst-uvclst.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uvclst-ufortw.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uvclst-udbgst.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uvclst-ustrmn.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uvclst-ufortw.Pf@am__quote@ # am--include-marker
 uvclst_CPPFLAGS = -DTEST_UVCLST=1
 uvclst-uvclst.f: uvclst.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(uvclst_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(uvclst_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-uvclst-ufortw.f: ufortw.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(uvclst_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -611,14 +606,20 @@ uvclst-ustrmn.f: ustrmn.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(uvclst_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-nodist_uvclst_SOURCES = uvclst-uvclst.f uvclst-ufortw.f uvclst-udbgst.f uvclst-ustrmn.f
+uvclst-ufortw.f: ufortw.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(uvclst_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(uvclst_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+nodist_uvclst_SOURCES = uvclst-uvclst.f uvclst-udbgst.f uvclst-ustrmn.f uvclst-ufortw.f
 srcchk-uvclst: $(nodist_uvclst_SOURCES)
 	$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(nodist_uvclst_SOURCES) $(FORTRAN_CHECK_ADD)
 sublist-uvclst: $(nodist_uvclst_SOURCES)
 	$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(nodist_uvclst_SOURCES) $(FORTRAN_CHECK_ADD)
 bundle-uvclst.f: $(nodist_uvclst_SOURCES) $(FORTRAN_CHECK_ADD)
 	test -z "$(nodist_uvclst_SOURCES)" || cat $(nodist_uvclst_SOURCES) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@
-CLEANFILES += uvclst-uvclst.f uvclst-ufortw.f uvclst-udbgst.f uvclst-ustrmn.f bundle-uvclst.f
+CLEANFILES += uvclst-uvclst.f uvclst-udbgst.f uvclst-ustrmn.f uvclst-ufortw.f bundle-uvclst.f
 check_PROGRAMS += uvclst
 srcchk-all: srcchk-uvclst
 sublist-all: sublist-uvclst
@@ -678,17 +679,11 @@ check-uxhcal: uxhcal
 #### END ORIGINS/CHECKS uxhcal.F
 #### ORIGINS/CHECKS uxunit.F
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uxunit-uxunit.Pf@am__quote@ # am--include-marker
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uxunit-ufortw.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uxunit-udbgst.Pf@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uxunit-ustrmn.Pf@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/uxunit-ufortw.Pf@am__quote@ # am--include-marker
 uxunit_CPPFLAGS = -DTEST_UXUNIT=1
 uxunit-uxunit.f: uxunit.F
-@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(uxunit_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(uxunit_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-uxunit-ufortw.f: ufortw.F
 @am__fastdepCC_TRUE@	$(F77PREPROCESS) $(uxunit_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
@@ -706,23 +701,29 @@ uxunit-ustrmn.f: ustrmn.F
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(F77PREPROCESS) $(uxunit_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
-nodist_uxunit_SOURCES = uxunit-uxunit.f uxunit-ufortw.f uxunit-udbgst.f uxunit-ustrmn.f
+uxunit-ufortw.f: ufortw.F
+@am__fastdepCC_TRUE@	$(F77PREPROCESS) $(uxunit_CPPFLAGS) -MT $@ -MD -MP -MF $(DEPDIR)/$*.TPf -c -o $@ $<
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/$*.TPf $(DEPDIR)/$*.Pf
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CPPDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(F77PREPROCESS) $(uxunit_CPPFLAGS) `test -f $< || echo '$(srcdir)/'`$< > $@ || rm -f $@
+nodist_uxunit_SOURCES = uxunit-uxunit.f uxunit-udbgst.f uxunit-ustrmn.f uxunit-ufortw.f
 srcchk-uxunit: $(nodist_uxunit_SOURCES)
 	$(FORTRAN_CHECK) $(FORTRAN_CHECK_FLAGS) $(nodist_uxunit_SOURCES) $(FORTRAN_CHECK_ADD)
 sublist-uxunit: $(nodist_uxunit_SOURCES)
 	$(FORTRAN_LIST) $(FORTRAN_LIST_FLAGS) $(nodist_uxunit_SOURCES) $(FORTRAN_CHECK_ADD)
 bundle-uxunit.f: $(nodist_uxunit_SOURCES) $(FORTRAN_CHECK_ADD)
 	test -z "$(nodist_uxunit_SOURCES)" || cat $(nodist_uxunit_SOURCES) $(FORTRAN_CHECK_ADD) > $@ || rm -f $@
-CLEANFILES += uxunit-uxunit.f uxunit-ufortw.f uxunit-udbgst.f uxunit-ustrmn.f bundle-uxunit.f
+CLEANFILES += uxunit-uxunit.f uxunit-udbgst.f uxunit-ustrmn.f uxunit-ufortw.f bundle-uxunit.f
 check_PROGRAMS += uxunit
 srcchk-all: srcchk-uxunit
 sublist-all: sublist-uxunit
 bundle-all: bundle-uxunit.f
 check-uxunit: uxunit
 #### END ORIGINS/CHECKS uxunit.F
-am__depfiles_remade = ./$(DEPDIR)/ufortw.Pf ./$(DEPDIR)/udbgst.Pf ./$(DEPDIR)/ustrmn.Pf ./$(DEPDIR)/uarmpi.Pf ./$(DEPDIR)/ukvtbl.Pf ./$(DEPDIR)/ueaoms.Pf ./$(DEPDIR)/utmplm.Pf ./$(DEPDIR)/uuioms.Pf ./$(DEPDIR)/usymch.Pf ./$(DEPDIR)/unmlem.Pf ./$(DEPDIR)/uxunit.Pf ./$(DEPDIR)/uxhcal.Pf ./$(DEPDIR)/uvclst.Pf ./$(DEPDIR)/uprfem.Pf ./$(DEPDIR)/uarmpi1-uarmpi.Pf ./$(DEPDIR)/uarmpi2-uarmpi.Pf ./$(DEPDIR)/uarmpi3-uarmpi.Pf ./$(DEPDIR)/udbgst-udbgst.Pf ./$(DEPDIR)/udbgst-ufortw.Pf ./$(DEPDIR)/udbgst-ustrmn.Pf ./$(DEPDIR)/ueaoms1-ueaoms.Pf ./$(DEPDIR)/ueaoms2-ueaoms.Pf ./$(DEPDIR)/ueaoms3-ueaoms.Pf ./$(DEPDIR)/ufortw1-ufortw.Pf ./$(DEPDIR)/ufortw2-ufortw.Pf ./$(DEPDIR)/ufortw3-ufortw.Pf ./$(DEPDIR)/ukvtbl-ukvtbl.Pf ./$(DEPDIR)/unmlem-unmlem.Pf ./$(DEPDIR)/unmlem-ufortw.Pf ./$(DEPDIR)/unmlem-uuioms.Pf ./$(DEPDIR)/unmlem-ustrmn.Pf ./$(DEPDIR)/unmlem-udbgst.Pf ./$(DEPDIR)/uprfem-uprfem.Pf ./$(DEPDIR)/ustrmn-ustrmn.Pf ./$(DEPDIR)/ustrmn-ufortw.Pf ./$(DEPDIR)/usymch-usymch.Pf ./$(DEPDIR)/utmplm-utmplm.Pf ./$(DEPDIR)/utmplm-ufortw.Pf ./$(DEPDIR)/utmplm-udbgst.Pf ./$(DEPDIR)/utmplm-ukvtbl.Pf ./$(DEPDIR)/utmplm-ustrmn.Pf ./$(DEPDIR)/uuioms-uuioms.Pf ./$(DEPDIR)/uuioms-ufortw.Pf ./$(DEPDIR)/uuioms-udbgst.Pf ./$(DEPDIR)/uuioms-ustrmn.Pf ./$(DEPDIR)/uvclst-uvclst.Pf ./$(DEPDIR)/uvclst-ufortw.Pf ./$(DEPDIR)/uvclst-udbgst.Pf ./$(DEPDIR)/uvclst-ustrmn.Pf ./$(DEPDIR)/uxhcal-uxhcal.Pf ./$(DEPDIR)/uxhcal-uxunit.Pf ./$(DEPDIR)/uxhcal-udbgst.Pf ./$(DEPDIR)/uxhcal-ustrmn.Pf ./$(DEPDIR)/uxhcal-ufortw.Pf ./$(DEPDIR)/uxunit-uxunit.Pf ./$(DEPDIR)/uxunit-ufortw.Pf ./$(DEPDIR)/uxunit-udbgst.Pf ./$(DEPDIR)/uxunit-ustrmn.Pf
+am__depfiles_remade = ./$(DEPDIR)/ufortw.Pf ./$(DEPDIR)/udbgst.Pf ./$(DEPDIR)/ustrmn.Pf ./$(DEPDIR)/uarmpi.Pf ./$(DEPDIR)/ukvtbl.Pf ./$(DEPDIR)/ueaoms.Pf ./$(DEPDIR)/utmplm.Pf ./$(DEPDIR)/uuioms.Pf ./$(DEPDIR)/usymch.Pf ./$(DEPDIR)/unmlem.Pf ./$(DEPDIR)/uxunit.Pf ./$(DEPDIR)/uxhcal.Pf ./$(DEPDIR)/uvclst.Pf ./$(DEPDIR)/uprfem.Pf ./$(DEPDIR)/uarmpi1-uarmpi.Pf ./$(DEPDIR)/uarmpi2-uarmpi.Pf ./$(DEPDIR)/uarmpi3-uarmpi.Pf ./$(DEPDIR)/udbgst-udbgst.Pf ./$(DEPDIR)/udbgst-ustrmn.Pf ./$(DEPDIR)/udbgst-ufortw.Pf ./$(DEPDIR)/ueaoms1-ueaoms.Pf ./$(DEPDIR)/ueaoms2-ueaoms.Pf ./$(DEPDIR)/ueaoms3-ueaoms.Pf ./$(DEPDIR)/ufortw1-ufortw.Pf ./$(DEPDIR)/ufortw2-ufortw.Pf ./$(DEPDIR)/ufortw3-ufortw.Pf ./$(DEPDIR)/ukvtbl-ukvtbl.Pf ./$(DEPDIR)/unmlem-unmlem.Pf ./$(DEPDIR)/unmlem-uuioms.Pf ./$(DEPDIR)/unmlem-ufortw.Pf ./$(DEPDIR)/unmlem-udbgst.Pf ./$(DEPDIR)/unmlem-ustrmn.Pf ./$(DEPDIR)/uprfem-uprfem.Pf ./$(DEPDIR)/ustrmn-ustrmn.Pf ./$(DEPDIR)/ustrmn-ufortw.Pf ./$(DEPDIR)/usymch-usymch.Pf ./$(DEPDIR)/utmplm-utmplm.Pf ./$(DEPDIR)/utmplm-ukvtbl.Pf ./$(DEPDIR)/utmplm-udbgst.Pf ./$(DEPDIR)/utmplm-ustrmn.Pf ./$(DEPDIR)/utmplm-ufortw.Pf ./$(DEPDIR)/uuioms-uuioms.Pf ./$(DEPDIR)/uuioms-ufortw.Pf ./$(DEPDIR)/uuioms-udbgst.Pf ./$(DEPDIR)/uuioms-ustrmn.Pf ./$(DEPDIR)/uvclst-uvclst.Pf ./$(DEPDIR)/uvclst-udbgst.Pf ./$(DEPDIR)/uvclst-ustrmn.Pf ./$(DEPDIR)/uvclst-ufortw.Pf ./$(DEPDIR)/uxhcal-uxhcal.Pf ./$(DEPDIR)/uxhcal-uxunit.Pf ./$(DEPDIR)/uxhcal-udbgst.Pf ./$(DEPDIR)/uxhcal-ustrmn.Pf ./$(DEPDIR)/uxhcal-ufortw.Pf ./$(DEPDIR)/uxunit-uxunit.Pf ./$(DEPDIR)/uxunit-udbgst.Pf ./$(DEPDIR)/uxunit-ustrmn.Pf ./$(DEPDIR)/uxunit-ufortw.Pf
 LCLCNDH = $(builddir)/lclcnd.h
-MAINTAINERCLEANFILES = $(LCLDNDH)
+DISTCLEANFILES += $(LCLCNDH)
 #### DEP-DIR
 LIB_DEPEND_BASE = src
 LIB_DEPEND_NAME = libicies_local.la
