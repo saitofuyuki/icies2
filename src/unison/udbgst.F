@@ -4,12 +4,12 @@ C Created: Apr 15 2013
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/13 09:17:43 fuyuki udbgst.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/26 13:23:28 fuyuki udbgst.F>'
 #define _FNAME 'unison/udbgst.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2013--2020
+C Copyright (C) 2013--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -1363,6 +1363,9 @@ c
       integer    lmd
       parameter (lmd = 10000000)
 #include "gcldef.h"
+#ifndef   MAX_CLOCK_ID
+#  define MAX_CLOCK_ID 0 /* fallback */
+#endif
       character TAGS(0:MAX_CLOCK_ID)*(32)
 CCC_  - Body
       iErr = 0

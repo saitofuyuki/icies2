@@ -4,12 +4,12 @@ C Created: Dec 20 2011
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2018/11/14 16:52:10 fuyuki mibakw.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:18:25 fuyuki mibakw.F>'
 #define _FNAME 'movement/mibakw.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2011--2020
+C Copyright (C) 2011--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -607,7 +607,7 @@ CCC_ @ MIBKTS  ## Movemeent/SIA/b/kiwi test program
 #include "odevid.h"  /* MPI table */
       program MIBKTS
 CCC_  * Test suites
-CC::   SOURCES mifunc.F
+CC::   SOURCES mifunc.F muvcio.F
 CCC_  * Declaration
       implicit none
       integer iErr
@@ -750,10 +750,14 @@ c$$$     O        ipCG,
 c$$$     I        LCG,   LH,     ipKW,  IE,  ipL)
       endif
       if (iErr.eq.0) then
-         call MIVgst
+         call MUVrgd
      O       (iErr, idGM,
      I        icF,  MH,  LH,    NZ,   LZ,  KZ0,
      I        'C',  ' ', CROOT, IFPa, IE,  iMA)
+c$$$         call MIVgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH,    NZ,   LZ,  KZ0,
+c$$$     I        'C',  ' ', CROOT, IFPa, IE,  iMA)
       endif
       if (iErr.eq.0) then
          call MIBKtestExe

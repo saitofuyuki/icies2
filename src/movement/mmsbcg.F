@@ -4,12 +4,12 @@ C Created: Oct 26 2011
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2020/09/15 12:00:51 fuyuki mmsbcg.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:18:19 fuyuki mmsbcg.F>'
 #define _FNAME 'movement/mmsbcg.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2011--2020
+C Copyright (C) 2011--2020, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -1283,7 +1283,7 @@ CCC_ @ MMSTST  ## Movemeent/update thickness test program
 #include "odevid.h"  /* MPI table */
       program MMSTST
 CCC_  - Test suites
-CC::   SOURCES mibakw.F:TEST_MIBAKW_SUB=1 mmxoms.F:TEST_MMXOMS_SUB=1
+CC::   SOURCES mibakw.F:TEST_MIBAKW_SUB=1 mmxoms.F:TEST_MMXOMS_SUB=1 muvcio.F
 CCC_  - Declaration
       implicit none
       integer iErr
@@ -1450,17 +1450,23 @@ c
 c
       CSW = 'C'
       if (iErr.eq.0) then
-         call MIVgst
+         call MUVrgd
      O       (iErr, idGM,
      I        icF,  MH,  LH,    NZ,   LZ,  KZ0,
      I        CSW,  ' ', CROOT, IFPa, IE,  iMA)
       endif
-      if (iErr.eq.0) then
-         call MMXgst
-     O       (iErr, idGM,
-     I        icF,  MH,  LH,
-     I        CSW,  ' ', CROOT, IFPa, IE, iMA)
-      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MIVgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH,    NZ,   LZ,  KZ0,
+c$$$     I        CSW,  ' ', CROOT, IFPa, IE,  iMA)
+c$$$      endif
+c$$$      if (iErr.eq.0) then
+c$$$         call MMXgst
+c$$$     O       (iErr, idGM,
+c$$$     I        icF,  MH,  LH,
+c$$$     I        CSW,  ' ', CROOT, IFPa, IE, iMA)
+c$$$      endif
 c$$$      if (iErr.eq.0) call MMShch (iErr, IE, ipL)
       if (iErr.eq.0) then
          call MIBKtestExe

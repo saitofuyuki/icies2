@@ -4,9 +4,9 @@
 
 :Maintainer: SAITO Fuyuki
 :Created:    Nov 5 2013
-:Time-stamp: <2021/02/05 20:30:03 fuyuki INSTALL-icies2>
+:Time-stamp: <2026/03/17 17:30:26 fuyuki INSTALL-icies2>
 
-Copyright 2013-2021 Japan Agency for Marine-Earth Science and Technology,
+Copyright 2013-2026 Japan Agency for Marine-Earth Science and Technology,
                     Ayako ABE-OUCHI
 Licensed under the Apache License, Version 2.0
   (https://www.apache.org/licenses/LICENSE-2.0)
@@ -20,7 +20,7 @@ Following is standard requirement:
 
 Following are optional requirements:
 
-- python2, to generate Makefile.am from Makefile.tmpl
+- python3, to generate Makefile.am from Makefile.tmpl
 - autoconf, automake, libtool, to generate autotools scripts and some
   derived sources
 - zsh, to run some scripts
@@ -93,6 +93,22 @@ linux/``gfortran`` for building `IcIES-2`.
 
 Previously ``-finit-real=nan'' is recommended to set in FFLAGS, which is now
 deprecated because it may freeze the compilation (to check in detail).
+
+If you use openmpi for MPI environment, you may need to specify the location of ``mpif.h`` in CPPFLAGS.
+Try to find `mpif.h' with
+
+::
+
+  % mpif90 --showme
+  gfortran-15 -I/usr/lib/x86_64-linux-gnu/openmpi/lib/../../fortran/gfortran-mod-16/openmpi -I/usr/lib/x86_64-linux-gnu/openmpi/include -L/usr/lib/x86_64-linux-gnu/openmpi/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+
+Search ``mpif.h`` through include paths that are specified with ``-I``.  In this case, 
+Try configure with adding CPPFLAGS, as:
+
+::
+  % ./configure --with-mpi MPIF77=mpif90 CPP='mpif90 -E' \
+                CPPFLAGS='-I/usr/lib/x86_64-linux-gnu/openmpi/include' \
+                FFLAGS='-g -O2 -Wall -fimplicit-none  -ffloat-store -fallow-argument-mismatch'
 
 linux/``gfortran`` for syntax check of `IcIES-2`.
 ::

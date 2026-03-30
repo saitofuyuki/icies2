@@ -4,12 +4,12 @@ C Created: Nov 1 2018
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#define _TSTAMP 'Time-stamp: <2021/02/08 11:27:08 fuyuki magcol.F>'
+#define _TSTAMP 'Time-stamp: <2026/03/25 15:19:15 fuyuki magcol.F>'
 #define _FNAME 'movement/magcol.F'
 #define _REV   'Snoopy0.9'
 CCC_! MANIFESTO
 C
-C Copyright (C) 2018-2021
+C Copyright (C) 2018-2021, 2026
 C           Japan Agency for Marine-Earth Science and Technology,
 C           Ayako ABE-OUCHI
 C
@@ -1594,6 +1594,9 @@ CCC_ + Body
       RETURN
       END
 CCC_* Test
+CCC_@ MACTST  ## not implemented
+CCC_ + Test suites
+CC::   KINDS 0
 CCC_* obsolete
 CCC_! FOOTER
 C Local Variables:
